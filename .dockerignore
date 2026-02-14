@@ -1,0 +1,9 @@
+.git
+.github
+tmp
+bin
+air.log
+coverage.out
+.env
+*.local
+*.test
