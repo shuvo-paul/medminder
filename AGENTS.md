@@ -4,33 +4,29 @@
 MedMinder is a medication reminder application built with Go 1.25.0.
 Module: `github.com/shuvo-paul/medminder`
 
+### Tech Stack
+- HTTP router: [Chi](https://github.com/go-chi/chi)
+- Database migrations: [golang-migrate](https://github.com/golang-migrate/migrate)
+- Query generation: [sqlc](https://github.com/sqlc-dev/sqlc)
+- Testing/assertions: [stretchr/testify](https://github.com/stretchr/testify)
+
 ## Build/Run/Test Commands
 
+Prefer the Makefile targets so every environment uses the same workflow:
+
 ```bash
-# Install dependencies
-go mod tidy
+make tidy          # go mod tidy
+make build         # go build -o bin/medminder cmd/server/main.go
+make run           # go run cmd/server/main.go
+make test          # go test ./...
+make test-cover    # go test -cover ./...
+make dev           # air -c .air.toml (live reload)
+make clean         # remove bin/
 
-# Build the application
-go build -o bin/medminder cmd/server/main.go
-
-# Run the application
-go run cmd/server/main.go
-
-# Run all tests
-go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Run a single test by name
-go test -run TestFunctionName ./...
-
-# Run tests for a specific package
-go test ./internal/features/...
-
-# Run tests with verbose output
-go test -v ./...
+docker compose up --build   # containerized dev stack (uses make dev)
 ```
+
+If you need to run commands manually, stick to the equivalents shown above (e.g., `go test ./...`, `go test -run TestFunctionName ./...`).
 
 ## Project Structure
 
