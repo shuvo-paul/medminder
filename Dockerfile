@@ -6,7 +6,7 @@ ENV GO111MODULE=on
 
 RUN go install github.com/air-verse/air@latest \
 	&& apt-get update \
-	&& apt-get install -y --no-install-recommends postgresql-client \
+	&& apt-get install -y --no-install-recommends make postgresql-client \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
@@ -16,4 +16,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["air", "-c", ".air.toml"]
+CMD ["make", "dev"]

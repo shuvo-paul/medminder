@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: air -c .air.toml
+    command: make dev
     volumes:
       - .:/app
       - air_tmp:/app/tmp
