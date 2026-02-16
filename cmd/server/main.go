@@ -1,12 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 )
 
 type databaseConfig struct {
@@ -20,17 +21,21 @@ type databaseConfig struct {
 func main() {
 	port := getEnv("APP_PORT", "8080")
 	dbCfg := loadDatabaseConfig()
-	router := gin.Default()
+	router := chi.NewRouter()
 
-	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
+	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]string{
 			"status":    "ok",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 	})
 
 	log.Printf("MedMinder server listening on :%s (db=%s:%s/%s sslmode=%s)", port, dbCfg.host, dbCfg.port, dbCfg.name, dbCfg.sslmode)
-	if err := router.Run(":" + port); err != nil {
+	if err := http.ListenAndServe(":"+port, router); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
