@@ -23,3 +23,8 @@ go.work
 *.local
 .env
 config.local
+
+# Build artifacts
+bin/
+tmp/
+coverage.out

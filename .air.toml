@@ -1,0 +1,13 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "make build BIN_DIR=tmp BIN=tmp/medminder"
+bin = "./tmp/medminder"
+include_ext = ["go"]
+exclude_dir = ["tmp", "bin", ".git", "vendor"]
+log = "air.log"
+delay = 1000
+
+[log]
+time = true
