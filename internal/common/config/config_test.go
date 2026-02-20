@@ -147,6 +147,51 @@ func TestLoad(t *testing.T) {
 			},
 			expectedError: true,
 		},
+		{
+			name: "negative APP_PORT",
+			envVars: map[string]string{
+				"APP_PORT": "-1",
+			},
+			expectedError: true,
+		},
+		{
+			name: "negative DB_PORT",
+			envVars: map[string]string{
+				"DB_PORT": "-5432",
+			},
+			expectedError: true,
+		},
+		{
+			name: "APP_PORT out of range",
+			envVars: map[string]string{
+				"APP_PORT": "70000",
+			},
+			expectedError: true,
+		},
+		{
+			name: "empty string env vars use defaults",
+			envVars: map[string]string{
+				"APP_PORT":    "",
+				"DB_HOST":     "",
+				"DB_PORT":     "",
+				"DB_USER":     "",
+				"DB_PASSWORD": "",
+				"DB_NAME":     "",
+				"DB_SSLMODE":  "",
+			},
+			expected: Config{
+				AppPort: 8080,
+				Database: DatabaseConfig{
+					Host:     "localhost",
+					Port:     5432,
+					User:     "medminder",
+					Password: "medminder",
+					Name:     "medminder",
+					SSLMode:  false,
+				},
+			},
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {
