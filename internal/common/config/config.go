@@ -1,0 +1,71 @@
+// Package config defines application configuration structure
+// and functions for loading configuration values from environment variables.
+//
+// Environment Variables:
+//
+//	APP_PORT    - HTTP server port (default: 8080)
+//	DB_HOST     - Database host (default: localhost)
+//	DB_PORT     - Database port (default: 5432)
+//	DB_USER     - Database user (default: medminder)
+//	DB_PASSWORD - Database password (default: medminder)
+//	DB_NAME     - Database name (default: medminder)
+//	DB_SSLMODE  - Enable SSL for database connection (default: false)
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
+
+type Config struct {
+	AppPort  int
+	Database DatabaseConfig
+}
+
+type DatabaseConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	Name     string
+	SSLMode  bool
+}
+
+func Load() (Config, error) {
+	cfg := Config{}
+
+	port, err := strconv.Atoi(getEnv("APP_PORT", "8080"))
+	if err != nil || port < 0 || port > 65535 {
+		return Config{}, fmt.Errorf("invalid APP_PORT: must be a number between 0 and 65535")
+	}
+	cfg.AppPort = port
+
+	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
+	if err != nil || dbPort < 0 || dbPort > 65535 {
+		return Config{}, fmt.Errorf("invalid DB_PORT: must be a number between 0 and 65535")
+	}
+
+	sslMode, err := strconv.ParseBool(getEnv("DB_SSLMODE", "false"))
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid DB_SSLMODE: %w", err)
+	}
+
+	cfg.Database = DatabaseConfig{
+		Host:     getEnv("DB_HOST", "localhost"),
+		Port:     dbPort,
+		User:     getEnv("DB_USER", "medminder"),
+		Password: getEnv("DB_PASSWORD", "medminder"),
+		Name:     getEnv("DB_NAME", "medminder"),
+		SSLMode:  sslMode,
+	}
+
+	return cfg, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists && value != "" {
+		return value
+	}
+	return defaultValue
+}
