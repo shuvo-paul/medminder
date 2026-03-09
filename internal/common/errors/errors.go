@@ -6,12 +6,18 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("not found")
+	// ErrNotFound is returned when a requested resource is not found.
+	ErrNotFound = errors.New("not found")
+	// ErrUnauthorized is returned when authentication credentials are invalid.
 	ErrUnauthorized = errors.New("unauthorized")
-	ErrForbidden    = errors.New("forbidden")
-	ErrConflict     = errors.New("conflict")
-	ErrBadRequest   = errors.New("bad request")
-	ErrInternal     = errors.New("internal error")
+	// ErrForbidden is returned when the user lacks permission to access a resource.
+	ErrForbidden = errors.New("forbidden")
+	// ErrConflict is returned when a resource already exists or conflicts with existing state.
+	ErrConflict = errors.New("conflict")
+	// ErrBadRequest is returned when the request is invalid or malformed.
+	ErrBadRequest = errors.New("bad request")
+	// ErrInternal is returned for unexpected internal server errors.
+	ErrInternal = errors.New("internal error")
 )
 
 func StatusCode(err error) int {
