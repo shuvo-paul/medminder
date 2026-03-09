@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	errpkg "github.com/shuvo-paul/medminder/internal/common/errors"
+	errs "github.com/shuvo-paul/medminder/internal/common/errors"
 )
 
 func TestStatusCode(t *testing.T) {
@@ -19,32 +19,32 @@ func TestStatusCode(t *testing.T) {
 	}{
 		{
 			name:       "ErrNotFound returns 404",
-			err:        errpkg.ErrNotFound,
+			err:        errs.ErrNotFound,
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:       "ErrUnauthorized returns 401",
-			err:        errpkg.ErrUnauthorized,
+			err:        errs.ErrUnauthorized,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "ErrForbidden returns 403",
-			err:        errpkg.ErrForbidden,
+			err:        errs.ErrForbidden,
 			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "ErrConflict returns 409",
-			err:        errpkg.ErrConflict,
+			err:        errs.ErrConflict,
 			wantStatus: http.StatusConflict,
 		},
 		{
 			name:       "ErrBadRequest returns 400",
-			err:        errpkg.ErrBadRequest,
+			err:        errs.ErrBadRequest,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "ErrInternal returns 500",
-			err:        errpkg.ErrInternal,
+			err:        errs.ErrInternal,
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
@@ -54,17 +54,17 @@ func TestStatusCode(t *testing.T) {
 		},
 		{
 			name:       "wrapped ErrNotFound returns 404",
-			err:        fmt.Errorf("getting user: %w", errpkg.ErrNotFound),
+			err:        fmt.Errorf("getting user: %w", errs.ErrNotFound),
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:       "wrapped ErrBadRequest returns 400",
-			err:        fmt.Errorf("validating: %w", errpkg.ErrBadRequest),
+			err:        fmt.Errorf("validating: %w", errs.ErrBadRequest),
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "double wrapped ErrConflict returns 409",
-			err:        fmt.Errorf("service: %w", fmt.Errorf("repo: %w", errpkg.ErrConflict)),
+			err:        fmt.Errorf("service: %w", fmt.Errorf("repo: %w", errs.ErrConflict)),
 			wantStatus: http.StatusConflict,
 		},
 		{
@@ -76,7 +76,7 @@ func TestStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := errpkg.StatusCode(tt.err)
+			got := errs.StatusCode(tt.err)
 			assert.Equal(t, tt.wantStatus, got)
 		})
 	}
