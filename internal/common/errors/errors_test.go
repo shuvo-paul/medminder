@@ -65,6 +65,11 @@ func TestStatusCode(t *testing.T) {
 			err:        fmt.Errorf("service: %w", fmt.Errorf("repo: %w", ErrConflict)),
 			wantStatus: http.StatusConflict,
 		},
+		{
+			name:       "nil error returns 500",
+			err:        nil,
+			wantStatus: http.StatusInternalServerError,
+		},
 	}
 
 	for _, tt := range tests {
