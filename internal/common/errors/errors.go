@@ -6,6 +6,11 @@ import (
 )
 
 var (
+	Is     = errors.Is
+	As     = errors.As
+	New    = errors.New
+	Unwrap = errors.Unwrap
+
 	// ErrNotFound is returned when a requested resource is not found.
 	ErrNotFound = errors.New("not found")
 	// ErrUnauthorized is returned when authentication credentials are invalid.
