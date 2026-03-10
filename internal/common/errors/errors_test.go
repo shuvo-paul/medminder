@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	errs "github.com/shuvo-paul/medminder/internal/common/errors"
+	"github.com/shuvo-paul/medminder/internal/common/errors"
 )
 
 func TestStatusCode(t *testing.T) {
@@ -18,52 +18,52 @@ func TestStatusCode(t *testing.T) {
 	}{
 		{
 			name:       "ErrNotFound returns 404",
-			err:        errs.ErrNotFound,
+			err:        errors.ErrNotFound,
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:       "ErrUnauthorized returns 401",
-			err:        errs.ErrUnauthorized,
+			err:        errors.ErrUnauthorized,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "ErrForbidden returns 403",
-			err:        errs.ErrForbidden,
+			err:        errors.ErrForbidden,
 			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "ErrConflict returns 409",
-			err:        errs.ErrConflict,
+			err:        errors.ErrConflict,
 			wantStatus: http.StatusConflict,
 		},
 		{
 			name:       "ErrBadRequest returns 400",
-			err:        errs.ErrBadRequest,
+			err:        errors.ErrBadRequest,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "ErrInternal returns 500",
-			err:        errs.ErrInternal,
+			err:        errors.ErrInternal,
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
 			name:       "unknown error returns 500",
-			err:        errs.New("unknown"),
+			err:        errors.New("unknown"),
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
 			name:       "wrapped ErrNotFound returns 404",
-			err:        fmt.Errorf("getting user: %w", errs.ErrNotFound),
+			err:        fmt.Errorf("getting user: %w", errors.ErrNotFound),
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:       "wrapped ErrBadRequest returns 400",
-			err:        fmt.Errorf("validating: %w", errs.ErrBadRequest),
+			err:        fmt.Errorf("validating: %w", errors.ErrBadRequest),
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "double wrapped ErrConflict returns 409",
-			err:        fmt.Errorf("service: %w", fmt.Errorf("repo: %w", errs.ErrConflict)),
+			err:        fmt.Errorf("service: %w", fmt.Errorf("repo: %w", errors.ErrConflict)),
 			wantStatus: http.StatusConflict,
 		},
 		{
@@ -75,7 +75,7 @@ func TestStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := errs.StatusCode(tt.err)
+			got := errors.StatusCode(tt.err)
 			assert.Equal(t, tt.wantStatus, got)
 		})
 	}
