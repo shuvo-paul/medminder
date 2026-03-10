@@ -36,4 +36,4 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: ${{ secrets.OPENCODE_MODEL }}
+          model: ${{ vars.OPENCODE_MODEL }}
