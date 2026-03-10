@@ -1,7 +1,6 @@
 package errors_test
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -49,7 +48,7 @@ func TestStatusCode(t *testing.T) {
 		},
 		{
 			name:       "unknown error returns 500",
-			err:        errors.New("unknown"),
+			err:        errs.New("unknown"),
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
