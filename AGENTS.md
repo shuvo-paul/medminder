@@ -136,8 +136,16 @@ func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
 
 ## Git Conventions
 - Feature branches: `feature/description`
+- Bug branches: `fix/description`
+- Always checkout to a new branch before implementing a new feature or bug fix
 - Commit messages: present tense, imperative mood
 - Run `go test ./...` before committing
+
+### Handling GitHub Issues
+When mentioned in a GitHub issue to implement:
+1. Create branch: `feature/issue-{number}-description` or `fix/issue-{number}-description`
+2. Implement following TDD, run tests before committing
+3. Push and create PR with `gh pr create`
 
 ## Environment
 - Use `.env` files for local configuration (gitignored)
