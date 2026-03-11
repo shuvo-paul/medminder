@@ -1,5 +1,5 @@
-// Package logger provides the application's structured logging using phuslu/log.
-package logger
+// Package log provides the application's structured logging using phuslu/log.
+package log
 
 import (
 	"os"
@@ -44,7 +44,7 @@ type Field struct {
 //
 // Example:
 //
-//	logger.Info("user logged in", logger.F("user_id", 123))
+//	log.Info("user logged in", log.F("user_id", 123))
 func F[T FieldValue](key string, value T) Field {
 	return Field{Key: key, Value: value}
 }
@@ -77,9 +77,9 @@ type Config struct {
 //
 // Example:
 //
-//	logger.Configure(logger.Config{
-//	    Env:   logger.Development,
-//	    Level: logger.InfoLevel,
+//	log.Configure(log.Config{
+//	    Env:   log.Development,
+//	    Level: log.InfoLevel,
 //	})
 func Configure(cfg Config) {
 	var writer log.Writer
@@ -110,7 +110,7 @@ func Configure(cfg Config) {
 //
 // Example:
 //
-//	logger.Debug("processing request", logger.F("request_id", "abc123"))
+//	log.Debug("processing request", log.F("request_id", "abc123"))
 func Debug(msg string, fields ...Field) {
 	entry := log.Debug()
 	for _, f := range fields {
@@ -123,7 +123,7 @@ func Debug(msg string, fields ...Field) {
 //
 // Example:
 //
-//	logger.Info("user created", logger.F("user_id", 123))
+//	log.Info("user created", log.F("user_id", 123))
 func Info(msg string, fields ...Field) {
 	entry := log.Info()
 	for _, f := range fields {
@@ -136,7 +136,7 @@ func Info(msg string, fields ...Field) {
 //
 // Example:
 //
-//	logger.Warn("rate limit approaching", logger.F("remaining", 10))
+//	log.Warn("rate limit approaching", log.F("remaining", 10))
 func Warn(msg string, fields ...Field) {
 	entry := log.Warn()
 	for _, f := range fields {
@@ -149,7 +149,7 @@ func Warn(msg string, fields ...Field) {
 //
 // Example:
 //
-//	logger.Error("database connection failed", logger.F("error", err.Error()))
+//	log.Error("database connection failed", log.F("error", err.Error()))
 func Error(msg string, fields ...Field) {
 	entry := log.Error()
 	for _, f := range fields {
@@ -209,7 +209,7 @@ type loggerContext struct {
 //
 // Example:
 //
-//	ctx := logger.WithFields(logger.F("request_id", "abc123"))
+//	ctx := log.WithFields(log.F("request_id", "abc123"))
 //	ctx.Info("request started")
 //	ctx.Info("request completed")
 func WithFields(fields ...Field) *loggerContext {
