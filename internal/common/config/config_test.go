@@ -19,6 +19,7 @@ func TestLoad(t *testing.T) {
 			envVars: map[string]string{},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -34,6 +35,7 @@ func TestLoad(t *testing.T) {
 			name: "custom values",
 			envVars: map[string]string{
 				"APP_PORT":    "3000",
+				"APP_ENV":     "production",
 				"DB_HOST":     "db.example.com",
 				"DB_PORT":     "5433",
 				"DB_USER":     "admin",
@@ -43,6 +45,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 3000,
+				AppEnv:  "production",
 				Database: DatabaseConfig{
 					Host:     "db.example.com",
 					Port:     5433,
@@ -75,6 +78,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -93,6 +97,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -111,6 +116,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -129,6 +135,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -181,6 +188,7 @@ func TestLoad(t *testing.T) {
 			},
 			expected: Config{
 				AppPort: 8080,
+				AppEnv:  "development",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,

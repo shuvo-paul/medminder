@@ -2,25 +2,25 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/shuvo-paul/medminder/internal/common/log"
 )
 
-type databaseConfig struct {
-	host    string
-	port    string
-	user    string
-	name    string
-	sslmode string
-}
-
 func main() {
-	port := getEnv("APP_PORT", "8080")
-	dbCfg := loadDatabaseConfig()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Error("failed to load config", log.F("error", err.Error()))
+		return
+	}
+
+	configureLogger(cfg.AppEnv)
+
 	router := chi.NewRouter()
 
 	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -34,25 +34,27 @@ func main() {
 		}
 	})
 
-	log.Printf("MedMinder server listening on :%s (db=%s:%s/%s sslmode=%s)", port, dbCfg.host, dbCfg.port, dbCfg.name, dbCfg.sslmode)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		log.Fatalf("server error: %v", err)
+	log.Info("starting server", log.F("port", cfg.AppPort), log.F("env", cfg.AppEnv))
+	addr := fmt.Sprintf(":%d", cfg.AppPort)
+	if err := http.ListenAndServe(addr, router); err != nil {
+		log.Error("server error", log.F("error", err.Error()))
 	}
 }
 
-func loadDatabaseConfig() databaseConfig {
-	return databaseConfig{
-		host:    getEnv("DB_HOST", "localhost"),
-		port:    getEnv("DB_PORT", "5432"),
-		user:    getEnv("DB_USER", "medminder"),
-		name:    getEnv("DB_NAME", "medminder"),
-		sslmode: getEnv("DB_SSLMODE", "disable"),
-	}
-}
+func configureLogger(appEnv string) {
+	var logLevel log.Level
+	var filePath string
 
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok && value != "" {
-		return value
+	if appEnv == "production" {
+		logLevel = log.InfoLevel
+		filePath = "logs/app.log"
+	} else {
+		logLevel = log.DebugLevel
 	}
-	return fallback
+
+	log.Configure(log.Config{
+		Env:      log.Environment(appEnv),
+		Level:    logLevel,
+		FilePath: filePath,
+	})
 }
