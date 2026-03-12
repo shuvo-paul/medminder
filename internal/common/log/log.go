@@ -191,7 +191,7 @@ func addField(entry *log.Entry, key string, value any) *log.Entry {
 	case time.Time:
 		entry = entry.Time(key, v)
 	case time.Duration:
-		entry = entry.Any(key, v)
+		entry = entry.Dur(key, v)
 	default:
 		entry = entry.Any(key, v)
 	}

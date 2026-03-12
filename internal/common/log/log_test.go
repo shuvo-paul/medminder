@@ -2,6 +2,8 @@ package log_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,9 +13,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDebug_LogsMessage(t *testing.T) {
+func setupBuffer() (*bytes.Buffer, func()) {
 	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	original := phuslulog.DefaultLogger
+	phuslulog.DefaultLogger = phuslulog.Logger{
+		Level:  phuslulog.InfoLevel,
+		Writer: &phuslulog.IOWriter{Writer: buf},
+	}
+	return buf, func() { phuslulog.DefaultLogger = original }
+}
+
+func setupBufferDebug() (*bytes.Buffer, func()) {
+	buf := &bytes.Buffer{}
+	original := phuslulog.DefaultLogger
+	phuslulog.DefaultLogger = phuslulog.Logger{
+		Level:  phuslulog.DebugLevel,
+		Writer: &phuslulog.IOWriter{Writer: buf},
+	}
+	return buf, func() { phuslulog.DefaultLogger = original }
+}
+
+func TestDebug_LogsMessage(t *testing.T) {
+	buf, cleanup := setupBufferDebug()
+	t.Cleanup(cleanup)
 
 	log.Debug("test debug message")
 
@@ -22,8 +44,8 @@ func TestDebug_LogsMessage(t *testing.T) {
 }
 
 func TestDebug_LogsMessageWithFields(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBufferDebug()
+	t.Cleanup(cleanup)
 
 	log.Debug("test debug message", log.F("key", "value"))
 
@@ -34,8 +56,8 @@ func TestDebug_LogsMessageWithFields(t *testing.T) {
 }
 
 func TestInfo_LogsMessage(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Info("test info message")
 
@@ -44,8 +66,8 @@ func TestInfo_LogsMessage(t *testing.T) {
 }
 
 func TestInfo_LogsMessageWithFields(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Info("test info message", log.F("key", "value"))
 
@@ -56,8 +78,8 @@ func TestInfo_LogsMessageWithFields(t *testing.T) {
 }
 
 func TestWarn_LogsMessage(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Warn("test warn message")
 
@@ -66,8 +88,8 @@ func TestWarn_LogsMessage(t *testing.T) {
 }
 
 func TestWarn_LogsMessageWithFields(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Warn("test warn message", log.F("key", "value"))
 
@@ -78,8 +100,8 @@ func TestWarn_LogsMessageWithFields(t *testing.T) {
 }
 
 func TestError_LogsMessage(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Error("test error message")
 
@@ -88,8 +110,8 @@ func TestError_LogsMessage(t *testing.T) {
 }
 
 func TestError_LogsMessageWithFields(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	log.Error("test error message", log.F("key", "value"))
 
@@ -100,8 +122,8 @@ func TestError_LogsMessageWithFields(t *testing.T) {
 }
 
 func TestWithFields_AddsFieldsToContext(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBufferDebug()
+	t.Cleanup(cleanup)
 
 	ctx := log.WithFields(log.F("request_id", "123"))
 	ctx.Debug("test message")
@@ -113,8 +135,8 @@ func TestWithFields_AddsFieldsToContext(t *testing.T) {
 }
 
 func TestF_SupportedFieldValues(t *testing.T) {
-	buf := &bytes.Buffer{}
-	phuslulog.DefaultLogger.Writer = &phuslulog.IOWriter{Writer: buf}
+	buf, cleanup := setupBuffer()
+	t.Cleanup(cleanup)
 
 	t.Run("string", func(t *testing.T) {
 		buf.Reset()
@@ -226,4 +248,34 @@ func TestF_ReturnsCorrectField(t *testing.T) {
 	field := log.F("test_key", "test_value")
 	assert.Equal(t, "test_key", field.Key)
 	assert.Equal(t, "test_value", field.Value)
+}
+
+func TestConfigure_Development(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "test.log")
+
+	log.Configure(log.Config{
+		Env:      log.Development,
+		Level:    log.InfoLevel,
+		FilePath: file,
+	})
+
+	log.Info("test message")
+}
+
+func TestConfigure_Production(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "test.log")
+
+	log.Configure(log.Config{
+		Env:      log.Production,
+		Level:    log.InfoLevel,
+		FilePath: file,
+	})
+
+	log.Info("test message")
+
+	entries, err := os.ReadDir(dir)
+	assert.NoError(t, err)
+	assert.Greater(t, len(entries), 0)
 }
