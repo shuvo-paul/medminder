@@ -201,7 +201,7 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 
 ### 4.2 Security
 - **REQ-SEC-001**: All passwords shall be hashed using bcrypt with cost factor 12.
-- **REQ-SEC-002**: All API endpoints shall require authentication except `/healthz`, `/auth/register`, `/auth/login`.
+- **REQ-SEC-002**: All API endpoints shall require authentication except `/healthz`, `/api/auth/register`, `/api/auth/login`.
 - **REQ-SEC-003**: All data in transit shall be encrypted using TLS 1.2 or higher.
 - **REQ-SEC-004**: JWT tokens shall include expiration claims.
 - **REQ-SEC-005**: Guest access shall use cryptographically random refresh tokens valid for 30 days.
@@ -224,41 +224,42 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /auth/register | Register new user |
-| POST | /auth/login | User login |
-| POST | /auth/refresh | Refresh access token |
-| POST | /auth/logout | User logout |
-| GET | /profiles | List user profiles |
-| POST | /profiles | Create profile |
-| GET | /profiles/{id} | Get profile details |
-| PUT | /profiles/{id} | Update profile |
-| DELETE | /profiles/{id} | Delete profile |
-| POST | /profiles/{id}/share | Share profile with user (with optional expires_in_days param) |
-| GET | /profiles/{id}/share | List profile sharees |
-| DELETE | /profiles/{id}/share/{userId} | Revoke profile access |
-| GET | /invitations | List pending invitations for current user |
-| POST | /invitations/{id}/accept | Accept invitation |
-| POST | /invitations/{id}/decline | Decline invitation |
-| POST | /profiles/{id}/share/guest | Generate guest access link |
-| DELETE | /profiles/{id}/share/guest/{tokenId} | Revoke guest access |
-| GET | /medications | List medications for profile |
-| POST | /medications | Create medication |
-| GET | /medications/{id} | Get medication |
-| PUT | /medications/{id} | Update medication |
-| DELETE | /medications/{id} | Delete medication |
-| GET | /profiles/{id}/prescriptions | List prescriptions |
-| POST | /profiles/{id}/prescriptions | Upload prescription |
-| GET | /prescriptions/{id} | Download prescription |
-| DELETE | /prescriptions/{id} | Delete prescription |
-| GET | /reminders | List reminders for profile |
-| POST | /reminders | Create reminder |
-| GET | /reminders/{id} | Get reminder |
-| PUT | /reminders/{id} | Update reminder |
-| DELETE | /reminders/{id} | Delete reminder |
-| POST | /doses | Log a dose |
-| GET | /doses | Get dose history |
-| POST | /webhooks/whatsapp | WhatsApp webhook |
-| POST | /webhooks/telegram | Telegram webhook |
+| POST | /api/auth/register | Register new user |
+| POST | /api/auth/login | User login |
+| POST | /api/auth/refresh | Refresh access token |
+| POST | /api/auth/logout | User logout |
+| GET | /api/profiles | List user profiles |
+| POST | /api/profiles | Create profile |
+| GET | /api/profiles/{id} | Get profile details |
+| PUT | /api/profiles/{id} | Update profile |
+| DELETE | /api/profiles/{id} | Delete profile |
+| POST | /api/profiles/{id}/share | Share profile with user (with optional expires_in_days param) |
+| GET | /api/profiles/{id}/share | List profile sharees |
+| DELETE | /api/profiles/{id}/share/{userId} | Revoke profile access |
+| GET | /api/invitations | List pending invitations for current user |
+| POST | /api/invitations/{id}/accept | Accept invitation |
+| POST | /api/invitations/{id}/decline | Decline invitation |
+| POST | /api/profiles/{id}/share/guest | Generate guest access link |
+| DELETE | /api/profiles/{id}/share/guest/{tokenId} | Revoke guest access |
+| GET | /api/medications | List medications for profile |
+| POST | /api/medications | Create medication |
+| GET | /api/medications/{id} | Get medication |
+| PUT | /api/medications/{id} | Update medication |
+| DELETE | /api/medications/{id} | Delete medication |
+| GET | /api/profiles/{id}/prescriptions | List prescriptions |
+| POST | /api/profiles/{id}/prescriptions | Upload prescription |
+| GET | /api/prescriptions/{id} | Download prescription |
+| DELETE | /api/prescriptions/{id} | Delete prescription |
+| GET | /api/reminders | List reminders for profile |
+| POST | /api/reminders | Create reminder |
+| GET | /api/reminders/{id} | Get reminder |
+| PUT | /api/reminders/{id} | Update reminder |
+| DELETE | /api/reminders/{id} | Delete reminder |
+| POST | /api/doses | Log a dose |
+| GET | /api/doses | Get dose history |
+| POST | /api/webhooks/whatsapp | WhatsApp webhook |
+| POST | /api/webhooks/telegram | Telegram webhook |
+| GET | /healthz | Health check |
 
 ---
 
