@@ -3,7 +3,8 @@
 //
 // Environment Variables:
 //
-//	APP_PORT    - HTTP server port (default: 8080)
+//	APP_ENV    - Application environment: development or production (default: development)
+//	APP_PORT   - HTTP server port (default: 8080)
 //	DB_HOST     - Database host (default: localhost)
 //	DB_PORT     - Database port (default: 5432)
 //	DB_USER     - Database user (default: medminder)
@@ -20,6 +21,7 @@ import (
 
 type Config struct {
 	AppPort  int
+	AppEnv   string
 	Database DatabaseConfig
 }
 
@@ -34,6 +36,8 @@ type DatabaseConfig struct {
 
 func Load() (Config, error) {
 	cfg := Config{}
+
+	cfg.AppEnv = getEnv("APP_ENV", "development")
 
 	port, err := strconv.Atoi(getEnv("APP_PORT", "8080"))
 	if err != nil || port < 0 || port > 65535 {
