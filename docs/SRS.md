@@ -117,13 +117,22 @@ MedMinder is a standalone medication management system consisting of:
 #### 3.3.3 Prescriber Information
 - **REQ-MED-009**: Users shall be able to optionally link a medication to a prescriber (name, clinic, phone).
 
-#### 3.3.4 Prescription Upload
-- **REQ-MED-010**: Users shall be able to upload prescription documents (PDF, JPG, PNG) for a medication.
-- **REQ-MED-011**: Uploaded prescriptions shall be stored securely in external storage (Cloudflare R2).
-- **REQ-MED-012**: All users with access to the profile (any permission level) shall be able to view/download prescriptions.
-- **REQ-MED-013**: Users shall be able to delete uploaded prescriptions.
-- **REQ-MED-014**: The system shall support a maximum file size of 10MB per prescription.
-- **REQ-MED-015**: Prescriptions must be linked to a profile. Linking to a medication is optional.
+#### 3.3.4 Medication Auto-Suggestion
+- **REQ-MED-010**: The system shall display medication suggestions after user types 2 or more characters.
+- **REQ-MED-011**: Suggestions shall be fetched from local medicine database.
+- **REQ-MED-012**: Selecting a suggestion shall auto-fill medication name.
+- **REQ-MED-013**: Users shall be able to manually enter medication details if suggestion not available.
+- **REQ-MED-014**: The system shall sync medicine data from DGDA to bootstrap local database.
+- **REQ-MED-015**: The system shall re-sync medicine data from DGDA monthly via automated scheduled job.
+- **REQ-MED-016**: The system shall alert administrators if scheduled sync fails.
+
+#### 3.3.5 Prescription Upload
+- **REQ-MED-017**: Users shall be able to upload prescription documents (PDF, JPG, PNG) for a medication.
+- **REQ-MED-018**: Uploaded prescriptions shall be stored securely in external storage (Cloudflare R2).
+- **REQ-MED-019**: All users with access to the profile (any permission level) shall be able to view/download prescriptions.
+- **REQ-MED-020**: Users shall be able to delete uploaded prescriptions.
+- **REQ-MED-021**: The system shall support a maximum file size of 10MB per prescription.
+- **REQ-MED-022**: Prescriptions must be linked to a profile. Linking to a medication is optional.
 
 ### 3.4 Reminder Scheduling
 
@@ -280,6 +289,7 @@ MedMinder is a standalone medication management system consisting of:
 | Medication frequency options | Medication | Not Started | P0 | |
 | Prescriber information | Medication | Not Started | P2 | Optional feature |
 | Prescription upload | Medication | Not Started | P2 | Cloudflare R2 storage |
+| Medication auto-suggestion | Medication | Not Started | P2 | Local DB with DGDA data (monthly cron + admin alerts) |
 | Reminder CRUD | Reminder | Not Started | P0 | |
 | Reminder snooze | Reminder | Not Started | P0 | |
 | WhatsApp notifications | Notification | Not Started | P0 | |
@@ -297,4 +307,4 @@ MedMinder is a standalone medication management system consisting of:
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 1.0 | 2026-03-13 | Initial SRS: auth, profiles, sharing, medications, reminders, notifications, dose logging |
+| 1.0 | 2026-03-13 | Initial SRS: auth, profiles, sharing, medications (incl. auto-suggestion, prescription upload), reminders, notifications, dose logging |
