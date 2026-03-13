@@ -51,6 +51,9 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 8. Dose logging (taken, skipped, snoozed)
 9. Dose history and calendar view
 
+### 2.4 System Architecture
+MedMinder is deployed as a single binary. The Go server embeds the Svelte frontend at build time using `go:embed`. The Go router handles all routes: `/api/*` and `/healthz` are handled by the backend, while all other routes are forwarded to the Svelte frontend's Client-Side Rendering (CSR).
+
 ---
 
 ## 3. Functional Requirements
