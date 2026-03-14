@@ -9,7 +9,7 @@
 This document defines the software requirements for MedMinder, a medication reminder application that helps users track medications for themselves, their family members, and friends, set reminder schedules, and receive notifications via WhatsApp and Telegram.
 
 ### 1.2 Scope
-MedMinder is a REST API backend with a Svelte single-page application frontend. The system enables users to manage multiple medication profiles for themselves, family, and friends, share profiles with caregivers with granular permissions, generate guest access for external access, and log dose history.
+MedMinder is a monolithic full-stack Go application with embedded Svelte frontend. The system enables users to manage multiple medication profiles for themselves, family, and friends, share profiles with caregivers with granular permissions, generate guest access for external access, and log dose history.
 
 ### 1.3 Definitions, Acronyms, and Abbreviations
 | Term | Definition |
@@ -28,8 +28,7 @@ MedMinder is a REST API backend with a Svelte single-page application frontend. 
 
 ### 2.1 Product Perspective
 MedMinder is a standalone medication management system consisting of:
-- RESTful API backend (Go)
-- Svelte single-page application frontend
+- Monolithic full-stack Go application with embedded Svelte frontend
 - WhatsApp Business API integration for notifications
 - Telegram Bot API integration for notifications
 - PostgreSQL database for persistent storage
@@ -60,7 +59,20 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 9. Dose history and calendar view
 
 ### 2.5 System Architecture
-MedMinder is deployed as a single binary. The Go server embeds the Svelte frontend at build time using `go:embed`. The Go router handles all routes: `/api/*` and `/healthz` are handled by the backend, while all other routes are forwarded to the Svelte frontend's Client-Side Rendering (CSR).
+
+MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
+
+- **Architecture Pattern**: Single binary deployment where the Go server embeds the compiled Svelte frontend at build time using Go's `go:embed` directive.
+- **Build Process**:
+  1. Svelte frontend is compiled to static assets (`npm run build`)
+  2. Go server embeds the `web/dist/` directory using `go:embed`
+  3. Final binary contains both backend and frontend
+- **Routing Strategy**:
+  - `/api/*` → REST API handlers (Go Chi router)
+  - `/healthz` → Health check endpoint
+  - All other routes → Svelte SPA (client-side routing)
+- **Development**: Uses `air` for live reload of Go code; Svelte Vite dev server handles frontend hot reload
+- **Serving**: Go's `http.FileServer` serves embedded static files with proper MIME types
 
 ---
 
