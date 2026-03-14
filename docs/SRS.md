@@ -40,7 +40,15 @@ MedMinder is a standalone medication management system consisting of:
 ### 2.2 User Characteristics
 User access is defined by permissions on profiles (see Section 3.2.2).
 
-### 2.3 Product Features (High-Level)
+### 2.3 User Stories
+1. **As a caregiver**, I want to manage medication reminders for my elderly parent so that they don't miss their daily medications.
+2. **As a parent**, I want to track medications for all my family members in one app so that I have a complete overview of everyone's health.
+3. **As a patient**, I want to share my medication profile with my doctor so they can see my medication history.
+4. **As a family member**, I want to receive WhatsApp notifications when it's time for my loved one's medication so I can remind them.
+5. **As a user**, I want to log doses with notes (e.g., "took with food") so I can track side effects.
+6. **As a guest**, I want to view a profile's medications without creating an account so I can help with caregiving temporarily.
+
+### 2.4 Product Features (High-Level)
 1. User registration and authentication
 2. Multi-profile management per user
 3. Profile sharing with permission-based access control
@@ -51,7 +59,7 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 8. Dose logging (taken, skipped, snoozed)
 9. Dose history and calendar view
 
-### 2.4 System Architecture
+### 2.5 System Architecture
 MedMinder is deployed as a single binary. The Go server embeds the Svelte frontend at build time using `go:embed`. The Go router handles all routes: `/api/*` and `/healthz` are handled by the backend, while all other routes are forwarded to the Svelte frontend's Client-Side Rendering (CSR).
 
 ---
@@ -76,6 +84,18 @@ MedMinder is deployed as a single binary. The Go server embeds the Svelte fronte
 
 #### 3.1.4 Logout
 - **REQ-AUTH-009**: The system shall invalidate the refresh token upon logout.
+
+#### 3.1.5 Password Reset
+- **REQ-AUTH-010**: The system shall allow users to request a password reset via email.
+- **REQ-AUTH-011**: Password reset tokens shall expire after 1 hour.
+- **REQ-AUTH-012**: The system shall allow users to set a new password using a valid reset token.
+- **REQ-AUTH-013**: The system shall invalidate all refresh tokens when password is reset.
+
+#### 3.1.6 Email Verification
+- **REQ-AUTH-014**: The system shall send an email verification link upon registration.
+- **REQ-AUTH-015**: Email verification tokens shall expire after 24 hours.
+- **REQ-AUTH-016**: Users shall not receive medication reminders until email is verified.
+- **REQ-AUTH-017**: The system shall allow resending verification email (max 3 per day).
 
 ### 3.2 Profile Management
 
@@ -181,12 +201,21 @@ MedMinder is deployed as a single binary. The Go server embeds the Svelte fronte
 - **REQ-NOT-007**: Users shall be able to set quiet hours (no notifications during specified times).
 - **REQ-NOT-008**: Users shall be able to set notification advance time (e.g., 5 min before scheduled time).
 
+#### 3.5.4 Notification Delivery
+- **REQ-NOT-009**: Failed notifications shall be retried up to 3 times with exponential backoff (1min, 5min, 15min).
+- **REQ-NOT-010**: The system shall log all notification delivery attempts and their status.
+- **REQ-NOT-011**: The system shall provide a notification delivery status endpoint for users to view failed notifications.
+
 ### 3.6 Dose Logging
 
 #### 3.6.1 Logging
 - **REQ-DOSE-001**: Users shall be able to log a dose as taken, skipped, or snoozed.
 - **REQ-DOSE-002**: Users shall be able to add notes to a dose log entry (e.g., "felt dizzy", "took with food").
-- **REQ-DOSE-003**: The system shall automatically log doses based on reminder triggers if no user action is taken.
+- **REQ-DOSE-003**: The system shall automatically log doses as "skipped" if no user action is taken within 30 minutes after the scheduled time.
+  - **Acceptance Criteria**:
+    - Dose is marked "skipped" at scheduled_time + 30 minutes
+    - User can still log the dose as "taken" after it's auto-skipped (with original scheduled time)
+    - Snoozed reminders extend the auto-skipped window
 
 #### 3.6.2 History
 - **REQ-DOSE-004**: Users shall be able to view dose history for a profile.
@@ -201,6 +230,7 @@ MedMinder is deployed as a single binary. The Go server embeds the Svelte fronte
 - **REQ-PERF-001**: API response time shall be under 200ms at p95 for read operations.
 - **REQ-PERF-002**: API response time shall be under 500ms at p95 for write operations.
 - **REQ-PERF-003**: The system shall support at least 100 concurrent users per instance.
+- **REQ-PERF-004**: All list endpoints shall support pagination with `limit` (default 20, max 100) and `offset` parameters.
 
 ### 4.2 Security
 - **REQ-SEC-001**: All passwords shall be hashed using bcrypt with cost factor 12.
@@ -208,16 +238,27 @@ MedMinder is deployed as a single binary. The Go server embeds the Svelte fronte
 - **REQ-SEC-003**: All data in transit shall be encrypted using TLS 1.2 or higher.
 - **REQ-SEC-004**: JWT tokens shall include expiration claims.
 - **REQ-SEC-005**: Guest access shall use cryptographically random refresh tokens valid for 30 days.
+- **REQ-SEC-006**: The system shall implement rate limiting: 100 requests per minute per IP for auth endpoints, 300 requests per minute per user for other endpoints.
+- **REQ-SEC-007**: The system shall log all authentication events (login, logout, password reset, failed attempts) for audit purposes.
+- **REQ-SEC-008**: All API requests shall include a request ID for traceability.
 
-### 4.3 Availability
+### 4.3 Validation
+- **REQ-VAL-001**: Email addresses shall be validated for proper format.
+- **REQ-VAL-002**: Passwords shall require minimum 8 characters, at least 1 uppercase, 1 lowercase, and 1 number.
+- **REQ-VAL-003**: Profile names shall be limited to 100 characters.
+- **REQ-VAL-004**: Medication names shall be limited to 200 characters.
+- **REQ-VAL-005**: Dose notes shall be limited to 500 characters.
+- **REQ-VAL-006**: All user inputs shall be sanitized to prevent XSS and SQL injection.
+
+### 4.4 Availability
 - **REQ-AVL-001**: The system shall maintain 99.9% uptime (excluding scheduled maintenance).
 - **REQ-AVL-002**: The system shall have a health check endpoint at `/healthz`.
 
-### 4.4 Data Retention
+### 4.5 Data Retention
 - **REQ-DATA-001**: Dose history shall be retained for 2 years by default.
 - **REQ-DATA-002**: Users shall be able to request data deletion (GDPR compliance).
 
-### 4.5 Scalability
+### 4.6 Scalability
 - **REQ-SCL-001**: The system shall support horizontal scaling with stateless API instances.
 - **REQ-SCL-002**: The database shall be separated from the application layer.
 
@@ -266,10 +307,60 @@ MedMinder is deployed as a single binary. The Go server embeds the Svelte fronte
 
 ---
 
+## 5.1 API Response Format
+
+All API responses shall follow a consistent format:
+
+### Success Response
+```json
+{
+  "data": { ... },
+  "meta": {
+    "request_id": "uuid",
+    "timestamp": "2026-03-14T10:30:00Z"
+  }
+}
+```
+
+### Paginated Response
+```json
+{
+  "data": [...],
+  "meta": {
+    "request_id": "uuid",
+    "timestamp": "2026-03-14T10:30:00Z",
+    "pagination": {
+      "limit": 20,
+      "offset": 0,
+      "total": 150
+    }
+  }
+}
+```
+
+### Error Response
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid email format",
+    "details": [
+      {"field": "email", "message": "must be a valid email address"}
+    ]
+  },
+  "meta": {
+    "request_id": "uuid",
+    "timestamp": "2026-03-14T10:30:00Z"
+  }
+}
+```
+
+All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be in UTC; display times shall be converted to the user's configured timezone.
+
 ## 6. Data Models (Overview)
 
 ### 6.1 User
-- id, email, password_hash, created_at, updated_at
+- id, email, password_hash, timezone (e.g., "America/New_York"), email_verified (boolean), created_at, updated_at
 
 ### 6.2 Profile
 - id, user_id, name, avatar_url, date_of_birth, medical_conditions, created_at, updated_at
