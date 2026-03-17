@@ -46,6 +46,7 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 4. **As a family member**, I want to receive WhatsApp notifications when it's time for my loved one's medication so I can remind them.
 5. **As a user**, I want to log doses with notes (e.g., "took with food") so I can track side effects.
 6. **As a guest**, I want to view a profile's medications without creating an account so I can help with caregiving temporarily.
+7. **As a user**, I want to set up meal times (breakfast, lunch, dinner) when creating a profile so that medications are automatically scheduled around my daily routine.
 
 ### 2.4 Product Features (High-Level)
 1. User registration and authentication
@@ -112,7 +113,11 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 ### 3.2 Profile Management
 
 #### 3.2.1 Profile CRUD
-- **REQ-PROF-001**: Users shall be able to create profiles with name, avatar URL, date of birth, and medical conditions.
+- **REQ-PROF-001**: Users shall be able to create profiles with name, avatar URL, date of birth, medical conditions, and timezone.
+- **REQ-PROF-001b**: When creating a profile, the system shall prompt for meal times (Breakfast, Lunch, Dinner) to set up initial dose schedules.
+- **REQ-PROF-001c**: The system shall create initial dose schedules (Breakfast, Lunch, Dinner) based on user-provided meal times during profile creation.
+- **REQ-PROF-001d**: Users shall be able to modify or delete initial dose schedules after profile creation.
+- **REQ-PROF-001e**: Users shall be able to create additional dose schedules at any time.
 - **REQ-PROF-002**: Users shall be able to view all profiles they own or have access to.
 - **REQ-PROF-003**: Users shall be able to update profile details.
 - **REQ-PROF-004**: Users with `profile:admin` permission shall be able to delete profiles.
@@ -160,7 +165,14 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 - **REQ-MED-006**: Users shall be able to delete medications (cascades to reminders).
 
 #### 3.3.2 Medication Frequency
-- **REQ-MED-007**: Users shall be able to set frequency: daily, weekly (specific days), or as-needed (PRN).
+- **REQ-MED-007**: The system shall support the following frequency types (extensible model):
+  - **schedule**: Linked to a dose schedule (Breakfast, Lunch, Dinner, or custom)
+  - **daily**: Every day at a custom time
+  - **weekly**: Specific days of the week (e.g., Mon, Wed, Fri)
+  - **monthly**: Specific day of the month (e.g., 1st, 15th)
+  - **interval**: Every X units (minutes, hours, days, weeks, months)
+  - **prn**: As-needed (Pro Re Nata) - no automatic notifications
+- **REQ-MED-007b**: The frequency model shall be extensible to support new types without database migrations.
 - **REQ-MED-008**: Users shall be able to set optional start and end dates for medications.
 
 #### 3.3.3 Prescriber Information
@@ -183,25 +195,49 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 - **REQ-MED-021**: The system shall support a maximum file size of 10MB per prescription.
 - **REQ-MED-022**: Prescriptions must be linked to a profile. Linking to a medication is optional.
 
+#### 3.3.6 Dose Schedules
+- **REQ-MED-023**: Users shall be able to create dose schedules for a profile (e.g., "Breakfast", "Lunch", "Dinner", "Bedtime").
+- **REQ-MED-024**: Each dose schedule shall have a name and a time (e.g., "Breakfast" at 08:00).
+- **REQ-MED-025**: Users shall be able to view all dose schedules for a profile.
+- **REQ-MED-026**: Users shall be able to update dose schedule name and time.
+- **REQ-MED-027**: Users shall be able to delete dose schedules.
+- **REQ-MED-028**: When a medication is linked to a schedule, it shall automatically receive reminders at that schedule's time.
+- **REQ-MED-029**: Users shall be able to link a medication to a schedule or set a custom reminder time (not tied to any schedule).
+- **REQ-MED-030**: Users shall be able to change a medication between schedule-based and custom time-based reminders.
+
+#### 3.3.7 PRN (As-Needed) Medications
+- **REQ-MED-031**: Users shall be able to mark a medication as PRN (Pro Re Nata / as-needed).
+- **REQ-MED-032**: PRN medications shall not generate automatic scheduled notifications.
+- **REQ-MED-033**: Users shall be able to request a notification for a PRN medication on demand.
+- **REQ-MED-034**: The system shall log PRN medication requests with timestamp.
+
 ### 3.4 Reminder Scheduling
 
-#### 3.4.1 Reminder CRUD
-- **REQ-REM-001**: Users shall be able to create reminders linked to a medication.
-- **REQ-REM-002**: Users shall be able to specify reminder times (multiple per day supported).
-- **REQ-REM-003**: Users shall be able to enable or disable reminders.
-- **REQ-REM-004**: Users shall be able to view all reminders for a profile.
-- **REQ-REM-005**: Users shall be able to update reminder settings.
-- **REQ-REM-006**: Users shall be able to delete reminders.
+#### 3.4.1 Reminder Generation
+- **REQ-REM-001**: Reminders shall be automatically generated from medication schedules.
+- **REQ-REM-002**: For schedule-based medications, reminders shall be created at the schedule's time.
+- **REQ-REM-003**: For custom time medications, reminders shall be created at the specified time.
+- **REQ-REM-004**: For interval-based medications, reminders shall be generated based on the interval (e.g., every 8 hours from start date).
+- **REQ-REM-005**: For weekly medications, reminders shall be generated on specified days at the specified time.
+- **REQ-REM-006**: For monthly medications, reminders shall be generated on specified days of the month at the specified time.
+- **REQ-REM-007**: PRN medications shall not generate automatic reminders.
 
-#### 3.4.2 Snooze
-- **REQ-REM-007**: Users shall be able to snooze reminders for 5, 10, 15, or 30 minutes.
-- **REQ-REM-008**: Snoozed reminders shall trigger a new notification at the snoozed time.
+#### 3.4.2 Reminder Management
+- **REQ-REM-008**: Users shall be able to enable or disable reminders.
+- **REQ-REM-009**: Users shall be able to view all reminders for a profile.
+- **REQ-REM-010**: Users shall be able to update reminder settings (time, enabled state).
+- **REQ-REM-011**: Users shall be able to delete reminders.
+
+#### 3.4.3 Snooze
+- **REQ-REM-012**: Users shall be able to snooze reminders for 5, 10, 15, or 30 minutes.
+- **REQ-REM-013**: Snoozed reminders shall trigger a new notification at the snoozed time.
 
 ### 3.5 Notifications
 
 #### 3.5.1 WhatsApp Notifications
 - **REQ-NOT-001**: The system shall send WhatsApp messages via WhatsApp Business API.
-- **REQ-NOT-002**: Messages shall include medication name, dosage, and scheduled time.
+- **REQ-NOT-002**: Notifications for schedule-based medications shall display the schedule name and list all medications in that schedule (e.g., "Breakfast meds: Aspirin 100mg, Metformin 500mg (2 items)").
+- **REQ-NOT-002b**: Notifications for non-schedule medications shall display medication name, dosage, and scheduled time.
 - **REQ-NOT-003**: Users shall be able to opt-in/opt-out of WhatsApp notifications per profile.
 
 #### 3.5.2 Telegram Notifications
@@ -218,6 +254,10 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 - **REQ-NOT-010**: The system shall log all notification delivery attempts and their status.
 - **REQ-NOT-011**: The system shall provide a notification delivery status endpoint for users to view failed notifications.
 
+#### 3.5.5 PRN Notifications
+- **REQ-NOT-012**: Users shall be able to request a notification for a PRN medication on demand.
+- **REQ-NOT-013**: PRN notification requests shall be logged with timestamp.
+
 ### 3.6 Dose Logging
 
 #### 3.6.1 Logging
@@ -233,6 +273,10 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 - **REQ-DOSE-004**: Users shall be able to view dose history for a profile.
 - **REQ-DOSE-005**: Dose history shall be filterable by date range, medication, and status (taken/skipped).
 - **REQ-DOSE-006**: Users shall be able to view dose history in calendar format.
+
+#### 3.6.3 Group-Level Logging
+- **REQ-DOSE-007**: For schedule-based medications, users shall be able to mark all medications in a schedule as taken/skipped with a single action.
+- **REQ-DOSE-008**: Users shall be able to override individual medication status within a schedule when logging doses.
 
 ---
 
@@ -383,11 +427,14 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 ### 6.4 ProfileLink
 - id, profile_id, token, expires_at, used_at, created_at
 
-### 6.5 Medication
-- id, profile_id, name, dosage_amount, dosage_unit, form, frequency, frequency_days, start_date, end_date, prescriber_name, prescriber_clinic, prescriber_phone, created_at, updated_at
+### 6.5 DoseSchedule
+- id, profile_id, name (e.g., "Breakfast", "Lunch", "Dinner"), time (e.g., "08:00:00"), description (optional), created_at, updated_at
 
-### 6.6 Reminder
-- id, medication_id, time, enabled, snooze_minutes, created_at, updated_at
+### 6.6 Medication
+- id, profile_id, name, dosage_amount, dosage_unit, form, frequency_type, frequency_config (JSONB), schedule_id (nullable), start_date, end_date, prescriber_name, prescriber_clinic, prescriber_phone, created_at, updated_at
+
+### 6.7 Reminder
+- id, medication_id, scheduled_at, enabled, snooze_minutes, created_at, updated_at
 
 ### 6.7 Dose
 - id, reminder_id, scheduled_at, status (taken/skipped/snoozed), notes, logged_at
@@ -408,20 +455,26 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | JWT login/logout | Auth | Not Started | P0 | |
 | Token refresh | Auth | Not Started | P0 | |
 | Profile CRUD | Profile | Not Started | P0 | |
+| Profile meal schedule setup | Profile | Not Started | P0 | Breakfast, Lunch, Dinner time prompts |
 | Profile sharing with PBAC | Profile | Not Started | P1 | Granular permissions (medication:read/write, reminder:read/write, dose:read/write, prescription:read/write, profile:read/write/share/admin), invitation flow with user-configurable expiration (1/3/7 days) |
 | Guest access | Profile | Not Started | P1 | Refresh token (30 days), admin can revoke |
 | Medication CRUD | Medication | Not Started | P0 | |
-| Medication frequency options | Medication | Not Started | P0 | |
+| Dose schedules (Breakfast/Lunch/Dinner) | Medication | Not Started | P0 | Profile-specific schedules, CRUD |
+| Medication frequency types | Medication | Not Started | P0 | schedule, daily, weekly, monthly, interval, prn (extensible) |
+| PRN (as-needed) medications | Medication | Not Started | P1 | No auto notifications, on-demand request |
 | Prescriber information | Medication | Not Started | P2 | Optional feature |
 | Prescription upload | Medication | Not Started | P2 | Cloudflare R2 storage |
 | Medication auto-suggestion | Medication | Not Started | P2 | Local DB with DGDA data (monthly cron + admin alerts) |
-| Reminder CRUD | Reminder | Not Started | P0 | |
+| Schedule-based reminders | Reminder | Not Started | P0 | Auto-generated from schedules |
 | Reminder snooze | Reminder | Not Started | P0 | |
-| WhatsApp notifications | Notification | Not Started | P0 | |
-| Telegram notifications | Notification | Not Started | P0 | |
+| WhatsApp notifications | Notification | Not Started | P0 | Grouped by schedule |
+| Telegram notifications | Notification | Not Started | P0 | Grouped by schedule |
 | Quiet hours | Notification | Not Started | P1 | |
+| Notification retry logic | Notification | Not Started | P1 | 3 retries with exponential backoff |
+| PRN on-demand notification | Notification | Not Started | P1 | User requests notification |
 | Dose logging (manual) | Dose | Not Started | P0 | |
 | Auto dose logging | Dose | Not Started | P1 | |
+| Group-level dose logging | Dose | Not Started | P0 | Mark all meds in schedule as taken |
 | Dose history view | Dose | Not Started | P0 | |
 | Calendar view | Dose | Not Started | P1 | |
 | Health check endpoint | Infrastructure | Completed | P0 | `/healthz` exists |
@@ -432,4 +485,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 1.0 | 2026-03-14 | Initial SRS: auth, profiles, PBAC, medications, reminders, notifications, dose logging |
+| 1.0 | 2026-03-14 | MedMinder v1.0: auth, profiles with meal schedules, extensible frequency types (schedule/daily/weekly/monthly/interval/prn), PRN medications, schedule-based reminders, grouped notifications, dose logging |
