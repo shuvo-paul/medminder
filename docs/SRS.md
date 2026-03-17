@@ -83,7 +83,7 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 
 #### 3.1.1 Registration
 - **REQ-AUTH-001**: The system shall allow users to register with email and password.
-- **REQ-AUTH-002**: The system shall validate email format and require minimum password length of 8 characters.
+- **REQ-AUTH-002**: The system shall validate email format and require minimum password length of 8 characters with at least 1 uppercase letter, 1 lowercase letter, and 1 number.
 - **REQ-AUTH-003**: The system shall return a JWT access token and refresh token upon successful registration.
 
 #### 3.1.2 Login
@@ -126,7 +126,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ##### 3.1.7.3 Connecting OAuth to Existing Account
 - **REQ-OAUTH-006**: Users with email/password accounts shall be able to link their Google account.
-- **REQ-OAUTH-007**: Users shall be able to link only one Google account to their account.
+- **REQ-OAUTH-007**: Users shall be able to link only one Google account to their account (but may link other OAuth providers like GitHub, Apple).
 - **REQ-OAUTH-008**: Users shall be able to unlink their Google account.
 - **REQ-OAUTH-009**: The system shall record the timestamp when an OAuth provider was connected.
 
@@ -143,6 +143,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-EMAIL-001**: Users shall be able to change their login email address.
 - **REQ-EMAIL-002**: Changing email shall require password confirmation.
 - **REQ-EMAIL-003**: The system shall send an email verification link to the new email address.
+- **REQ-EMAIL-003b**: Email change verification tokens shall expire after 24 hours.
 - **REQ-EMAIL-004**: The old email shall remain active until the new email is verified.
 - **REQ-EMAIL-005**: If the new email is already registered, the system shall reject the change.
 - **REQ-EMAIL-006**: Users with OAuth-linked accounts shall be able to change their email (OAuth account remains linked).
@@ -328,7 +329,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ### 4.2 Security
 - **REQ-SEC-001**: All passwords shall be hashed using bcrypt with cost factor 12.
-- **REQ-SEC-002**: All API endpoints shall require authentication except `/healthz`, `/api/auth/register`, `/api/auth/login`.
+- **REQ-SEC-002**: All API endpoints shall require authentication except `/healthz`, `/api/auth/register`, `/api/auth/login`, `/api/auth/oauth/{provider}`, `/api/auth/oauth/{provider}/callback`, `/api/auth/refresh`, `/api/auth/email/verify`, `/api/auth/password/reset`.
 - **REQ-SEC-003**: All data in transit shall be encrypted using TLS 1.2 or higher.
 - **REQ-SEC-004**: JWT tokens shall include expiration claims.
 - **REQ-SEC-005**: Guest access shall use cryptographically random refresh tokens valid for 30 days.
