@@ -110,6 +110,44 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 - **REQ-AUTH-016**: Users shall not receive medication reminders until email is verified.
 - **REQ-AUTH-017**: The system shall allow resending verification email (max 3 per day).
 
+#### 3.1.7 OAuth Authentication (Extensible)
+
+The system shall support OAuth 2.0 authentication with multiple providers.
+
+##### 3.1.7.1 Supported Providers
+- **REQ-OAUTH-001**: The system shall support Google as an OAuth provider.
+- **REQ-OAUTH-001b**: The OAuth architecture shall be extensible to support additional providers (e.g., GitHub, Apple) without database migrations.
+
+##### 3.1.7.2 OAuth Registration/Login
+- **REQ-OAUTH-002**: The system shall allow users to register using their Google account.
+- **REQ-OAUTH-003**: The system shall automatically create a user account upon successful OAuth login if no account exists.
+- **REQ-OAUTH-004**: The system shall return JWT access token and refresh token upon successful OAuth login.
+- **REQ-OAUTH-005**: Users registering via OAuth shall not be required to set a password.
+
+##### 3.1.7.3 Connecting OAuth to Existing Account
+- **REQ-OAUTH-006**: Users with email/password accounts shall be able to link their Google account.
+- **REQ-OAUTH-007**: Users shall be able to link only one Google account to their account.
+- **REQ-OAUTH-008**: Users shall be able to unlink their Google account.
+- **REQ-OAUTH-009**: The system shall record the timestamp when an OAuth provider was connected.
+
+##### 3.1.7.4 Setting Password for OAuth Users
+- **REQ-OAUTH-010**: Users who registered via OAuth shall be able to set a password.
+- **REQ-OAUTH-011**: Users shall be able to change their password after setting it.
+- **REQ-OAUTH-012**: Password requirements (8+ characters, uppercase, lowercase, number) shall apply to OAuth users who set a password.
+
+##### 3.1.7.5 Token Handling
+- **REQ-OAUTH-013**: OAuth callback shall redirect to the frontend with tokens in URL parameters.
+- **REQ-OAUTH-014**: The system shall support linking OAuth accounts that share the same email address.
+
+#### 3.1.8 Email Management
+- **REQ-EMAIL-001**: Users shall be able to change their login email address.
+- **REQ-EMAIL-002**: Changing email shall require password confirmation.
+- **REQ-EMAIL-003**: The system shall send an email verification link to the new email address.
+- **REQ-EMAIL-004**: The old email shall remain active until the new email is verified.
+- **REQ-EMAIL-005**: If the new email is already registered, the system shall reject the change.
+- **REQ-EMAIL-006**: Users with OAuth-linked accounts shall be able to change their email (OAuth account remains linked).
+- **REQ-EMAIL-007**: Users shall be able to cancel pending email changes before verification.
+
 ### 3.2 Profile Management
 
 #### 3.2.1 Profile CRUD
@@ -328,6 +366,15 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 | POST | /api/auth/login | User login |
 | POST | /api/auth/refresh | Refresh access token |
 | POST | /api/auth/logout | User logout |
+| GET | /api/auth/oauth/{provider} | Redirect to OAuth provider (e.g., google) |
+| GET | /api/auth/oauth/{provider}/callback | OAuth callback → redirect to frontend with tokens |
+| POST | /api/auth/connect/{provider} | Link OAuth provider to existing account |
+| POST | /api/auth/disconnect/{provider} | Unlink OAuth provider from account |
+| POST | /api/auth/set-password | Set password for OAuth user |
+| PUT | /api/auth/password | Change password |
+| PUT | /api/auth/email | Request email change |
+| POST | /api/auth/email/verify | Verify new email with token |
+| POST | /api/auth/email/cancel | Cancel pending email change |
 | GET | /api/profiles | List user profiles |
 | POST | /api/profiles | Create profile |
 | GET | /api/profiles/{id} | Get profile details |
@@ -416,7 +463,15 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 ## 6. Data Models (Overview)
 
 ### 6.1 User
-- id, email, password_hash, timezone (e.g., "America/New_York"), email_verified (boolean), created_at, updated_at
+- id, email, password_hash (nullable), timezone (e.g., "America/New_York"), email_verified (boolean), is_oauth_user (boolean), created_at, updated_at
+
+### 6.1b OAuthAccount (Extensible - supports multiple providers)
+- id, user_id (FK), provider (e.g., "google", "github", "apple"), provider_user_id, connected_at, created_at
+- UNIQUE(provider, provider_user_id)
+- UNIQUE(user_id, provider)
+
+### 6.1c EmailChangeRequest
+- id, user_id (FK), new_email, verification_token, expires_at, created_at
 
 ### 6.2 Profile
 - id, user_id, name, avatar_url, date_of_birth, medical_conditions, created_at, updated_at
@@ -454,6 +509,10 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Email/password registration | Auth | Not Started | P0 | |
 | JWT login/logout | Auth | Not Started | P0 | |
 | Token refresh | Auth | Not Started | P0 | |
+| Google OAuth registration/login | Auth | Not Started | P0 | Extensible (oauth_accounts table) |
+| Connect Google to existing account | Auth | Not Started | P0 | |
+| Set password for OAuth users | Auth | Not Started | P0 | |
+| Email change with verification | Auth | Not Started | P0 | |
 | Profile CRUD | Profile | Not Started | P0 | |
 | Profile meal schedule setup | Profile | Not Started | P0 | Breakfast, Lunch, Dinner time prompts |
 | Profile sharing with PBAC | Profile | Not Started | P1 | Granular permissions (medication:read/write, reminder:read/write, dose:read/write, prescription:read/write, profile:read/write/share/admin), invitation flow with user-configurable expiration (1/3/7 days) |
