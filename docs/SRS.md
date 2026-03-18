@@ -147,7 +147,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-EMAIL-004**: The old email shall remain active until the new email is verified.
 - **REQ-EMAIL-005**: If the new email is already registered, the system shall reject the change.
 - **REQ-EMAIL-006**: Users with OAuth-linked accounts shall be able to change their email (OAuth account remains linked).
-- **REQ-EMAIL-007**: Users shall be able to cancel pending email changes before verification.
+- **REQ-EMAIL-007**: Users shall be able to cancel pending email changes before verification via `POST /api/auth/email/cancel`.
 
 ### 3.2 Profile Management
 
@@ -359,7 +359,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ---
 
-## 5. API Endpoints Overview
+## 6. API Endpoints Overview
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -411,7 +411,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ---
 
-## 5.1 API Response Format
+## 6.1 API Response Format
 
 All API responses shall follow a consistent format:
 
@@ -461,7 +461,7 @@ All API responses shall follow a consistent format:
 
 All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be in UTC; display times shall be converted to the user's configured timezone.
 
-## 6. Data Models (Overview)
+## 5. Data Models (Overview)
 
 ### 6.1 User
 - id, email, password_hash (nullable), timezone (e.g., "America/New_York"), email_verified (boolean), is_oauth_user (boolean), created_at, updated_at
@@ -492,13 +492,13 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 ### 6.7 Reminder
 - id, medication_id, scheduled_at, enabled, snooze_minutes, created_at, updated_at
 
-### 6.7 Dose
+### 6.8 Dose
 - id, reminder_id, scheduled_at, status (taken/skipped/snoozed), notes, logged_at
 
-### 6.8 NotificationPreference
+### 6.9 NotificationPreference
 - id, profile_id, whatsapp_enabled, telegram_enabled, telegram_chat_id, quiet_hours_start, quiet_hours_end, advance_minutes
 
-### 6.9 Prescription
+### 6.10 Prescription
 - id, profile_id, medication_id (nullable), file_url, file_type, file_size, uploaded_at
 
 ---
@@ -527,7 +527,7 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Medication auto-suggestion | Medication | Not Started | P2 | Local DB with DGDA data (monthly cron + admin alerts) |
 | Schedule-based reminders | Reminder | Not Started | P0 | Auto-generated from schedules |
 | Reminder snooze | Reminder | Not Started | P0 | |
-| WhatsApp notifications | Notification | Not Started | P0 | Grouped by schedule |
+| WhatsApp notifications | Notification | Not Started | P1 | Grouped by schedule |
 | Telegram notifications | Notification | Not Started | P0 | Grouped by schedule |
 | Quiet hours | Notification | Not Started | P1 | |
 | Notification retry logic | Notification | Not Started | P1 | 3 retries with exponential backoff |
