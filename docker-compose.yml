@@ -39,6 +39,22 @@ services:
       db:
         condition: service_healthy
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    command: sh -c "pnpm install && pnpm dev"
+    volumes:
+      - ./web:/app/web
+      - web_node_modules:/app/web/node_modules
+    environment:
+      API_URL: http://app:8080
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      - app
+
 volumes:
   postgres_data:
   air_tmp:
+  web_node_modules:

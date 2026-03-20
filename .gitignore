@@ -28,4 +28,5 @@ config.local
 bin/
 tmp/
 coverage.out
-cmd/server/web/dist/
+cmd/server/web/dist/*
+!cmd/server/web/dist/.gitkeep
