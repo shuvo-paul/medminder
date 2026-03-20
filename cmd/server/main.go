@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -46,12 +47,14 @@ func main() {
 		}
 	})
 
-	// Service worker — must be served with special headers
-	router.Get("/sw.js", func(w http.ResponseWriter, r *http.Request) {
+	// Service worker — must be served with special headers for both GET and HEAD.
+	swHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Service-Worker-Allowed", "/")
 		http.FileServerFS(distFS).ServeHTTP(w, r)
-	})
+	}
+	router.Get("/sw.js", swHandler)
+	router.Head("/sw.js", swHandler)
 
 	// SPA — serve embedded static files at root with index.html fallback
 	router.Handle("/*", spaHandler(distFS))
@@ -74,10 +77,17 @@ func spaHandler(fsys fs.FS) http.Handler {
 		}
 		f, err := fsys.Open(path)
 		if err != nil {
-			// Not a static asset — serve index.html for SPA routing
-			r2 := r.Clone(r.Context())
-			r2.URL.Path = "/index.html"
-			fileServer.ServeHTTP(w, r2)
+			// Not a static asset — serve index.html directly for SPA routing.
+			// We read and copy the file instead of using FileServerFS to avoid
+			// the 301 redirect that FileServer issues for index.html paths.
+			indexFile, indexErr := fsys.Open("index.html")
+			if indexErr != nil {
+				http.Error(w, "index.html not found", http.StatusInternalServerError)
+				return
+			}
+			defer indexFile.Close()
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			io.Copy(w, indexFile) //nolint:errcheck
 			return
 		}
 		f.Close()
