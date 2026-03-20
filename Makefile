@@ -11,7 +11,7 @@ build:
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -o $(BIN) $(CMD)
 
-run:
+run: web-build
 	$(GO) run $(CMD)
 
 test:
