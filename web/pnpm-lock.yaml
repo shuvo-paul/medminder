@@ -8,6 +8,11 @@ onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - esbuild
 
+dependencies:
+  '@skeletonlabs/skeleton':
+    specifier: ^4.13.0
+    version: 4.13.0(tailwindcss@4.1.18)
+
 devDependencies:
   '@sveltejs/adapter-auto':
     specifier: ^7.0.0
@@ -455,6 +460,14 @@ packages:
     os: [win32]
     dev: true
     optional: true
+
+  /@skeletonlabs/skeleton@4.13.0(tailwindcss@4.1.18):
+    resolution: {integrity: sha512-X/h1MJsHx5FLjWmprLD5umo6NxX0JOeHwjgwdsf0t9H9cdEWpYu4Z/gre2Efzn0nl5rezZYvdEsk+OVXpM4mPg==}
+    peerDependencies:
+      tailwindcss: ^4.0.0
+    dependencies:
+      tailwindcss: 4.1.18
+    dev: false
 
   /@standard-schema/spec@1.1.0:
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -1103,7 +1116,6 @@ packages:
 
   /tailwindcss@4.1.18:
     resolution: {integrity: sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw==}
-    dev: true
 
   /tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}

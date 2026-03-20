@@ -24,8 +24,11 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"esbuild",
-			"@tailwindcss/oxide"
+			"@tailwindcss/oxide",
+			"esbuild"
 		]
+	},
+	"dependencies": {
+		"@skeletonlabs/skeleton": "^4.13.0"
 	}
 }
