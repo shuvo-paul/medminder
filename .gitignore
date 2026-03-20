@@ -28,3 +28,4 @@ config.local
 bin/
 tmp/
 coverage.out
+cmd/server/web/dist/
