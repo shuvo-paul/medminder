@@ -16,7 +16,7 @@ import (
 	"github.com/shuvo-paul/medminder/internal/common/log"
 )
 
-//go:embed web/dist
+//go:embed all:web/dist
 var webDist embed.FS
 
 func main() {
