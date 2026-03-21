@@ -129,46 +129,10 @@ import (
 - Mock external dependencies
 - Tests should be in same package with `_test.go` suffix
 
-```go
-func TestFunction(t *testing.T) {
-    tests := []struct {
-        name     string
-        input    string
-        expected string
-        wantErr  bool
-    }{
-        {"valid case", "input", "output", false},
-        {"error case", "bad", "", true},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := Function(tt.input)
-            if tt.wantErr {
-                assert.Error(t, err)
-                return
-            }
-            assert.NoError(t, err)
-            assert.Equal(t, tt.expected, got)
-        })
-    }
-}
-```
-
 ### Documentation
 - All exported types and functions must have doc comments
 - Comments start with the name being documented
 - Use complete sentences with proper punctuation
-
-```go
-// UserService handles user-related business logic.
-type UserService struct {
-    repo UserRepository
-}
-
-// GetUser retrieves a user by their ID.
-func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
-```
 
 ## Boundaries
 - **Never commit directly to `main`** — all changes must go through a feature or fix branch and a PR
