@@ -1,6 +1,6 @@
 # MedMinder
 
-A medication reminder application built with Go and SvelteKit.
+A medication reminder application built with Go and SvelteKit (shadcn-svelte, Tailwind CSS v4, PWA).
 
 ## Development
 
@@ -27,7 +27,7 @@ Open `http://localhost:5173`. The Go server hot-reloads on `.go` changes via Air
 docker compose up --build
 ```
 
-Same result — Go API on `:8080`, frontend on `:5173` — with Postgres included.
+Runs Go + Node.js in a single container alongside Postgres. Go API on `:8080`, Vite dev server on `:5173`.
 
 To override any defaults, copy `.env.example` to `.env` and rerun `docker compose up --build`.
 
