@@ -35,7 +35,7 @@ services:
       DB_USER: ${DB_USER:-medminder}
       DB_PASSWORD: ${DB_PASSWORD:-medminder}
       DB_NAME: ${DB_NAME:-medminder}
-      DB_SSLMODE: ${DB_SSLMODE:-false}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
     ports:
       - "${APP_PORT:-8080}:8080"
       - "${WEB_PORT:-5173}:5173"
