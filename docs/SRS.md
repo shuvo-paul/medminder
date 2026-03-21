@@ -30,6 +30,10 @@ MedMinder is a monolithic full-stack Go application with embedded Svelte fronten
 | Refill | The act of replenishing a medication supply (obtaining more tablets, capsules, etc.) |
 | Refill Threshold | The quantity level at which a low-supply alert is triggered |
 | Projected Depletion Date | The estimated date when a medication's supply will run out, calculated from current quantity and dosing frequency |
+| AI Provider | An external large language model (LLM) service (e.g., Google Gemini) used to extract structured data from unstructured documents |
+| BYOK | Bring Your Own Key — a model where the user supplies their own third-party API key; the system stores it encrypted and uses it on the user's behalf |
+| Extraction | The automated process of identifying structured medication details from a prescription document using an AI Provider |
+| Medication Candidate | A structured suggestion produced by an extraction job, representing a potential medication record pending user review and confirmation |
 | DGDA | Directorate General of Drug Administration (Bangladesh) |
 | SPA | Single-Page Application |
 | PWA | Progressive Web Application — a web app installable on device with offline support |
@@ -84,6 +88,7 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 10. Dose history, filtering, and calendar view
 11. Progressive Web App (PWA) — installable on mobile and desktop, offline-capable
 12. Offline write queue with background sync for dose logging, batch logging, notes, and snooze
+13. AI-assisted prescription extraction — users may connect a personal AI provider API key and trigger extraction of medication candidates from uploaded prescriptions for review and confirmation
 
 ### 2.5 System Architecture
 
@@ -481,6 +486,38 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-REFILL-015**: If `current_quantity`, `dosage_amount`, or frequency changes, the system shall recalculate `projected_depletion_date` and reschedule the refill reminder accordingly.
 - **REQ-REFILL-016**: If `projected_depletion_date` cannot be calculated (e.g., PRN medications with no fixed frequency), refill reminders shall be disabled for that medication.
 
+### 3.9 AI-Assisted Prescription Extraction
+
+#### 3.9.1 AI Provider Management
+
+- **REQ-EXTRACT-001**: An authenticated user shall be able to register an AI provider connection by supplying a `provider` name and `api_key` (`POST /api/ai-providers`).
+- **REQ-EXTRACT-002**: The system shall store the API key encrypted at rest (AES-256-GCM). The plaintext key shall never be returned in any API response after registration.
+- **REQ-EXTRACT-003**: A user may hold at most one active connection per provider. Registering a second key for the same provider shall replace the existing key.
+- **REQ-EXTRACT-004**: The system shall initially support `gemini` as the only valid provider value. The architecture shall be extensible to add providers without database schema changes.
+- **REQ-EXTRACT-005**: An authenticated user shall be able to list their connected providers — showing `provider` and `connected_at` but never the API key (`GET /api/ai-providers`).
+- **REQ-EXTRACT-006**: An authenticated user shall be able to remove a provider connection (`DELETE /api/ai-providers/{providerId}`). Removal does not affect previously confirmed medications.
+
+#### 3.9.2 Prescription Extraction
+
+- **REQ-EXTRACT-007**: Users with `prescription:read` permission on a profile shall be able to trigger extraction on an uploaded prescription (`POST /api/prescriptions/{prescriptionId}/extract`). The requesting user must have at least one AI provider connection configured.
+- **REQ-EXTRACT-008**: The system shall submit the prescription file to the user's configured AI provider using the stored (decrypted) API key and request structured medication data.
+- **REQ-EXTRACT-009**: A successful extraction response shall return an ordered list of medication candidates. Each candidate shall include the following fields where identifiable:
+  - `name` (string)
+  - `dosage_amount` (decimal, nullable)
+  - `dosage_unit` (string, nullable — mapped to a supported unit from REQ-MED-002 where possible, otherwise the raw extracted string)
+  - `form` (string, nullable — mapped to a supported form from REQ-MED-003 where possible, otherwise raw string)
+  - `frequency_type` (string, nullable — mapped to a supported type from REQ-MED-007, or null if not determinable)
+  - `frequency_notes` (string, nullable — raw frequency text from the prescription, e.g., "twice daily after meals")
+  - `prescriber_name` (string, nullable)
+  - `prescriber_clinic` (string, nullable)
+  - `prescriber_phone` (string, nullable)
+- **REQ-EXTRACT-010**: Extraction results are suggestions only. The system shall not automatically create medication records.
+- **REQ-EXTRACT-011**: A user with `medication:write` permission on the profile shall be able to confirm one or more candidates (`POST /api/prescriptions/{prescriptionId}/extractions/{extractionId}/confirm`), which creates medication records subject to the same validation as REQ-MED-001 through REQ-MED-008.
+- **REQ-EXTRACT-012**: The system shall handle extraction failures gracefully, returning a descriptive error without creating records, for: unreachable provider, invalid/revoked API key, unreadable prescription file, and unparseable provider response.
+- **REQ-EXTRACT-013**: Each prescription may have at most one stored extraction result at a time. Re-triggering extraction replaces the previous result and its unconfirmed candidates.
+- **REQ-EXTRACT-014**: The system shall record the provider name and model identifier (if returned by the provider) in the extraction result for auditability.
+- **REQ-EXTRACT-015**: Extraction is performed synchronously. If the provider does not respond within 30 seconds, the request shall time out with an error. No background retry is performed; the user may re-trigger manually.
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -507,6 +544,8 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-SEC-007**: The system shall log all authentication events (login, logout, password reset, failed login attempts, OAuth connections) for audit purposes in an `audit_logs` table.
 - **REQ-SEC-008**: All API requests shall include a `X-Request-ID` header (server-generated if not provided by client) for traceability.
 - **REQ-SEC-009**: The server shall generate and securely store a VAPID key pair (EC P-256) at startup if one does not exist. The private key shall never be exposed via any API endpoint. The public key is exposed via `GET /api/push/vapid-public-key`.
+- **REQ-SEC-010**: AI provider API keys shall be encrypted using AES-256-GCM before storage. The encryption key shall be loaded from server configuration and shall never be stored in the database.
+- **REQ-SEC-011**: The extraction endpoint (`POST /api/prescriptions/{prescriptionId}/extract`) shall be rate-limited to 10 requests per hour per authenticated user.
 
 ### 4.3 Validation
 
@@ -622,6 +661,19 @@ Per-device Web Push subscription. A user may have multiple active subscriptions.
 
 - `id`, `medication_id` (FK → Medication), `quantity_added` (decimal), `notes` (nullable), `logged_by_user_id` (FK → User), `logged_at` (UTC timestamp)
 
+### 5.19 AIProvider
+
+Stores a user's connection to an external AI provider. One record per user per provider.
+
+- `id` (UUID), `user_id` (FK → User), `provider` (string — e.g., `gemini`; validated at application layer for extensibility without schema changes), `encrypted_api_key` (text — AES-256-GCM ciphertext including nonce), `connected_at` (UTC timestamp), `updated_at` (UTC timestamp)
+- UNIQUE(`user_id`, `provider`)
+
+### 5.20 ExtractionResult
+
+Stores the result of a single AI extraction job for a prescription. At most one record per prescription at a time.
+
+- `id` (UUID), `prescription_id` (FK → Prescription), `performed_by_user_id` (FK → User), `ai_provider` (string — provider name used, e.g., `gemini`), `ai_model` (string, nullable — model identifier returned by provider), `candidates` (JSONB — ordered array of candidate objects per REQ-EXTRACT-009), `status` (enum: `success` | `failed`), `error_message` (text, nullable), `created_at` (UTC timestamp)
+
 ### 5.16 MedicineDatabase
 
 Local copy of DGDA medicine data used for auto-suggestion.
@@ -711,6 +763,9 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | POST | /api/profiles/{id}/prescriptions | Yes | Upload prescription (`prescription:write`) |
 | GET | /api/prescriptions/{prescriptionId} | Yes | Download prescription (`prescription:read`) |
 | DELETE | /api/prescriptions/{prescriptionId} | Yes | Delete prescription (`prescription:write`) |
+| POST | /api/prescriptions/{prescriptionId}/extract | Yes | Trigger AI extraction (`prescription:read`; requires AI provider configured) |
+| GET | /api/prescriptions/{prescriptionId}/extractions/latest | Yes | Get most recent extraction result (`prescription:read`) |
+| POST | /api/prescriptions/{prescriptionId}/extractions/{extractionId}/confirm | Yes | Confirm candidates to create medications (`medication:write`) |
 
 ### 6.6 Reminders
 
@@ -754,6 +809,14 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | POST | /api/webhooks/whatsapp | Signature | WhatsApp incoming webhook |
 | POST | /api/webhooks/telegram | Signature | Telegram incoming webhook |
 | GET | /healthz | No | Health check (DB status, uptime, version) |
+
+### 6.11 AI Providers
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/ai-providers | Yes | List user's connected AI providers (keys never returned) |
+| POST | /api/ai-providers | Yes | Register or replace an AI provider API key |
+| DELETE | /api/ai-providers/{providerId} | Yes | Remove an AI provider connection |
 
 ---
 
@@ -873,6 +936,9 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Offline write queue | Frontend | Not Started | P1 | Dose log, batch log, notes, snooze; durable in IndexedDB |
 | Background sync (flush queue) | Frontend | Not Started | P1 | Background Sync API; 3 retries; last-write-wins conflict resolution |
 | Persistent storage request | Frontend | Not Started | P2 | navigator.storage.persist() on first install |
+| AI provider connection (BYOK) | AI Extraction | Not Started | P2 | One key per provider per user; AES-256-GCM; Gemini only initially |
+| Prescription extraction | AI Extraction | Not Started | P2 | Synchronous; 30s timeout; one result per prescription; replaces on re-trigger |
+| Extraction candidate confirmation | AI Extraction | Not Started | P2 | Requires `medication:write`; full medication validation applied |
 
 ---
 
@@ -882,3 +948,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 |---------|------|-------------|
 | 1.0 | 2026-03-19 | Initial release |
 | 1.1 | 2026-03-21 | Add Medication Refill Management (Section 3.8) |
+| 1.2 | 2026-03-21 | Add AI-Assisted Prescription Extraction (Section 3.9, Section 5.19–5.20, Section 6.11) |
