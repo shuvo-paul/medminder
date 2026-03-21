@@ -30,3 +30,7 @@ tmp/
 coverage.out
 cmd/server/web/dist/*
 !cmd/server/web/dist/.gitkeep
+
+# Local/OS artifacts
+.DS_Store
+web/.pnpm-store/

@@ -1,3 +1,0 @@
-FROM node:lts
-RUN corepack enable
-WORKDIR /app/web

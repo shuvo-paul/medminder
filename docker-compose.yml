@@ -21,38 +21,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: make dev
+    command: sh -c "pnpm --prefix web install && make start"
     volumes:
       - .:/app
       - air_tmp:/app/tmp
+      - ./web:/app/web
+      - web_node_modules:/app/web/node_modules
     environment:
+      CI: "true"
       APP_PORT: ${APP_PORT:-8080}
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: ${DB_USER:-medminder}
       DB_PASSWORD: ${DB_PASSWORD:-medminder}
       DB_NAME: ${DB_NAME:-medminder}
-      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_SSLMODE: ${DB_SSLMODE:-false}
     ports:
       - "${APP_PORT:-8080}:8080"
+      - "${WEB_PORT:-5173}:5173"
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    command: sh -c "pnpm install && pnpm dev"
-    volumes:
-      - ./web:/app/web
-      - web_node_modules:/app/web/node_modules
-    environment:
-      API_URL: http://app:8080
-    ports:
-      - "${WEB_PORT:-5173}:5173"
-    depends_on:
-      - app
 
 volumes:
   postgres_data:
