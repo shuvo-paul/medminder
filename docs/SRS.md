@@ -35,6 +35,7 @@ MedMinder is a monolithic full-stack Go application with embedded Svelte fronten
 | BYOK | Bring Your Own Key — a model where the user supplies their own third-party API key; the system stores it encrypted and uses it on the user's behalf |
 | Extraction | The automated process of identifying structured medication details from a prescription document using an AI Provider |
 | Medication Candidate | A structured suggestion produced by an extraction job, representing a potential medication record pending user review and confirmation |
+| Follow-up Appointment | A future visit to a prescriber requested at the time of a consultation, recorded by the user so the system can send an advance alert |
 | DGDA | Directorate General of Drug Administration (Bangladesh) |
 | SPA | Single-Page Application |
 | PWA | Progressive Web Application — a web app installable on device with offline support |
@@ -90,6 +91,7 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 11. Progressive Web App (PWA) — installable on mobile and desktop, offline-capable
 12. Offline write queue with background sync for dose logging, batch logging, notes, and snooze
 13. AI-assisted prescription extraction — users may connect a personal AI provider API key and trigger extraction of medication candidates from uploaded prescriptions for review and confirmation
+14. Follow-up appointment alerts — track doctor-requested return visits and receive advance notifications
 
 ### 2.5 System Architecture
 
@@ -528,6 +530,24 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-PRESCRIBER-005**: When uploading a prescription, the user must supply either an existing `prescriber_id` or a new prescriber object (`name`, `clinic`, `phone`). If a new prescriber object is supplied, the system shall create the Prescriber record and link it to the prescription atomically.
 - **REQ-PRESCRIBER-006**: When AI extraction returns prescriber fields (`prescriber_name`, `prescriber_clinic`, `prescriber_phone`), the confirmation response shall include those fields so the client can pre-populate a new-prescriber form or let the user select an existing Prescriber. Prescriber creation or linking is resolved at confirmation time per REQ-PRESCRIBER-005.
 
+### 3.11 Follow-up Appointment Alerts
+
+#### 3.11.1 Appointment Management
+
+- **REQ-FOLLOWUP-001**: Users with `prescription:write` permission shall be able to create a follow-up appointment record (`POST /api/profiles/{id}/follow-ups`), specifying `scheduled_date` (required, ISO 8601 date), `prescriber_id` (optional FK → Prescriber), `prescription_id` (optional FK → Prescription), `notes` (optional), and `advance_notice_days` (optional integer, default 3).
+- **REQ-FOLLOWUP-002**: Users with `prescription:read` permission shall be able to list all follow-up appointments for a profile (`GET /api/profiles/{id}/follow-ups`), ordered by `scheduled_date` ascending. Each record shall include a computed `is_overdue` boolean (true when `scheduled_date` is in the past and `status` is `upcoming`).
+- **REQ-FOLLOWUP-003**: Users with `prescription:write` permission shall be able to update a follow-up appointment's `scheduled_date`, `prescriber_id`, `prescription_id`, `notes`, `advance_notice_days`, or `status` (`PUT /api/profiles/{id}/follow-ups/{followUpId}`). Changing `scheduled_date` or `advance_notice_days` shall reschedule the pending alert.
+- **REQ-FOLLOWUP-004**: Users with `prescription:write` permission shall be able to delete a follow-up appointment (`DELETE /api/profiles/{id}/follow-ups/{followUpId}`).
+
+#### 3.11.2 Follow-up Notifications
+
+- **REQ-FOLLOWUP-005**: The system shall send a follow-up alert notification at 09:00 in the profile's timezone on `scheduled_date − advance_notice_days`. If `advance_notice_days` is 0, the alert fires at 09:00 on `scheduled_date` itself.
+- **REQ-FOLLOWUP-006**: Follow-up alerts shall be delivered via the profile's configured notification channels (WhatsApp, Telegram, Web Push) and shall respect quiet hours settings (REQ-NOT-008).
+- **REQ-FOLLOWUP-007**: The alert message shall include the appointment date, prescriber name (if linked), and notes (if present).
+- **REQ-FOLLOWUP-008**: Alerts shall only be sent for follow-up appointments with `status = upcoming`. Appointments marked `completed` or `dismissed` shall not trigger alerts.
+- **REQ-FOLLOWUP-009**: The system shall not resend an alert for the same follow-up appointment once it has been dispatched. If `scheduled_date` or `advance_notice_days` is updated after an alert has already fired, no second alert is sent unless the new alert date is in the future.
+- **REQ-FOLLOWUP-010**: The system shall log all follow-up notification delivery attempts in the `notification_logs` table (with `reminder_id = null`).
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -690,6 +710,12 @@ Profile-scoped record of a healthcare professional who issues prescriptions.
 
 - `id`, `profile_id` (FK → Profile), `name`, `clinic` (nullable), `phone` (nullable), `created_at`, `updated_at`
 
+### 5.22 FollowUpAppointment
+
+Doctor-requested return visit recorded against a profile.
+
+- `id`, `profile_id` (FK → Profile), `prescriber_id` (FK → Prescriber, nullable), `prescription_id` (FK → Prescription, nullable), `scheduled_date` (date), `notes` (nullable text), `advance_notice_days` (integer, default 3), `status` (enum: `upcoming` | `completed` | `dismissed`), `alert_sent_at` (UTC timestamp, nullable — set when the alert is dispatched), `created_at`, `updated_at`
+
 ### 5.16 MedicineDatabase
 
 Local copy of DGDA medicine data used for auto-suggestion.
@@ -843,6 +869,15 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | PUT | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Update prescriber (`prescription:write`) |
 | DELETE | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Delete prescriber (`prescription:write`) |
 
+### 6.13 Follow-up Appointments
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/profiles/{id}/follow-ups | Yes | List follow-up appointments (`prescription:read`) |
+| POST | /api/profiles/{id}/follow-ups | Yes | Create follow-up appointment (`prescription:write`) |
+| PUT | /api/profiles/{id}/follow-ups/{followUpId} | Yes | Update follow-up appointment (`prescription:write`) |
+| DELETE | /api/profiles/{id}/follow-ups/{followUpId} | Yes | Delete follow-up appointment (`prescription:write`) |
+
 ---
 
 ## 7. API Response Format
@@ -965,6 +1000,8 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Prescription extraction | AI Extraction | Not Started | P2 | Synchronous; 30s timeout; one result per prescription; replaces on re-trigger |
 | Extraction candidate confirmation | AI Extraction | Not Started | P2 | Requires `medication:write`; full medication validation applied |
 | Prescriber management | Prescription | Not Started | P1 | Profile-scoped; required link on every prescription; create-or-link on upload |
+| Follow-up appointment CRUD | Appointment | Not Started | P2 | Profile-scoped; optional prescriber/prescription link |
+| Follow-up appointment alerts | Notification | Not Started | P2 | Configurable advance notice; respects quiet hours; fires at 09:00 profile TZ |
 
 ---
 
@@ -976,3 +1013,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | 1.1 | 2026-03-21 | Add Medication Refill Management (Section 3.8) |
 | 1.2 | 2026-03-21 | Add AI-Assisted Prescription Extraction (Section 3.9, Section 5.19–5.20, Section 6.11) |
 | 1.3 | 2026-03-21 | Add Prescriber entity (Section 3.10, Section 5.21, Section 6.12); prescriptions require Prescriber; Medication references Prescriber via FK |
+| 1.4 | 2026-03-21 | Add Follow-up Appointment Alerts (Section 3.11, Section 5.22, Section 6.13) |
