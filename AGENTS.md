@@ -1,32 +1,72 @@
 # AGENTS.md - Coding Guidelines for MedMinder
 
 ## Project Overview
-MedMinder is a medication reminder application built with Go 1.25.0.
+MedMinder is a medication reminder application built with Go 1.25.0 and SvelteKit.
 Module: `github.com/shuvo-paul/medminder`
 
 ### Tech Stack
+
+**Backend**
 - HTTP router: [Chi](https://github.com/go-chi/chi)
 - Database migrations: [golang-migrate](https://github.com/golang-migrate/migrate)
 - Query generation: [sqlc](https://github.com/sqlc-dev/sqlc)
 - Testing/assertions: [stretchr/testify](https://github.com/stretchr/testify)
+- Live reload: [Air](https://github.com/air-verse/air)
+
+**Frontend**
+- Framework: [SvelteKit](https://kit.svelte.dev) (SPA mode, adapter-static)
+- Build tool: [Vite](https://vitejs.dev)
+- Styling: [Tailwind CSS v4](https://tailwindcss.com)
+- Components: [shadcn-svelte](https://www.shadcn-svelte.com)
+- Icons: [Lucide Svelte](https://lucide.dev)
+- PWA: [vite-plugin-pwa](https://vite-pwa-org.netlify.app)
+- Package manager: pnpm
+- Build output: `cmd/server/web/dist/` (embedded into Go binary via `go:embed`)
 
 ## Build/Run/Test Commands
 
 Prefer the Makefile targets so every environment uses the same workflow:
 
 ```bash
+# Development
+make start         # Go (Air :8080) + Vite (:5173) together — Ctrl+C stops both
+make dev           # Go API only with Air hot-reload (:8080)
+make web-dev       # Frontend only with Vite HMR (:5173)
+
+# Go
 make tidy          # go mod tidy
 make build         # go build -o bin/medminder cmd/server/main.go
-make run           # go run cmd/server/main.go
+make run           # go run cmd/server/main.go (requires prior embed-frontend)
 make test          # go test ./...
 make test-cover    # go test -cover ./...
-make dev           # air -c .air.toml (live reload)
 make clean         # remove bin/
 
-docker compose up --build   # containerized dev stack (uses make dev)
+# Frontend
+make web-install   # pnpm install
+make web-build     # pnpm build
+make web-preview   # pnpm preview
+
+# Production
+make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
+
+# Docker (equivalent to make start + postgres)
+docker compose up --build
 ```
 
 If you need to run commands manually, stick to the equivalents shown above (e.g., `go test ./...`, `go test -run TestFunctionName ./...`).
+
+### Dev workflow
+
+**Local:**
+```bash
+make web-install   # first time only
+make start         # browser: http://localhost:5173
+```
+
+**Docker:**
+```bash
+docker compose up --build   # browser: http://localhost:5173
+```
 
 ## Project Structure
 
@@ -45,7 +85,7 @@ If you need to run commands manually, stick to the equivalents shown above (e.g.
 │   ├── integration/  # Integration tests
 │   └── testutil/     # Test helpers
 ├── migrations/        # Database migrations
-├── web/              # Frontend assets
+├── web/              # SvelteKit frontend (src/, static/, vite.config.ts)
 └── configs/          # Configuration files
 ```
 

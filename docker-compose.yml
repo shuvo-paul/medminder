@@ -21,11 +21,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: make dev
+    command: sh -c "pnpm --prefix web install && make start"
     volumes:
       - .:/app
       - air_tmp:/app/tmp
+      - ./web:/app/web
+      - web_node_modules:/app/web/node_modules
     environment:
+      CI: "true"
       APP_PORT: ${APP_PORT:-8080}
       DB_HOST: db
       DB_PORT: 5432
@@ -35,6 +38,7 @@ services:
       DB_SSLMODE: ${DB_SSLMODE:-disable}
     ports:
       - "${APP_PORT:-8080}:8080"
+      - "${WEB_PORT:-5173}:5173"
     depends_on:
       db:
         condition: service_healthy
@@ -42,3 +46,4 @@ services:
 volumes:
   postgres_data:
   air_tmp:
+  web_node_modules:

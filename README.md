@@ -1,29 +1,52 @@
 # MedMinder
 
-A medication reminder application built with Go.
+A medication reminder application built with Go and SvelteKit (shadcn-svelte, Tailwind CSS v4, PWA).
 
-## Development Environment
-
-MedMinder ships with a Docker-based developer experience featuring hot reload via [Air](https://github.com/air-verse/air) and a Postgres database.
+## Development
 
 ### Prerequisites
 
-- Docker Engine 24+
-- Docker Compose v2
+- Go 1.25+
+- Node.js LTS + pnpm
+- [Air](https://github.com/air-verse/air) (`go install github.com/air-verse/air@latest`)
+- Docker Engine 24+ and Docker Compose v2 (optional)
 
-### Quick Start
+### Quick Start (local)
+
+```bash
+go mod download
+make web-install
+make start        # Go API on :8080, Vite on :5173
+```
+
+Open `http://localhost:5173`. The Go server hot-reloads on `.go` changes via Air; the frontend hot-reloads via Vite HMR.
+
+### Quick Start (Docker)
 
 ```bash
 docker compose up --build
 ```
 
-The API listens on `http://localhost:8080` (configurable via `APP_PORT`). Source files are bind-mounted, so edits automatically trigger a rebuild inside the container.
+Runs Go + Node.js in a single container alongside Postgres. Go API on `:8080`, Vite dev server on `:5173`.
 
-To override any defaults (for example when preparing staging/production), copy `.env.example` to `.env`, update the values, and rerun `docker compose up --build`. Compose automatically picks up `.env` when it exists.
+To override any defaults, copy `.env.example` to `.env` and rerun `docker compose up --build`.
+
+### Individual targets
+
+| Command | Description |
+|---|---|
+| `make dev` | Go API only (Air hot-reload on `:8080`) |
+| `make web-dev` | Frontend only (Vite HMR on `:5173`) |
+| `make start` | Both together (Ctrl+C stops both) |
+| `make embed-frontend` | Production build — frontend embedded in Go binary |
 
 ### Running Tests
 
 ```bash
+# Local
+make test
+
+# Docker
 docker compose run --rm app go test ./...
 ```
 
@@ -31,7 +54,13 @@ docker compose run --rm app go test ./...
 
 - Default credentials are defined in `.env.example`.
 - Connect with `psql` using `docker compose exec db psql -U $DB_USER -d $DB_NAME`.
-- The Postgres container stores data under `/var/lib/postgresql` (per the 18.x images). If you ran an older setup that mounted `/var/lib/postgresql/data`, remove the stale volume with `docker volume rm medminder_postgres_data` before starting the upgraded stack.
+
+## Production
+
+```bash
+make embed-frontend   # pnpm build → go build → bin/medminder
+./bin/medminder       # single binary on :8080
+```
 
 ## License
 MIT

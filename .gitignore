@@ -28,3 +28,8 @@ config.local
 bin/
 tmp/
 coverage.out
+cmd/server/web/dist/
+
+# Local/OS artifacts
+.DS_Store
+web/.pnpm-store/
