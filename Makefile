@@ -10,6 +10,7 @@ WEB_DIR := web
 
 build:
 	@mkdir -p $(BIN_DIR)
+	@mkdir -p cmd/server/web/dist
 	$(GO) build -o $(BIN) $(CMD)
 
 # Development: Go server with Air hot-reload. No frontend build.

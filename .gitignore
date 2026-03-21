@@ -28,8 +28,7 @@ config.local
 bin/
 tmp/
 coverage.out
-cmd/server/web/dist/*
-!cmd/server/web/dist/.gitkeep
+cmd/server/web/dist/
 
 # Local/OS artifacts
 .DS_Store
