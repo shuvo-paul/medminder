@@ -26,17 +26,17 @@ make dev           # Go API only with Air hot-reload (:8080)
 make web-dev       # Frontend only with Vite HMR (:5173)
 
 # Go
-make tidy          # go mod tidy
-make build         # go build -o bin/medminder cmd/server/main.go
-make run           # go run cmd/server/main.go (requires prior embed-frontend)
-make test          # go test ./...
-make test-cover    # go test -cover ./...
-make clean         # remove bin/
+make tidy
+make build
+make run           # requires prior embed-frontend
+make test
+make test-cover
+make clean
 
 # Frontend
-make web-install   # pnpm install
-make web-build     # pnpm build
-make web-preview   # pnpm preview
+make web-install   # first time only
+make web-build
+make web-preview
 
 # Production
 make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
