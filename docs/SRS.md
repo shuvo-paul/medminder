@@ -27,6 +27,9 @@ MedMinder is a monolithic full-stack Go application with embedded Svelte fronten
 | Reminder | A scheduled notification for a medication |
 | Guest Access | Non-user profile access via a cryptographic token (30-day expiry) |
 | PRN | Pro Re Nata — Latin for "as needed"; medications taken on demand |
+| Refill | The act of replenishing a medication supply (obtaining more tablets, capsules, etc.) |
+| Refill Threshold | The quantity level at which a low-supply alert is triggered |
+| Projected Depletion Date | The estimated date when a medication's supply will run out, calculated from current quantity and dosing frequency |
 | DGDA | Directorate General of Drug Administration (Bangladesh) |
 | SPA | Single-Page Application |
 | PWA | Progressive Web Application — a web app installable on device with offline support |
@@ -448,6 +451,36 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-OFFLINE-011**: The total IndexedDB storage used by MedMinder shall not exceed 50MB. When approaching the limit, the system shall evict the oldest cached data (dose history older than 30 days first).
 - **REQ-OFFLINE-012**: The system shall request persistent storage permission (`navigator.storage.persist()`) on first install to prevent the browser from evicting data under storage pressure.
 
+### 3.8 Medication Refill Management
+
+#### 3.8.1 Supply Tracking
+
+- **REQ-REFILL-001**: Users with `medication:write` permission shall be able to set a `current_quantity` and `refill_threshold` when creating or editing a medication.
+- **REQ-REFILL-002**: Supply tracking is optional; if `current_quantity` is null, all refill features are disabled for that medication.
+- **REQ-REFILL-003**: The system shall auto-decrement `current_quantity` by `dosage_amount` each time a dose is logged as `taken`.
+- **REQ-REFILL-004**: Auto-decrement shall not reduce `current_quantity` below zero.
+- **REQ-REFILL-005**: Users with `medication:read` permission shall be able to view the current supply status for each medication via `GET /api/profiles/{id}/medications/{medId}/supply`.
+
+#### 3.8.2 Low-Supply Alerts
+
+- **REQ-REFILL-006**: The system shall send a low-supply notification when `current_quantity` falls at or below `refill_threshold` after a dose is logged.
+- **REQ-REFILL-007**: Low-supply notifications shall be delivered via the profile's configured notification channels (WhatsApp, Telegram, Web Push) and shall respect quiet hours settings.
+- **REQ-REFILL-008**: The system shall not send duplicate low-supply alerts; a single alert is sent when the threshold is first crossed. Alerts reset after a refill raises `current_quantity` above `refill_threshold`.
+
+#### 3.8.3 Refill Logging
+
+- **REQ-REFILL-009**: Users with `medication:write` permission shall be able to log a refill (`POST /api/profiles/{id}/medications/{medId}/refills`), specifying `quantity_added` and optional `notes`.
+- **REQ-REFILL-010**: Logging a refill shall add `quantity_added` to `current_quantity`.
+- **REQ-REFILL-011**: Users with `medication:read` permission shall be able to view refill history (`GET /api/profiles/{id}/medications/{medId}/refills`), paginated and ordered by `logged_at` descending.
+
+#### 3.8.4 Refill Reminders
+
+- **REQ-REFILL-012**: The system shall calculate a `projected_depletion_date` based on `current_quantity`, `dosage_amount`, and the medication's frequency configuration.
+- **REQ-REFILL-013**: Users shall be able to configure a `refill_reminder_days` value on a medication — a positive integer specifying how many days before projected depletion to send a refill reminder.
+- **REQ-REFILL-014**: The system shall send a refill reminder notification at `projected_depletion_date − refill_reminder_days`, delivered via the profile's configured notification channels.
+- **REQ-REFILL-015**: If `current_quantity`, `dosage_amount`, or frequency changes, the system shall recalculate `projected_depletion_date` and reschedule the refill reminder accordingly.
+- **REQ-REFILL-016**: If `projected_depletion_date` cannot be calculated (e.g., PRN medications with no fixed frequency), refill reminders shall be disabled for that medication.
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -557,7 +590,7 @@ Short-lived codes for the OAuth token exchange flow (REQ-OAUTH-004).
 
 ### 5.10 Medication
 
-- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_name` (nullable), `prescriber_clinic` (nullable), `prescriber_phone` (nullable), `created_at`, `updated_at`
+- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_name` (nullable), `prescriber_clinic` (nullable), `prescriber_phone` (nullable), `current_quantity` (decimal, nullable — null disables refill tracking), `refill_threshold` (decimal, nullable — low-supply alert trigger level), `refill_reminder_days` (integer, nullable — days before projected depletion to send refill reminder), `created_at`, `updated_at`
 
 ### 5.11 Reminder
 
@@ -584,6 +617,10 @@ Per-device Web Push subscription. A user may have multiple active subscriptions.
 ### 5.15 Prescription
 
 - `id`, `profile_id` (FK → Profile), `medication_id` (FK → Medication, nullable), `file_url`, `file_type` (`pdf` | `jpg` | `png`), `file_size` (bytes), `uploaded_by_user_id` (FK → User), `uploaded_at`
+
+### 5.18 RefillLog
+
+- `id`, `medication_id` (FK → Medication), `quantity_added` (decimal), `notes` (nullable), `logged_by_user_id` (FK → User), `logged_at` (UTC timestamp)
 
 ### 5.16 MedicineDatabase
 
@@ -662,6 +699,9 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | DELETE | /api/profiles/{id}/medications/{medId} | Yes | Delete medication (`medication:write`) |
 | POST | /api/profiles/{id}/medications/{medId}/notify | Yes | Request PRN on-demand notification (`dose:write`) |
 | GET | /api/medications/suggest | Yes | Suggest medication names by query (`?q=`) |
+| GET | /api/profiles/{id}/medications/{medId}/supply | Yes | Get supply status and projected depletion date (`medication:read`) |
+| GET | /api/profiles/{id}/medications/{medId}/refills | Yes | List refill history (`medication:read`) |
+| POST | /api/profiles/{id}/medications/{medId}/refills | Yes | Log a refill (`medication:write`) |
 
 ### 6.5 Prescriptions
 
@@ -817,6 +857,10 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Batch dose logging (by schedule) | Dose | Not Started | P0 | POST /profiles/{id}/doses/batch with per-medication overrides |
 | Dose history (filtered) | Dose | Not Started | P0 | Filter by date range, medication, status |
 | Calendar view | Dose | Not Started | P1 | GET /profiles/{id}/doses/calendar |
+| Supply tracking | Medication | Not Started | P1 | Optional per medication; auto-decrements on dose taken |
+| Low-supply alerts | Notification | Not Started | P1 | Single alert per threshold crossing; resets on refill |
+| Refill logging | Medication | Not Started | P1 | POST /refills; adds quantity back |
+| Refill reminders | Notification | Not Started | P2 | Based on projected depletion date |
 | Health check endpoint | Infrastructure | Completed | P0 | `/healthz` exists; should be extended with DB status |
 | Structured logging | Infrastructure | Not Started | P0 | JSON logs with request_id, latency |
 | Background job logging | Infrastructure | Not Started | P1 | Reminder generation, auto-skip, DGDA sync |
@@ -837,3 +881,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0 | 2026-03-19 | Initial release |
+| 1.1 | 2026-03-21 | Add Medication Refill Management (Section 3.8) |
