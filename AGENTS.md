@@ -1,4 +1,4 @@
-# AGENTS.md - Coding Guidelines for MedMinder
+# MedMinder — Agent Guidelines
 
 ## Project Overview
 MedMinder is a medication reminder application built with Go 1.25.0 and SvelteKit.
