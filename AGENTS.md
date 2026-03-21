@@ -45,8 +45,6 @@ make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
 docker compose up --build
 ```
 
-If you need to run commands manually, stick to the equivalents shown above (e.g., `go test ./...`, `go test -run TestFunctionName ./...`).
-
 ## Project Structure
 
 ```
