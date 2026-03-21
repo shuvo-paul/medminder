@@ -1,0 +1,57 @@
+package main
+
+import (
+	"encoding/json"
+	"io/fs"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"testing/fstest"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func testDistFS() fs.FS {
+	return fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<!DOCTYPE html><html><body>test</body></html>")},
+	}
+}
+
+func TestHealthCheck_ReturnsOK(t *testing.T) {
+	router := newRouter(testDistFS())
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/api/healthz")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "application/json")
+
+	var body struct {
+		Status    string `json:"status"`
+		Timestamp string `json:"timestamp"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, "ok", body.Status)
+	assert.NotEmpty(t, body.Timestamp)
+}
+
+func TestOpenAPISpec_IsServed(t *testing.T) {
+	router := newRouter(testDistFS())
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/openapi.json")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "application/openapi+json")
+
+	var spec map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&spec))
+	assert.Equal(t, "3.1.0", spec["openapi"])
+}

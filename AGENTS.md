@@ -7,7 +7,8 @@ Module: `github.com/shuvo-paul/medminder`
 ### Tech Stack
 
 **Backend**
-- HTTP router: Chi
+- HTTP router: Chi (wrapped by huma for API routes)
+- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/openapi.json`, Swagger UI at `/docs`
 - Database migrations: golang-migrate
 - Query generation: sqlc
 - Testing/assertions: testify
@@ -116,6 +117,9 @@ Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
 - Use testify/assert for assertions
 - Mock external dependencies
 - Tests should be in same package with `_test.go` suffix
+
+### API Handlers
+All API route handlers must use huma — not plain Chi handler functions. Handler functions take the signature `func(context.Context, *Input) (*Output, error)` where `Input` and `Output` are typed structs registered via `huma.Register`. Struct field tags (`doc`, `minLength`, `required`, etc.) drive both OpenAPI schema and request validation. Non-API routes (static files, SPA) remain as plain Chi handlers.
 
 ### Documentation
 - All exported types and functions must have doc comments

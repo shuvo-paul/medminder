@@ -40,6 +40,13 @@ To override any defaults, copy `.env.example` to `.env` and rerun `docker compos
 | `make start` | Both together (Ctrl+C stops both) |
 | `make embed-frontend` | Production build — frontend embedded in Go binary |
 
+### API Docs
+
+| URL | Description |
+|---|---|
+| `http://localhost:8080/openapi.json` | Live OpenAPI 3.1 spec (always in sync with code) |
+| `http://localhost:8080/docs` | Swagger UI |
+
 ### Running Tests
 
 ```bash

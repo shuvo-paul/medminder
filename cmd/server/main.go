@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
@@ -18,6 +20,51 @@ import (
 
 //go:embed all:web/dist
 var webDist embed.FS
+
+// HealthOutput is the response body for the health check endpoint.
+type HealthOutput struct {
+	Body struct {
+		Status    string `json:"status" doc:"Service status"`
+		Timestamp string `json:"timestamp" doc:"Current server time in RFC3339 format"`
+	}
+}
+
+// newRouter builds and returns the application HTTP router.
+// distFS is the filesystem containing the embedded frontend assets.
+func newRouter(distFS fs.FS) http.Handler {
+	router := chi.NewRouter()
+
+	humaConfig := huma.DefaultConfig("MedMinder API", "1.0.0")
+	humaConfig.Info.Description = "Medication reminder application API"
+	api := humachi.New(router, humaConfig)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "health-check",
+		Method:      http.MethodGet,
+		Path:        "/api/healthz",
+		Summary:     "Health check",
+		Tags:        []string{"system"},
+	}, func(_ context.Context, _ *struct{}) (*HealthOutput, error) {
+		resp := &HealthOutput{}
+		resp.Body.Status = "ok"
+		resp.Body.Timestamp = time.Now().UTC().Format(time.RFC3339)
+		return resp, nil
+	})
+
+	// Service worker — must be served with special headers for both GET and HEAD.
+	swHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Service-Worker-Allowed", "/")
+		http.FileServerFS(distFS).ServeHTTP(w, r)
+	}
+	router.Get("/sw.js", swHandler)
+	router.Head("/sw.js", swHandler)
+
+	// SPA — serve embedded static files at root with index.html fallback.
+	router.Handle("/*", spaHandler(distFS))
+
+	return router
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -34,34 +81,9 @@ func main() {
 		return
 	}
 
-	router := chi.NewRouter()
-
-	router.Get("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
-		response := map[string]string{
-			"status":    "ok",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, "failed to encode response", http.StatusInternalServerError)
-		}
-	})
-
-	// Service worker — must be served with special headers for both GET and HEAD.
-	swHandler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Service-Worker-Allowed", "/")
-		http.FileServerFS(distFS).ServeHTTP(w, r)
-	}
-	router.Get("/sw.js", swHandler)
-	router.Head("/sw.js", swHandler)
-
-	// SPA — serve embedded static files at root with index.html fallback
-	router.Handle("/*", spaHandler(distFS))
-
 	log.Info("starting server", log.F("port", cfg.AppPort), log.F("env", cfg.AppEnv))
 	addr := fmt.Sprintf(":%d", cfg.AppPort)
-	if err := http.ListenAndServe(addr, router); err != nil {
+	if err := http.ListenAndServe(addr, newRouter(distFS)); err != nil {
 		log.Error("server error", log.F("error", err.Error()))
 	}
 }
