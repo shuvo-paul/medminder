@@ -85,3 +85,8 @@ When mentioned in a GitHub issue to implement:
 - Use `.env` files for local configuration (gitignored)
 - Never commit secrets or credentials
 - Configuration loaded from `configs/` directory
+
+## Boundaries
+- **Never commit directly to `main`** — all changes must go through a feature or fix branch and a PR
+- Never commit secrets, credentials, or `.env` files
+- Never force-push to `main`
