@@ -36,7 +36,7 @@ func main() {
 
 	router := chi.NewRouter()
 
-	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
 		response := map[string]string{
 			"status":    "ok",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
