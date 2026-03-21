@@ -88,20 +88,8 @@ When mentioned in a GitHub issue to implement:
 Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
 
 ### Imports
-- Group imports: stdlib, third-party, local
-- Use goimports for formatting
+- Use goimports for formatting (handles grouping automatically)
 - Alias imports only when necessary for clarity
-
-```go
-import (
-    "context"
-    "time"
-
-    "github.com/stretchr/testify/assert"
-
-    "github.com/shuvo-paul/medminder/internal/config"
-)
-```
 
 ### Naming Conventions
 - Use CamelCase for exported names, camelCase for unexported
