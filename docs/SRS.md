@@ -30,6 +30,7 @@ MedMinder is a monolithic full-stack Go application with embedded Svelte fronten
 | Refill | The act of replenishing a medication supply (obtaining more tablets, capsules, etc.) |
 | Refill Threshold | The quantity level at which a low-supply alert is triggered |
 | Projected Depletion Date | The estimated date when a medication's supply will run out, calculated from current quantity and dosing frequency |
+| Prescriber | A healthcare professional (doctor, specialist, etc.) who issues a prescription |
 | AI Provider | An external large language model (LLM) service (e.g., Google Gemini) used to extract structured data from unstructured documents |
 | BYOK | Bring Your Own Key — a model where the user supplies their own third-party API key; the system stores it encrypted and uses it on the user's behalf |
 | Extraction | The automated process of identifying structured medication details from a prescription document using an AI Provider |
@@ -285,7 +286,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.3.3 Prescriber Information
 
-- **REQ-MED-009**: Users shall be able to optionally link a medication to a prescriber (name, clinic, phone).
+- **REQ-MED-009**: Users shall be able to optionally link a medication to a Prescriber record (`prescriber_id` FK, nullable). See Section 3.10 for Prescriber management.
 
 #### 3.3.4 Medication Auto-Suggestion
 
@@ -304,7 +305,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-MED-019**: All users with `prescription:read` permission on the profile shall be able to view and download prescriptions.
 - **REQ-MED-020**: Users shall be able to delete uploaded prescriptions (requires `prescription:write` permission).
 - **REQ-MED-021**: The system shall enforce a maximum file size of 10MB per prescription upload.
-- **REQ-MED-022**: Prescriptions must be linked to a profile. Linking to a specific medication is optional.
+- **REQ-MED-022**: Prescriptions must be linked to a profile and to a Prescriber (required). Linking to a specific medication is optional.
 
 #### 3.3.6 Dose Schedules
 
@@ -518,6 +519,15 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-EXTRACT-014**: The system shall record the provider name and model identifier (if returned by the provider) in the extraction result for auditability.
 - **REQ-EXTRACT-015**: Extraction is performed synchronously. If the provider does not respond within 30 seconds, the request shall time out with an error. No background retry is performed; the user may re-trigger manually.
 
+### 3.10 Prescriber Management
+
+- **REQ-PRESCRIBER-001**: Users with `prescription:write` permission on a profile shall be able to create a Prescriber record, specifying `name` (required), `clinic` (optional), and `phone` (optional) (`POST /api/profiles/{id}/prescribers`).
+- **REQ-PRESCRIBER-002**: Users with `prescription:read` permission on a profile shall be able to list all Prescriber records for that profile (`GET /api/profiles/{id}/prescribers`).
+- **REQ-PRESCRIBER-003**: Users with `prescription:write` permission shall be able to update a Prescriber record's `name`, `clinic`, or `phone` (`PUT /api/profiles/{id}/prescribers/{prescriberId}`).
+- **REQ-PRESCRIBER-004**: Users with `prescription:write` permission shall be able to delete a Prescriber record (`DELETE /api/profiles/{id}/prescribers/{prescriberId}`), provided no prescriptions are currently linked to it. Attempting deletion of a linked Prescriber shall return an error.
+- **REQ-PRESCRIBER-005**: When uploading a prescription, the user must supply either an existing `prescriber_id` or a new prescriber object (`name`, `clinic`, `phone`). If a new prescriber object is supplied, the system shall create the Prescriber record and link it to the prescription atomically.
+- **REQ-PRESCRIBER-006**: When AI extraction returns prescriber fields (`prescriber_name`, `prescriber_clinic`, `prescriber_phone`), the confirmation response shall include those fields so the client can pre-populate a new-prescriber form or let the user select an existing Prescriber. Prescriber creation or linking is resolved at confirmation time per REQ-PRESCRIBER-005.
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -629,7 +639,7 @@ Short-lived codes for the OAuth token exchange flow (REQ-OAUTH-004).
 
 ### 5.10 Medication
 
-- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_name` (nullable), `prescriber_clinic` (nullable), `prescriber_phone` (nullable), `current_quantity` (decimal, nullable — null disables refill tracking), `refill_threshold` (decimal, nullable — low-supply alert trigger level), `refill_reminder_days` (integer, nullable — days before projected depletion to send refill reminder), `created_at`, `updated_at`
+- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_id` (FK → Prescriber, nullable), `current_quantity` (decimal, nullable — null disables refill tracking), `refill_threshold` (decimal, nullable — low-supply alert trigger level), `refill_reminder_days` (integer, nullable — days before projected depletion to send refill reminder), `created_at`, `updated_at`
 
 ### 5.11 Reminder
 
@@ -655,7 +665,7 @@ Per-device Web Push subscription. A user may have multiple active subscriptions.
 
 ### 5.15 Prescription
 
-- `id`, `profile_id` (FK → Profile), `medication_id` (FK → Medication, nullable), `file_url`, `file_type` (`pdf` | `jpg` | `png`), `file_size` (bytes), `uploaded_by_user_id` (FK → User), `uploaded_at`
+- `id`, `profile_id` (FK → Profile), `prescriber_id` (FK → Prescriber, **required**), `medication_id` (FK → Medication, nullable), `file_url`, `file_type` (`pdf` | `jpg` | `png`), `file_size` (bytes), `uploaded_by_user_id` (FK → User), `uploaded_at`
 
 ### 5.18 RefillLog
 
@@ -673,6 +683,12 @@ Stores a user's connection to an external AI provider. One record per user per p
 Stores the result of a single AI extraction job for a prescription. At most one record per prescription at a time.
 
 - `id` (UUID), `prescription_id` (FK → Prescription), `performed_by_user_id` (FK → User), `ai_provider` (string — provider name used, e.g., `gemini`), `ai_model` (string, nullable — model identifier returned by provider), `candidates` (JSONB — ordered array of candidate objects per REQ-EXTRACT-009), `status` (enum: `success` | `failed`), `error_message` (text, nullable), `created_at` (UTC timestamp)
+
+### 5.21 Prescriber
+
+Profile-scoped record of a healthcare professional who issues prescriptions.
+
+- `id`, `profile_id` (FK → Profile), `name`, `clinic` (nullable), `phone` (nullable), `created_at`, `updated_at`
 
 ### 5.16 MedicineDatabase
 
@@ -818,6 +834,15 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | POST | /api/ai-providers | Yes | Register or replace an AI provider API key |
 | DELETE | /api/ai-providers/{providerId} | Yes | Remove an AI provider connection |
 
+### 6.12 Prescribers
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/profiles/{id}/prescribers | Yes | List prescribers for profile (`prescription:read`) |
+| POST | /api/profiles/{id}/prescribers | Yes | Create prescriber (`prescription:write`) |
+| PUT | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Update prescriber (`prescription:write`) |
+| DELETE | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Delete prescriber (`prescription:write`) |
+
 ---
 
 ## 7. API Response Format
@@ -939,6 +964,7 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | AI provider connection (BYOK) | AI Extraction | Not Started | P2 | One key per provider per user; AES-256-GCM; Gemini only initially |
 | Prescription extraction | AI Extraction | Not Started | P2 | Synchronous; 30s timeout; one result per prescription; replaces on re-trigger |
 | Extraction candidate confirmation | AI Extraction | Not Started | P2 | Requires `medication:write`; full medication validation applied |
+| Prescriber management | Prescription | Not Started | P1 | Profile-scoped; required link on every prescription; create-or-link on upload |
 
 ---
 
@@ -949,3 +975,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | 1.0 | 2026-03-19 | Initial release |
 | 1.1 | 2026-03-21 | Add Medication Refill Management (Section 3.8) |
 | 1.2 | 2026-03-21 | Add AI-Assisted Prescription Extraction (Section 3.9, Section 5.19–5.20, Section 6.11) |
+| 1.3 | 2026-03-21 | Add Prescriber entity (Section 3.10, Section 5.21, Section 6.12); prescriptions require Prescriber; Medication references Prescriber via FK |
