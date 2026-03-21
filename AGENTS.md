@@ -81,7 +81,6 @@ When mentioned in a GitHub issue to implement:
 
 ## Environment
 - Use `.env` files for local configuration (gitignored)
-- Never commit secrets or credentials
 - Configuration loaded from `configs/` directory
 
 ## Boundaries
