@@ -7,11 +7,11 @@ Module: `github.com/shuvo-paul/medminder`
 ### Tech Stack
 
 **Backend**
-- HTTP router: [Chi](https://github.com/go-chi/chi)
-- Database migrations: [golang-migrate](https://github.com/golang-migrate/migrate)
-- Query generation: [sqlc](https://github.com/sqlc-dev/sqlc)
-- Testing/assertions: [stretchr/testify](https://github.com/stretchr/testify)
-- Live reload: [Air](https://github.com/air-verse/air)
+- HTTP router: Chi
+- Database migrations: golang-migrate
+- Query generation: sqlc
+- Testing/assertions: testify
+- Live reload: Air
 
 **Frontend** — see `web/AGENTS.md` for full stack details.
 
