@@ -719,56 +719,47 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 
 ## 7. API Response Format
 
-All API responses shall follow a consistent format.
+All API responses use [Huma v2](https://huma.rocks/) framework which provides a consistent, simple JSON format. The response body is defined by each endpoint's output struct.
 
-### Success Response
+### Simple Response
 
 ```json
 {
-  "data": { },
-  "meta": {
-    "request_id": "uuid",
-    "timestamp": "2026-03-14T10:30:00Z"
-  }
+  "status": "ok",
+  "timestamp": "2026-03-14T10:30:00Z"
 }
 ```
 
-### Paginated Response
+### List Response (Paginated)
 
 ```json
 {
-  "data": [],
-  "meta": {
-    "request_id": "uuid",
-    "timestamp": "2026-03-14T10:30:00Z",
-    "pagination": {
-      "limit": 20,
-      "offset": 0,
-      "total": 150
-    }
-  }
+  "items": [],
+  "limit": 20,
+  "offset": 0,
+  "total": 150
 }
 ```
 
 ### Error Response
 
+Huma uses [RFC 9457](https://tools.ietf.org/html/rfc9457) Problem Details for HTTP APIs:
+
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid email format",
-    "details": [
-      {"field": "email", "message": "must be a valid email address"}
-    ]
-  },
-  "meta": {
-    "request_id": "uuid",
-    "timestamp": "2026-03-14T10:30:00Z"
-  }
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Invalid email format",
+  "errors": [
+    {"field": "email", "message": "must be a valid email address"}
+  ]
 }
 ```
 
-All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be in UTC. Display times shall be converted to the **profile's configured timezone** (not the viewing user's timezone), since profiles represent specific individuals who live in a specific timezone.
+> **Note**: Unlike the traditional `{ "error": { "code": ..., "message": ... } }` format, Huma returns errors as Problem Details with `application/problem+json` content-type. Clients should handle both formats for compatibility.
+
+All timestamps in API responses are in ISO 8601 format (UTC). All datetime storage in the database is in UTC. Display times in client applications shall be converted to the **profile's configured timezone** (not the viewing user's timezone), since profiles represent specific individuals who live in a specific timezone.
 
 ---
 
