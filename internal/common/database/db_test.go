@@ -6,27 +6,19 @@ import (
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConnect(t *testing.T) {
-	cfg := config.DatabaseConfig{
-		Host:     "localhost",
-		Port:     5432,
-		User:     "medminder",
-		Password: "medminder",
-		Name:     "medminder",
-		SSLMode:  false,
-	}
+	tc := SetupPostgresContainer(t)
+	defer tc.Teardown(t)
 
-	db, err := database.Connect(cfg)
-	require.NoError(t, err, "should connect without error")
+	db := tc.Connect(t)
+	defer db.Close()
+
 	assert.NotNil(t, db, "db should not be nil")
 
-	if db != nil {
-		err = db.Close()
-		assert.NoError(t, err, "should close without error")
-	}
+	err := db.Close()
+	assert.NoError(t, err, "should close without error")
 }
 
 func TestConnect_InvalidConfig(t *testing.T) {
