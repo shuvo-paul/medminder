@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -36,6 +37,8 @@ func newRouter(distFS fs.FS) http.Handler {
 
 	humaConfig := huma.DefaultConfig("MedMinder API", "1.0.0")
 	humaConfig.Info.Description = "Medication reminder application API"
+	humaConfig.DocsRenderer = huma.DocsRendererSwaggerUI
+	humaConfig.DocsPath = "/api/docs"
 	api := humachi.New(router, humaConfig)
 
 	huma.Register(api, huma.Operation{
@@ -49,6 +52,12 @@ func newRouter(distFS fs.FS) http.Handler {
 		resp.Body.Status = "ok"
 		resp.Body.Timestamp = time.Now().UTC().Format(time.RFC3339)
 		return resp, nil
+	})
+
+	// OpenAPI spec endpoint
+	router.Get("/api/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/openapi+json")
+		json.NewEncoder(w).Encode(api.OpenAPI()) //nolint:errcheck
 	})
 
 	// Service worker — must be served with special headers for both GET and HEAD.

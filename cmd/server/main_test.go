@@ -44,7 +44,7 @@ func TestOpenAPISpec_IsServed(t *testing.T) {
 	server := httptest.NewServer(router)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/openapi.json")
+	resp, err := http.Get(server.URL + "/api/openapi.json")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
