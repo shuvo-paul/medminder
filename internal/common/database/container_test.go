@@ -27,7 +27,7 @@ func SetupPostgresContainer(t *testing.T) *TestContainer {
 	ctx := context.Background()
 
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:18-alpine",
 		postgres.WithDatabase("medminder"),
 		postgres.WithUsername("medminder"),
 		postgres.WithPassword("medminder"),
