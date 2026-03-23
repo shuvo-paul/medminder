@@ -46,6 +46,12 @@ make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
 docker compose up --build
 ```
 
+**Always use Makefile targets for Go builds — never run `go` commands directly.**
+
+## Browser Automation
+
+Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots, and web scraping.
+
 ## Project Structure
 
 ```
