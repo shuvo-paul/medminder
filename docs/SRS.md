@@ -463,9 +463,10 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.8.1 Supply Tracking
 
-- **REQ-REFILL-001**: Users with `medication:write` permission shall be able to set a `current_quantity` and `refill_threshold` when creating or editing a medication.
+- **REQ-REFILL-001**: Users with `medication:write` permission shall be able to set a `current_quantity` and `refill_threshold` when creating or editing a medication. If `current_quantity` is non-null, `refill_threshold` must also be non-null (and vice versa).
 - **REQ-REFILL-002**: Supply tracking is optional; if `current_quantity` is null, all refill features are disabled for that medication.
 - **REQ-REFILL-003**: The system shall auto-decrement `current_quantity` by `dosage_amount` each time a dose is logged as `taken`.
+  - **Note**: For medications where `dosage_amount` does not map 1:1 to supply units (e.g., liquid medications measured in ml), users should set `current_quantity` to the total units available and adjust `refill_threshold` accordingly. The system does not perform unit conversion; it decrements by the raw `dosage_amount` value.
 - **REQ-REFILL-004**: Auto-decrement shall not reduce `current_quantity` below zero.
 - **REQ-REFILL-005**: Users with `medication:read` permission shall be able to view the current supply status for each medication via `GET /api/profiles/{id}/medications/{medId}/supply`.
 
@@ -488,6 +489,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-REFILL-014**: The system shall send a refill reminder notification at `projected_depletion_date − refill_reminder_days`, delivered via the profile's configured notification channels.
 - **REQ-REFILL-015**: If `current_quantity`, `dosage_amount`, or frequency changes, the system shall recalculate `projected_depletion_date` and reschedule the refill reminder accordingly.
 - **REQ-REFILL-016**: If `projected_depletion_date` cannot be calculated (e.g., PRN medications with no fixed frequency), refill reminders shall be disabled for that medication.
+- **REQ-REFILL-017**: If `projected_depletion_date` is in the past (supply already depleted), the system shall send a refill reminder immediately upon the next dose logging or profile access, rather than waiting for a future date. Once a refill is logged that raises `current_quantity` above `refill_threshold`, the system shall resume normal scheduled refill reminders.
 
 ### 3.9 AI-Assisted Prescription Extraction
 
@@ -545,7 +547,8 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-FOLLOWUP-006**: Follow-up alerts shall be delivered via the profile's configured notification channels (WhatsApp, Telegram, Web Push) and shall respect quiet hours settings (REQ-NOT-008).
 - **REQ-FOLLOWUP-007**: The alert message shall include the appointment date, prescriber name (if linked), and notes (if present).
 - **REQ-FOLLOWUP-008**: Alerts shall only be sent for follow-up appointments with `status = upcoming`. Appointments marked `completed` or `dismissed` shall not trigger alerts.
-- **REQ-FOLLOWUP-009**: The system shall not resend an alert for the same follow-up appointment once it has been dispatched. If `scheduled_date` or `advance_notice_days` is updated after an alert has already fired, no second alert is sent unless the new alert date is in the future.
+- **REQ-FOLLOWUP-009**: The system shall not resend an alert for the same follow-up appointment once it has been dispatched. If `scheduled_date` or `advance_notice_days` is updated after an alert has already fired, no second alert is sent unless the new alert date (`scheduled_date − advance_notice_days`) is in the future.
+  - **Behavior on update**: If the new calculated alert date is in the future, a new alert shall be scheduled. If the new alert date is in the past (including advancing from 3 to 7 days notice, which makes the alert date earlier), no alert shall fire — the user must manually reschedule to a future date to receive an alert.
 - **REQ-FOLLOWUP-010**: The system shall log all follow-up notification delivery attempts in the `notification_logs` table (with `reminder_id = null`).
 
 ---
@@ -659,7 +662,8 @@ Short-lived codes for the OAuth token exchange flow (REQ-OAUTH-004).
 
 ### 5.10 Medication
 
-- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_id` (FK → Prescriber, nullable), `current_quantity` (decimal, nullable — null disables refill tracking), `refill_threshold` (decimal, nullable — low-supply alert trigger level), `refill_reminder_days` (integer, nullable — days before projected depletion to send refill reminder), `created_at`, `updated_at`
+- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_id` (FK → Prescriber, nullable)
+- `current_quantity` (decimal, nullable — **nullable; null disables all refill tracking features**), `refill_threshold` (decimal, nullable — requires `current_quantity` to be non-null), `refill_reminder_days` (integer, nullable — requires `current_quantity` to be non-null), `created_at`, `updated_at`
 
 ### 5.11 Reminder
 
@@ -1014,3 +1018,4 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | 1.2 | 2026-03-21 | Add AI-Assisted Prescription Extraction (Section 3.9, Section 5.19–5.20, Section 6.11) |
 | 1.3 | 2026-03-21 | Add Prescriber entity (Section 3.10, Section 5.21, Section 6.12); prescriptions require Prescriber; Medication references Prescriber via FK |
 | 1.4 | 2026-03-21 | Add Follow-up Appointment Alerts (Section 3.11, Section 5.22, Section 6.13) |
+| 1.5 | 2026-03-23 | Clarify refill tracking edge cases: supply unit mapping, depleted supply behavior, advance_notice_days update behavior |
