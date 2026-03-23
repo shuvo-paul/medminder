@@ -27,6 +27,15 @@ MedMinder is a monolithic full-stack Go application with embedded Svelte fronten
 | Reminder | A scheduled notification for a medication |
 | Guest Access | Non-user profile access via a cryptographic token (30-day expiry) |
 | PRN | Pro Re Nata — Latin for "as needed"; medications taken on demand |
+| Refill | The act of replenishing a medication supply (obtaining more tablets, capsules, etc.) |
+| Refill Threshold | The quantity level at which a low-supply alert is triggered |
+| Projected Depletion Date | The estimated date when a medication's supply will run out, calculated from current quantity and dosing frequency |
+| Prescriber | A healthcare professional (doctor, specialist, etc.) who issues a prescription |
+| AI Provider | An external large language model (LLM) service (e.g., Google Gemini) used to extract structured data from unstructured documents |
+| BYOK | Bring Your Own Key — a model where the user supplies their own third-party API key; the system stores it encrypted and uses it on the user's behalf |
+| Extraction | The automated process of identifying structured medication details from a prescription document using an AI Provider |
+| Medication Candidate | A structured suggestion produced by an extraction job, representing a potential medication record pending user review and confirmation |
+| Follow-up Appointment | A future visit to a prescriber requested at the time of a consultation, recorded by the user so the system can send an advance alert |
 | DGDA | Directorate General of Drug Administration (Bangladesh) |
 | SPA | Single-Page Application |
 | PWA | Progressive Web Application — a web app installable on device with offline support |
@@ -81,6 +90,8 @@ User access is defined by permissions on profiles (see Section 3.2.2).
 10. Dose history, filtering, and calendar view
 11. Progressive Web App (PWA) — installable on mobile and desktop, offline-capable
 12. Offline write queue with background sync for dose logging, batch logging, notes, and snooze
+13. AI-assisted prescription extraction — users may connect a personal AI provider API key and trigger extraction of medication candidates from uploaded prescriptions for review and confirmation
+14. Follow-up appointment alerts — track doctor-requested return visits and receive advance notifications
 
 ### 2.5 System Architecture
 
@@ -277,7 +288,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.3.3 Prescriber Information
 
-- **REQ-MED-009**: Users shall be able to optionally link a medication to a prescriber (name, clinic, phone).
+- **REQ-MED-009**: Users shall be able to optionally link a medication to a Prescriber record (`prescriber_id` FK, nullable). See Section 3.10 for Prescriber management.
 
 #### 3.3.4 Medication Auto-Suggestion
 
@@ -296,7 +307,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-MED-019**: All users with `prescription:read` permission on the profile shall be able to view and download prescriptions.
 - **REQ-MED-020**: Users shall be able to delete uploaded prescriptions (requires `prescription:write` permission).
 - **REQ-MED-021**: The system shall enforce a maximum file size of 10MB per prescription upload.
-- **REQ-MED-022**: Prescriptions must be linked to a profile. Linking to a specific medication is optional.
+- **REQ-MED-022**: Prescriptions must be linked to a profile and to a Prescriber (required). Linking to a specific medication is optional.
 
 #### 3.3.6 Dose Schedules
 
@@ -448,6 +459,98 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-OFFLINE-011**: The total IndexedDB storage used by MedMinder shall not exceed 50MB. When approaching the limit, the system shall evict the oldest cached data (dose history older than 30 days first).
 - **REQ-OFFLINE-012**: The system shall request persistent storage permission (`navigator.storage.persist()`) on first install to prevent the browser from evicting data under storage pressure.
 
+### 3.8 Medication Refill Management
+
+#### 3.8.1 Supply Tracking
+
+- **REQ-REFILL-001**: Users with `medication:write` permission shall be able to set a `current_quantity` and `refill_threshold` when creating or editing a medication. If `current_quantity` is non-null, `refill_threshold` must also be non-null (and vice versa).
+- **REQ-REFILL-002**: Supply tracking is optional; if `current_quantity` is null, all refill features are disabled for that medication.
+- **REQ-REFILL-003**: The system shall auto-decrement `current_quantity` by `dosage_amount` each time a dose is logged as `taken`.
+  - **Note**: For medications where `dosage_amount` does not map 1:1 to supply units (e.g., liquid medications measured in ml), users should set `current_quantity` to the total units available and adjust `refill_threshold` accordingly. The system does not perform unit conversion; it decrements by the raw `dosage_amount` value.
+- **REQ-REFILL-004**: Auto-decrement shall not reduce `current_quantity` below zero.
+- **REQ-REFILL-005**: Users with `medication:read` permission shall be able to view the current supply status for each medication via `GET /api/profiles/{id}/medications/{medId}/supply`.
+
+#### 3.8.2 Low-Supply Alerts
+
+- **REQ-REFILL-006**: The system shall send a low-supply notification when `current_quantity` falls at or below `refill_threshold` after a dose is logged.
+- **REQ-REFILL-007**: Low-supply notifications shall be delivered via the profile's configured notification channels (WhatsApp, Telegram, Web Push) and shall respect quiet hours settings.
+- **REQ-REFILL-008**: The system shall not send duplicate low-supply alerts; a single alert is sent when the threshold is first crossed. Alerts reset after a refill raises `current_quantity` above `refill_threshold`.
+
+#### 3.8.3 Refill Logging
+
+- **REQ-REFILL-009**: Users with `medication:write` permission shall be able to log a refill (`POST /api/profiles/{id}/medications/{medId}/refills`), specifying `quantity_added` and optional `notes`.
+- **REQ-REFILL-010**: Logging a refill shall add `quantity_added` to `current_quantity`.
+- **REQ-REFILL-011**: Users with `medication:read` permission shall be able to view refill history (`GET /api/profiles/{id}/medications/{medId}/refills`), paginated and ordered by `logged_at` descending.
+
+#### 3.8.4 Refill Reminders
+
+- **REQ-REFILL-012**: The system shall calculate a `projected_depletion_date` based on `current_quantity`, `dosage_amount`, and the medication's frequency configuration.
+- **REQ-REFILL-013**: Users shall be able to configure a `refill_reminder_days` value on a medication — a positive integer specifying how many days before projected depletion to send a refill reminder.
+- **REQ-REFILL-014**: The system shall send a refill reminder notification at `projected_depletion_date − refill_reminder_days`, delivered via the profile's configured notification channels.
+- **REQ-REFILL-015**: If `current_quantity`, `dosage_amount`, or frequency changes, the system shall recalculate `projected_depletion_date` and reschedule the refill reminder accordingly.
+- **REQ-REFILL-016**: If `projected_depletion_date` cannot be calculated (e.g., PRN medications with no fixed frequency), refill reminders shall be disabled for that medication.
+- **REQ-REFILL-017**: If `projected_depletion_date` is in the past (supply already depleted), the system shall send a refill reminder immediately upon the next dose logging or profile access, rather than waiting for a future date. Once a refill is logged that raises `current_quantity` above `refill_threshold`, the system shall resume normal scheduled refill reminders.
+
+### 3.9 AI-Assisted Prescription Extraction
+
+#### 3.9.1 AI Provider Management
+
+- **REQ-EXTRACT-001**: An authenticated user shall be able to register an AI provider connection by supplying a `provider` name and `api_key` (`POST /api/ai-providers`).
+- **REQ-EXTRACT-002**: The system shall store the API key encrypted at rest (AES-256-GCM). The plaintext key shall never be returned in any API response after registration.
+- **REQ-EXTRACT-003**: A user may hold at most one active connection per provider. Registering a second key for the same provider shall replace the existing key.
+- **REQ-EXTRACT-004**: The system shall initially support `gemini` as the only valid provider value. The architecture shall be extensible to add providers without database schema changes.
+- **REQ-EXTRACT-005**: An authenticated user shall be able to list their connected providers — showing `provider` and `connected_at` but never the API key (`GET /api/ai-providers`).
+- **REQ-EXTRACT-006**: An authenticated user shall be able to remove a provider connection (`DELETE /api/ai-providers/{providerId}`). Removal does not affect previously confirmed medications.
+
+#### 3.9.2 Prescription Extraction
+
+- **REQ-EXTRACT-007**: Users with `prescription:read` permission on a profile shall be able to trigger extraction on an uploaded prescription (`POST /api/prescriptions/{prescriptionId}/extract`). The requesting user must have at least one AI provider connection configured.
+- **REQ-EXTRACT-008**: The system shall submit the prescription file to the user's configured AI provider using the stored (decrypted) API key and request structured medication data.
+- **REQ-EXTRACT-009**: A successful extraction response shall return an ordered list of medication candidates. Each candidate shall include the following fields where identifiable:
+  - `name` (string)
+  - `dosage_amount` (decimal, nullable)
+  - `dosage_unit` (string, nullable — mapped to a supported unit from REQ-MED-002 where possible, otherwise the raw extracted string)
+  - `form` (string, nullable — mapped to a supported form from REQ-MED-003 where possible, otherwise raw string)
+  - `frequency_type` (string, nullable — mapped to a supported type from REQ-MED-007, or null if not determinable)
+  - `frequency_notes` (string, nullable — raw frequency text from the prescription, e.g., "twice daily after meals")
+  - `prescriber_name` (string, nullable)
+  - `prescriber_clinic` (string, nullable)
+  - `prescriber_phone` (string, nullable)
+- **REQ-EXTRACT-010**: Extraction results are suggestions only. The system shall not automatically create medication records.
+- **REQ-EXTRACT-011**: A user with `medication:write` permission on the profile shall be able to confirm one or more candidates (`POST /api/prescriptions/{prescriptionId}/extractions/{extractionId}/confirm`), which creates medication records subject to the same validation as REQ-MED-001 through REQ-MED-008.
+- **REQ-EXTRACT-012**: The system shall handle extraction failures gracefully, returning a descriptive error without creating records, for: unreachable provider, invalid/revoked API key, unreadable prescription file, and unparseable provider response.
+- **REQ-EXTRACT-013**: Each prescription may have at most one stored extraction result at a time. Re-triggering extraction replaces the previous result and its unconfirmed candidates.
+- **REQ-EXTRACT-014**: The system shall record the provider name and model identifier (if returned by the provider) in the extraction result for auditability.
+- **REQ-EXTRACT-015**: Extraction is performed synchronously. If the provider does not respond within 30 seconds, the request shall time out with an error. No background retry is performed; the user may re-trigger manually.
+
+### 3.10 Prescriber Management
+
+- **REQ-PRESCRIBER-001**: Users with `prescription:write` permission on a profile shall be able to create a Prescriber record, specifying `name` (required), `clinic` (optional), and `phone` (optional) (`POST /api/profiles/{id}/prescribers`).
+- **REQ-PRESCRIBER-002**: Users with `prescription:read` permission on a profile shall be able to list all Prescriber records for that profile (`GET /api/profiles/{id}/prescribers`).
+- **REQ-PRESCRIBER-003**: Users with `prescription:write` permission shall be able to update a Prescriber record's `name`, `clinic`, or `phone` (`PUT /api/profiles/{id}/prescribers/{prescriberId}`).
+- **REQ-PRESCRIBER-004**: Users with `prescription:write` permission shall be able to delete a Prescriber record (`DELETE /api/profiles/{id}/prescribers/{prescriberId}`), provided no prescriptions are currently linked to it. Attempting deletion of a linked Prescriber shall return an error.
+- **REQ-PRESCRIBER-005**: When uploading a prescription, the user must supply either an existing `prescriber_id` or a new prescriber object (`name`, `clinic`, `phone`). If a new prescriber object is supplied, the system shall create the Prescriber record and link it to the prescription atomically.
+- **REQ-PRESCRIBER-006**: When AI extraction returns prescriber fields (`prescriber_name`, `prescriber_clinic`, `prescriber_phone`), the confirmation response shall include those fields so the client can pre-populate a new-prescriber form or let the user select an existing Prescriber. Prescriber creation or linking is resolved at confirmation time per REQ-PRESCRIBER-005.
+
+### 3.11 Follow-up Appointment Alerts
+
+#### 3.11.1 Appointment Management
+
+- **REQ-FOLLOWUP-001**: Users with `prescription:write` permission shall be able to create a follow-up appointment record (`POST /api/profiles/{id}/follow-ups`), specifying `scheduled_date` (required, ISO 8601 date), `prescriber_id` (optional FK → Prescriber), `prescription_id` (optional FK → Prescription), `notes` (optional), and `advance_notice_days` (optional integer, default 3).
+- **REQ-FOLLOWUP-002**: Users with `prescription:read` permission shall be able to list all follow-up appointments for a profile (`GET /api/profiles/{id}/follow-ups`), ordered by `scheduled_date` ascending. Each record shall include a computed `is_overdue` boolean (true when `scheduled_date` is in the past and `status` is `upcoming`).
+- **REQ-FOLLOWUP-003**: Users with `prescription:write` permission shall be able to update a follow-up appointment's `scheduled_date`, `prescriber_id`, `prescription_id`, `notes`, `advance_notice_days`, or `status` (`PUT /api/profiles/{id}/follow-ups/{followUpId}`). Changing `scheduled_date` or `advance_notice_days` shall reschedule the pending alert.
+- **REQ-FOLLOWUP-004**: Users with `prescription:write` permission shall be able to delete a follow-up appointment (`DELETE /api/profiles/{id}/follow-ups/{followUpId}`).
+
+#### 3.11.2 Follow-up Notifications
+
+- **REQ-FOLLOWUP-005**: The system shall send a follow-up alert notification at 09:00 in the profile's timezone on `scheduled_date − advance_notice_days`. If `advance_notice_days` is 0, the alert fires at 09:00 on `scheduled_date` itself.
+- **REQ-FOLLOWUP-006**: Follow-up alerts shall be delivered via the profile's configured notification channels (WhatsApp, Telegram, Web Push) and shall respect quiet hours settings (REQ-NOT-008).
+- **REQ-FOLLOWUP-007**: The alert message shall include the appointment date, prescriber name (if linked), and notes (if present).
+- **REQ-FOLLOWUP-008**: Alerts shall only be sent for follow-up appointments with `status = upcoming`. Appointments marked `completed` or `dismissed` shall not trigger alerts.
+- **REQ-FOLLOWUP-009**: The system shall not resend an alert for the same follow-up appointment once it has been dispatched. If `scheduled_date` or `advance_notice_days` is updated after an alert has already fired, no second alert is sent unless the new alert date (`scheduled_date − advance_notice_days`) is in the future.
+  - **Behavior on update**: If the new calculated alert date is in the future, a new alert shall be scheduled. If the new alert date is in the past (including advancing from 3 to 7 days notice, which makes the alert date earlier), no alert shall fire — the user must manually reschedule to a future date to receive an alert.
+- **REQ-FOLLOWUP-010**: The system shall log all follow-up notification delivery attempts in the `notification_logs` table (with `reminder_id = null`).
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -474,6 +577,8 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 - **REQ-SEC-007**: The system shall log all authentication events (login, logout, password reset, failed login attempts, OAuth connections) for audit purposes in an `audit_logs` table.
 - **REQ-SEC-008**: All API requests shall include a `X-Request-ID` header (server-generated if not provided by client) for traceability.
 - **REQ-SEC-009**: The server shall generate and securely store a VAPID key pair (EC P-256) at startup if one does not exist. The private key shall never be exposed via any API endpoint. The public key is exposed via `GET /api/push/vapid-public-key`.
+- **REQ-SEC-010**: AI provider API keys shall be encrypted using AES-256-GCM before storage. The encryption key shall be loaded from server configuration and shall never be stored in the database.
+- **REQ-SEC-011**: The extraction endpoint (`POST /api/prescriptions/{prescriptionId}/extract`) shall be rate-limited to 10 requests per hour per authenticated user.
 
 ### 4.3 Validation
 
@@ -557,7 +662,8 @@ Short-lived codes for the OAuth token exchange flow (REQ-OAUTH-004).
 
 ### 5.10 Medication
 
-- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_name` (nullable), `prescriber_clinic` (nullable), `prescriber_phone` (nullable), `created_at`, `updated_at`
+- `id`, `profile_id` (FK → Profile), `name`, `dosage_amount` (decimal), `dosage_unit` (enum), `form` (enum), `frequency_type` (enum: `schedule`, `daily`, `weekly`, `monthly`, `interval`, `prn`), `frequency_config` (JSONB — schema defined per frequency type in Section 3.3.2), `start_date` (nullable), `end_date` (nullable), `prescriber_id` (FK → Prescriber, nullable)
+- `current_quantity` (decimal, nullable — **nullable; null disables all refill tracking features**), `refill_threshold` (decimal, nullable — requires `current_quantity` to be non-null), `refill_reminder_days` (integer, nullable — requires `current_quantity` to be non-null), `created_at`, `updated_at`
 
 ### 5.11 Reminder
 
@@ -583,7 +689,36 @@ Per-device Web Push subscription. A user may have multiple active subscriptions.
 
 ### 5.15 Prescription
 
-- `id`, `profile_id` (FK → Profile), `medication_id` (FK → Medication, nullable), `file_url`, `file_type` (`pdf` | `jpg` | `png`), `file_size` (bytes), `uploaded_by_user_id` (FK → User), `uploaded_at`
+- `id`, `profile_id` (FK → Profile), `prescriber_id` (FK → Prescriber, **required**), `medication_id` (FK → Medication, nullable), `file_url`, `file_type` (`pdf` | `jpg` | `png`), `file_size` (bytes), `uploaded_by_user_id` (FK → User), `uploaded_at`
+
+### 5.18 RefillLog
+
+- `id`, `medication_id` (FK → Medication), `quantity_added` (decimal), `notes` (nullable), `logged_by_user_id` (FK → User), `logged_at` (UTC timestamp)
+
+### 5.19 AIProvider
+
+Stores a user's connection to an external AI provider. One record per user per provider.
+
+- `id` (UUID), `user_id` (FK → User), `provider` (string — e.g., `gemini`; validated at application layer for extensibility without schema changes), `encrypted_api_key` (text — AES-256-GCM ciphertext including nonce), `connected_at` (UTC timestamp), `updated_at` (UTC timestamp)
+- UNIQUE(`user_id`, `provider`)
+
+### 5.20 ExtractionResult
+
+Stores the result of a single AI extraction job for a prescription. At most one record per prescription at a time.
+
+- `id` (UUID), `prescription_id` (FK → Prescription), `performed_by_user_id` (FK → User), `ai_provider` (string — provider name used, e.g., `gemini`), `ai_model` (string, nullable — model identifier returned by provider), `candidates` (JSONB — ordered array of candidate objects per REQ-EXTRACT-009), `status` (enum: `success` | `failed`), `error_message` (text, nullable), `created_at` (UTC timestamp)
+
+### 5.21 Prescriber
+
+Profile-scoped record of a healthcare professional who issues prescriptions.
+
+- `id`, `profile_id` (FK → Profile), `name`, `clinic` (nullable), `phone` (nullable), `created_at`, `updated_at`
+
+### 5.22 FollowUpAppointment
+
+Doctor-requested return visit recorded against a profile.
+
+- `id`, `profile_id` (FK → Profile), `prescriber_id` (FK → Prescriber, nullable), `prescription_id` (FK → Prescription, nullable), `scheduled_date` (date), `notes` (nullable text), `advance_notice_days` (integer, default 3), `status` (enum: `upcoming` | `completed` | `dismissed`), `alert_sent_at` (UTC timestamp, nullable — set when the alert is dispatched), `created_at`, `updated_at`
 
 ### 5.16 MedicineDatabase
 
@@ -662,6 +797,9 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | DELETE | /api/profiles/{id}/medications/{medId} | Yes | Delete medication (`medication:write`) |
 | POST | /api/profiles/{id}/medications/{medId}/notify | Yes | Request PRN on-demand notification (`dose:write`) |
 | GET | /api/medications/suggest | Yes | Suggest medication names by query (`?q=`) |
+| GET | /api/profiles/{id}/medications/{medId}/supply | Yes | Get supply status and projected depletion date (`medication:read`) |
+| GET | /api/profiles/{id}/medications/{medId}/refills | Yes | List refill history (`medication:read`) |
+| POST | /api/profiles/{id}/medications/{medId}/refills | Yes | Log a refill (`medication:write`) |
 
 ### 6.5 Prescriptions
 
@@ -671,6 +809,9 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | POST | /api/profiles/{id}/prescriptions | Yes | Upload prescription (`prescription:write`) |
 | GET | /api/prescriptions/{prescriptionId} | Yes | Download prescription (`prescription:read`) |
 | DELETE | /api/prescriptions/{prescriptionId} | Yes | Delete prescription (`prescription:write`) |
+| POST | /api/prescriptions/{prescriptionId}/extract | Yes | Trigger AI extraction (`prescription:read`; requires AI provider configured) |
+| GET | /api/prescriptions/{prescriptionId}/extractions/latest | Yes | Get most recent extraction result (`prescription:read`) |
+| POST | /api/prescriptions/{prescriptionId}/extractions/{extractionId}/confirm | Yes | Confirm candidates to create medications (`medication:write`) |
 
 ### 6.6 Reminders
 
@@ -714,6 +855,32 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | POST | /api/webhooks/whatsapp | Signature | WhatsApp incoming webhook |
 | POST | /api/webhooks/telegram | Signature | Telegram incoming webhook |
 | GET | /healthz | No | Health check (DB status, uptime, version) |
+
+### 6.11 AI Providers
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/ai-providers | Yes | List user's connected AI providers (keys never returned) |
+| POST | /api/ai-providers | Yes | Register or replace an AI provider API key |
+| DELETE | /api/ai-providers/{providerId} | Yes | Remove an AI provider connection |
+
+### 6.12 Prescribers
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/profiles/{id}/prescribers | Yes | List prescribers for profile (`prescription:read`) |
+| POST | /api/profiles/{id}/prescribers | Yes | Create prescriber (`prescription:write`) |
+| PUT | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Update prescriber (`prescription:write`) |
+| DELETE | /api/profiles/{id}/prescribers/{prescriberId} | Yes | Delete prescriber (`prescription:write`) |
+
+### 6.13 Follow-up Appointments
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/profiles/{id}/follow-ups | Yes | List follow-up appointments (`prescription:read`) |
+| POST | /api/profiles/{id}/follow-ups | Yes | Create follow-up appointment (`prescription:write`) |
+| PUT | /api/profiles/{id}/follow-ups/{followUpId} | Yes | Update follow-up appointment (`prescription:write`) |
+| DELETE | /api/profiles/{id}/follow-ups/{followUpId} | Yes | Delete follow-up appointment (`prescription:write`) |
 
 ---
 
@@ -817,6 +984,10 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Batch dose logging (by schedule) | Dose | Not Started | P0 | POST /profiles/{id}/doses/batch with per-medication overrides |
 | Dose history (filtered) | Dose | Not Started | P0 | Filter by date range, medication, status |
 | Calendar view | Dose | Not Started | P1 | GET /profiles/{id}/doses/calendar |
+| Supply tracking | Medication | Not Started | P1 | Optional per medication; auto-decrements on dose taken |
+| Low-supply alerts | Notification | Not Started | P1 | Single alert per threshold crossing; resets on refill |
+| Refill logging | Medication | Not Started | P1 | POST /refills; adds quantity back |
+| Refill reminders | Notification | Not Started | P2 | Based on projected depletion date |
 | Health check endpoint | Infrastructure | Completed | P0 | `/healthz` exists; should be extended with DB status |
 | Structured logging | Infrastructure | Not Started | P0 | JSON logs with request_id, latency |
 | Background job logging | Infrastructure | Not Started | P1 | Reminder generation, auto-skip, DGDA sync |
@@ -829,6 +1000,12 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Offline write queue | Frontend | Not Started | P1 | Dose log, batch log, notes, snooze; durable in IndexedDB |
 | Background sync (flush queue) | Frontend | Not Started | P1 | Background Sync API; 3 retries; last-write-wins conflict resolution |
 | Persistent storage request | Frontend | Not Started | P2 | navigator.storage.persist() on first install |
+| AI provider connection (BYOK) | AI Extraction | Not Started | P2 | One key per provider per user; AES-256-GCM; Gemini only initially |
+| Prescription extraction | AI Extraction | Not Started | P2 | Synchronous; 30s timeout; one result per prescription; replaces on re-trigger |
+| Extraction candidate confirmation | AI Extraction | Not Started | P2 | Requires `medication:write`; full medication validation applied |
+| Prescriber management | Prescription | Not Started | P1 | Profile-scoped; required link on every prescription; create-or-link on upload |
+| Follow-up appointment CRUD | Appointment | Not Started | P2 | Profile-scoped; optional prescriber/prescription link |
+| Follow-up appointment alerts | Notification | Not Started | P2 | Configurable advance notice; respects quiet hours; fires at 09:00 profile TZ |
 
 ---
 
@@ -837,3 +1014,8 @@ All timestamps shall be in ISO 8601 format (UTC). All datetime storage shall be 
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0 | 2026-03-19 | Initial release |
+| 1.1 | 2026-03-21 | Add Medication Refill Management (Section 3.8) |
+| 1.2 | 2026-03-21 | Add AI-Assisted Prescription Extraction (Section 3.9, Section 5.19–5.20, Section 6.11) |
+| 1.3 | 2026-03-21 | Add Prescriber entity (Section 3.10, Section 5.21, Section 6.12); prescriptions require Prescriber; Medication references Prescriber via FK |
+| 1.4 | 2026-03-21 | Add Follow-up Appointment Alerts (Section 3.11, Section 5.22, Section 6.13) |
+| 1.5 | 2026-03-23 | Clarify refill tracking edge cases: supply unit mapping, depleted supply behavior, advance_notice_days update behavior |
