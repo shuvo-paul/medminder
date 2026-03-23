@@ -1,4 +1,4 @@
-.PHONY := build dev start run test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend
+.PHONY := build dev start run test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-force db-migrate-create sqlc-generate
 
 GO ?= go
 PNPM ?= pnpm
@@ -7,6 +7,14 @@ BIN_DIR := bin
 BIN := $(BIN_DIR)/medminder
 CMD := cmd/server/main.go
 WEB_DIR := web
+MIGRATE := migrate
+DB_HOST ?= localhost
+DB_PORT ?= 5432
+DB_USER ?= medminder
+DB_PASSWORD ?= medminder
+DB_NAME ?= medminder
+DB_SSLMODE ?= disable
+MIGRATION_SOURCE ?= file://internal/common/database/migrations
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -51,3 +59,21 @@ web-preview:
 	cd $(WEB_DIR) && $(PNPM) preview
 
 embed-frontend: web-build build
+
+db-migrate-up:
+	$(GO) run -mod=mod $(MIGRATE) -path internal/common/database/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" up
+
+db-migrate-down:
+	$(GO) run -mod=mod $(MIGRATE) -path internal/common/database/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" down
+
+db-migrate-force:
+	@echo "Usage: make db-migrate-force VERSION=<version>"
+	@if [ -z "$(VERSION)" ]; then exit 1; fi
+	$(GO) run -mod=mod $(MIGRATE) -path internal/common/database/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" force $(VERSION)
+
+db-migrate-create:
+	@if [ -z "$(NAME)" ]; then echo "Usage: make db-migrate-create NAME=<name>"; exit 1; fi
+	$(GO) run -mod=mod $(MIGRATE) create -dir internal/common/database/migrations -ext .sql -sequence $(NAME)
+
+sqlc-generate:
+	sqlc generate

@@ -1,0 +1,1 @@
+-- Rollback initial schema (schema_migrations table is managed by golang-migrate)
