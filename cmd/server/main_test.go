@@ -8,6 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,8 +19,24 @@ func testDistFS() fs.FS {
 	}
 }
 
+func testConfig() config.Config {
+	return config.Config{
+		AppPort: 8080,
+		AppEnv:  "test",
+		Database: config.DatabaseConfig{
+			Host:     "localhost",
+			Port:     5432,
+			User:     "test",
+			Password: "test",
+			Name:     "test",
+			SSLMode:  false,
+		},
+	}
+}
+
 func TestHealthCheck_ReturnsOK(t *testing.T) {
-	router := newRouter(testDistFS())
+	router, err := newRouter(testDistFS(), testConfig())
+	require.NoError(t, err)
 	server := httptest.NewServer(router)
 	defer server.Close()
 
@@ -40,7 +57,8 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 }
 
 func TestOpenAPISpec_IsServed(t *testing.T) {
-	router := newRouter(testDistFS())
+	router, err := newRouter(testDistFS(), testConfig())
+	require.NoError(t, err)
 	server := httptest.NewServer(router)
 	defer server.Close()
 

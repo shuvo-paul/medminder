@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -14,17 +15,22 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
 	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
 	"github.com/shuvo-paul/medminder/internal/common/log"
+	"github.com/shuvo-paul/medminder/internal/db"
+	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
+	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
 //go:embed all:web/dist
 var webDist embed.FS
 
-// HealthOutput is the response body for the health check endpoint.
 type HealthOutput struct {
 	Body struct {
 		Status    string `json:"status" doc:"Service status"`
@@ -32,9 +38,7 @@ type HealthOutput struct {
 	}
 }
 
-// newRouter builds and returns the application HTTP router.
-// distFS is the filesystem containing the embedded frontend assets.
-func newRouter(distFS fs.FS) http.Handler {
+func newRouter(distFS fs.FS, cfg config.Config) (http.Handler, error) {
 	router := chi.NewRouter()
 
 	humaConfig := huma.DefaultConfig("MedMinder API", "1.0.0")
@@ -56,13 +60,65 @@ func newRouter(distFS fs.FS) http.Handler {
 		return resp, nil
 	})
 
-	// OpenAPI spec endpoint
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.Database.User, cfg.Database.Password,
+		cfg.Database.Host, cfg.Database.Port, cfg.Database.Name,
+		map[bool]string{true: "require", false: "disable"}[cfg.Database.SSLMode])
+
+	dbConn, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Error("failed to open db connection", log.F("error", err.Error()))
+		return nil, err
+	}
+	defer dbConn.Close()
+
+	if err := dbConn.Ping(); err != nil {
+		log.Error("failed to ping db", log.F("error", err.Error()))
+		return nil, err
+	}
+
+	queries := db.New(dbConn)
+	tokenSvc := service.NewTokenService()
+
+	type RegisterOutput struct {
+		Body struct {
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			User         struct {
+				ID            uuid.UUID `json:"id"`
+				Email         string    `json:"email"`
+				DisplayName   string    `json:"display_name"`
+				EmailVerified bool      `json:"email_verified"`
+			} `json:"user"`
+		}
+	}
+
+	repo := repository.NewPostgresUserRepository(queries)
+	registerHandler := handlers.RegisterHandler(repo, tokenSvc)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "register-user",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/register",
+		Summary:     "Register a new user",
+		Tags:        []string{"auth"},
+	}, func(ctx context.Context, input *handlers.RegisterInput) (*RegisterOutput, error) {
+		resp, err := registerHandler(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		out := &RegisterOutput{}
+		out.Body.AccessToken = resp.AccessToken
+		out.Body.RefreshToken = resp.RefreshToken
+		out.Body.User = resp.User
+		return out, nil
+	})
+
 	router.Get("/api/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/openapi+json")
 		json.NewEncoder(w).Encode(api.OpenAPI()) //nolint:errcheck
 	})
 
-	// Service worker — must be served with special headers for both GET and HEAD.
 	swHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Service-Worker-Allowed", "/")
@@ -71,10 +127,9 @@ func newRouter(distFS fs.FS) http.Handler {
 	router.Get("/sw.js", swHandler)
 	router.Head("/sw.js", swHandler)
 
-	// SPA — serve embedded static files at root with index.html fallback.
 	router.Handle("/*", spaHandler(distFS))
 
-	return router
+	return router, nil
 }
 
 func main() {
@@ -110,15 +165,19 @@ func main() {
 		return
 	}
 
+	router, err := newRouter(distFS, cfg)
+	if err != nil {
+		log.Error("failed to create router", log.F("error", err.Error()))
+		return
+	}
+
 	log.Info("starting server", log.F("port", cfg.AppPort), log.F("env", cfg.AppEnv))
 	addr := fmt.Sprintf(":%d", cfg.AppPort)
-	if err := http.ListenAndServe(addr, newRouter(distFS)); err != nil {
+	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Error("server error", log.F("error", err.Error()))
 	}
 }
 
-// spaHandler serves static files from fsys and falls back to index.html for
-// paths that don't match a file (enabling SvelteKit client-side routing).
 func spaHandler(fsys fs.FS) http.Handler {
 	fileServer := http.FileServerFS(fsys)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +187,6 @@ func spaHandler(fsys fs.FS) http.Handler {
 		}
 		f, err := fsys.Open(path)
 		if err != nil {
-			// Not a static asset — serve index.html directly for SPA routing.
-			// We read and copy the file instead of using FileServerFS to avoid
-			// the 301 redirect that FileServer issues for index.html paths.
 			indexFile, indexErr := fsys.Open("index.html")
 			if indexErr != nil {
 				http.Error(w, "index.html not found", http.StatusInternalServerError)
