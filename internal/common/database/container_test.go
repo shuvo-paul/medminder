@@ -63,7 +63,10 @@ func parseDSN(connStr string) (config.DatabaseConfig, error) {
 		dbName = dbName[1:]
 	}
 
-	password, _ := u.User.Password()
+	password, hasPassword := u.User.Password()
+	if !hasPassword {
+		password = ""
+	}
 
 	return config.DatabaseConfig{
 		Host:     u.Hostname(),
@@ -78,40 +81,27 @@ func parseDSN(connStr string) (config.DatabaseConfig, error) {
 func (tc *TestContainer) Connect(t *testing.T) *sql.DB {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var db *sql.DB
 	var err error
 
 	for i := 0; i < 10; i++ {
+		select {
+		case <-ctx.Done():
+			require.NoError(t, ctx.Err(), "timeout connecting to database")
+			return nil
+		default:
+		}
+
 		db, err = database.Connect(tc.Config)
 		if err == nil {
-			break
+			return db
 		}
 		if i < 9 {
 			time.Sleep(500 * time.Millisecond)
 		}
-	}
-	require.NoError(t, err, "should connect to database")
-	return db
-}
-
-func (tc *TestContainer) ConnectWithConnStr(t *testing.T) *sql.DB {
-	t.Helper()
-
-	var db *sql.DB
-	var err error
-
-	for i := 0; i < 10; i++ {
-		db, err = sql.Open("postgres", tc.ConnStr)
-		if err == nil {
-			err = db.Ping()
-			if err == nil {
-				break
-			}
-		}
-		if i < 9 {
-			time.Sleep(500 * time.Millisecond)
-		}
-		db.Close()
 	}
 	require.NoError(t, err, "should connect to database")
 	return db
@@ -120,10 +110,20 @@ func (tc *TestContainer) ConnectWithConnStr(t *testing.T) *sql.DB {
 func (tc *TestContainer) NewMigrator(t *testing.T) *database.Migrator {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var m *database.Migrator
 	var err error
 
 	for i := 0; i < 10; i++ {
+		select {
+		case <-ctx.Done():
+			require.NoError(t, ctx.Err(), "timeout creating migrator")
+			return nil
+		default:
+		}
+
 		m, err = database.NewMigratorWithFS(
 			migrations.FS,
 			tc.Config.Host,
@@ -134,34 +134,7 @@ func (tc *TestContainer) NewMigrator(t *testing.T) *database.Migrator {
 			tc.Config.SSLMode,
 		)
 		if err == nil {
-			break
-		}
-		if i < 9 {
-			time.Sleep(500 * time.Millisecond)
-		}
-	}
-	require.NoError(t, err, "should create migrator")
-	return m
-}
-
-func (tc *TestContainer) NewMigratorWithConnStr(t *testing.T) *database.Migrator {
-	t.Helper()
-
-	var m *database.Migrator
-	var err error
-
-	for i := 0; i < 10; i++ {
-		m, err = database.NewMigratorWithFS(
-			migrations.FS,
-			tc.Config.Host,
-			tc.Config.Port,
-			tc.Config.User,
-			tc.Config.Password,
-			tc.Config.Name,
-			tc.Config.SSLMode,
-		)
-		if err == nil {
-			break
+			return m
 		}
 		if i < 9 {
 			time.Sleep(500 * time.Millisecond)
@@ -186,7 +159,7 @@ func TestContainerExists(t *testing.T) {
 	tc := SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
-	db := tc.ConnectWithConnStr(t)
+	db := tc.Connect(t)
 	defer db.Close()
 
 	var result int
@@ -199,12 +172,12 @@ func TestContainerWithMigrations(t *testing.T) {
 	tc := SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
-	m := tc.NewMigratorWithConnStr(t)
+	m := tc.NewMigrator(t)
 	err := m.Up()
 	require.NoError(t, err, "should run migrations up")
 
 	var count int
-	db := tc.ConnectWithConnStr(t)
+	db := tc.Connect(t)
 	defer db.Close()
 
 	err = db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count)

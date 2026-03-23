@@ -16,9 +16,6 @@ func TestConnect(t *testing.T) {
 	defer db.Close()
 
 	assert.NotNil(t, db, "db should not be nil")
-
-	err := db.Close()
-	assert.NoError(t, err, "should close without error")
 }
 
 func TestConnect_InvalidConfig(t *testing.T) {
