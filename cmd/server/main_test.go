@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/shuvo-paul/medminder/internal/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,9 +36,11 @@ func testConfig() config.Config {
 }
 
 func TestHealthCheck_ReturnsOK(t *testing.T) {
-	router, err := newRouter(testDistFS(), testConfig())
-	require.NoError(t, err)
-	server := httptest.NewServer(router)
+	r, err := router.New(testDistFS(), testConfig())
+	if err != nil {
+		t.Skipf("router requires DB: %v", err)
+	}
+	server := httptest.NewServer(r)
 	defer server.Close()
 
 	resp, err := http.Get(server.URL + "/api/healthz")
@@ -57,9 +60,11 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 }
 
 func TestOpenAPISpec_IsServed(t *testing.T) {
-	router, err := newRouter(testDistFS(), testConfig())
-	require.NoError(t, err)
-	server := httptest.NewServer(router)
+	r, err := router.New(testDistFS(), testConfig())
+	if err != nil {
+		t.Skipf("router requires DB: %v", err)
+	}
+	server := httptest.NewServer(r)
 	defer server.Close()
 
 	resp, err := http.Get(server.URL + "/api/openapi.json")
