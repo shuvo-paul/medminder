@@ -16,6 +16,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/shuvo-paul/medminder/internal/common/database"
+	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
 	"github.com/shuvo-paul/medminder/internal/common/log"
 )
 
@@ -83,6 +85,24 @@ func main() {
 	}
 
 	configureLogger(cfg.AppEnv)
+
+	migrator, err := database.NewMigratorWithFS(migrations.FS,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Name,
+		cfg.Database.SSLMode,
+	)
+	if err != nil {
+		log.Error("failed to create migrator", log.F("error", err.Error()))
+		return
+	}
+
+	if err := migrator.Up(); err != nil {
+		log.Error("failed to run migrations", log.F("error", err.Error()))
+		return
+	}
 
 	distFS, err := fs.Sub(webDist, "web/dist")
 	if err != nil {
