@@ -88,7 +88,7 @@ func New(distFS fs.FS, cfg config.Config) (http.Handler, error) {
 		}
 	}
 
-	repo := repository.NewPostgresUserRepository(queries)
+	repo := repository.NewUserRepository(queries)
 	registerHandler := handlers.RegisterHandler(repo, tokenSvc)
 
 	huma.Register(api, huma.Operation{
