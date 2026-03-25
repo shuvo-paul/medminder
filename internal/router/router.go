@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -72,7 +73,7 @@ func New(distFS fs.FS, cfg config.Config) (http.Handler, error) {
 	}
 
 	queries := db.New(dbConn)
-	tokenSvc := service.NewTokenService()
+	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
 
 	type RegisterOutput struct {
 		Body struct {
@@ -99,6 +100,12 @@ func New(distFS fs.FS, cfg config.Config) (http.Handler, error) {
 	}, func(ctx context.Context, input *handlers.RegisterInput) (*RegisterOutput, error) {
 		resp, err := registerHandler(ctx, input)
 		if err != nil {
+			if errors.Is(err, handlers.ErrInvalidInput) {
+				return nil, huma.Error400BadRequest("Invalid input", err)
+			}
+			if errors.Is(err, handlers.ErrEmailExists) {
+				return nil, huma.Error409Conflict("Email already exists", err)
+			}
 			return nil, err
 		}
 		out := &RegisterOutput{}

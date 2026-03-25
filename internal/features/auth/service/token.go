@@ -15,19 +15,28 @@ import (
 var (
 	ErrInvalidToken      = errors.New("invalid token")
 	ErrTokenExpired      = errors.New("token expired")
-	jwtSecret            = []byte("medminder-secret-key-change-in-production")
 	accessTokenExpiry    = 24 * time.Hour
 	refreshTokenByteSize = 32
 )
 
-type TokenService struct{}
+type TokenService struct {
+	jwtSecret []byte
+}
 
-func NewTokenService() *TokenService {
-	return &TokenService{}
+func NewTokenService(jwtSecret string) *TokenService {
+	return &TokenService{jwtSecret: []byte(jwtSecret)}
 }
 
 func (ts *TokenService) GenerateAccessToken(userID uuid.UUID, email string) (string, error) {
-	return GenerateAccessToken(userID, email)
+	claims := jwt.MapClaims{
+		"sub":   userID.String(),
+		"email": email,
+		"exp":   time.Now().Add(accessTokenExpiry).Unix(),
+		"iat":   time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(ts.jwtSecret)
 }
 
 func (ts *TokenService) GenerateRefreshToken() (string, error) {
@@ -38,7 +47,36 @@ func (ts *TokenService) HashRefreshToken(token string) string {
 	return HashRefreshToken(token)
 }
 
-func GenerateAccessToken(userID uuid.UUID, email string) (string, error) {
+func (ts *TokenService) ValidateAccessToken(tokenString string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return ts.jwtSecret, nil
+	})
+
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	if time.Now().Unix() > int64(exp) {
+		return nil, ErrTokenExpired
+	}
+
+	return claims, nil
+}
+
+func GenerateAccessToken(userID uuid.UUID, email, jwtSecret string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":   userID.String(),
 		"email": email,
@@ -47,15 +85,15 @@ func GenerateAccessToken(userID uuid.UUID, email string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString([]byte(jwtSecret))
 }
 
-func ValidateAccessToken(tokenString string) (jwt.MapClaims, error) {
+func ValidateAccessToken(tokenString, jwtSecret string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return jwtSecret, nil
+		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {

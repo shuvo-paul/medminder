@@ -8,6 +8,8 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	defaultJWTSecret := "medminder-secret-key-change-in-production"
+
 	tests := []struct {
 		name          string
 		envVars       map[string]string
@@ -28,6 +30,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  false,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},
@@ -42,6 +45,7 @@ func TestLoad(t *testing.T) {
 				"DB_PASSWORD": "secret",
 				"DB_NAME":     "testdb",
 				"DB_SSLMODE":  "true",
+				"JWT_SECRET":  "production-secret",
 			},
 			expected: Config{
 				AppPort: 3000,
@@ -54,8 +58,16 @@ func TestLoad(t *testing.T) {
 					Name:     "testdb",
 					SSLMode:  true,
 				},
+				JWT: JWTConfig{Secret: "production-secret"},
 			},
 			expectedError: false,
+		},
+		{
+			name: "production requires JWT_SECRET",
+			envVars: map[string]string{
+				"APP_ENV": "production",
+			},
+			expectedError: true,
 		},
 		{
 			name: "invalid APP_PORT",
@@ -87,6 +99,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  false,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},
@@ -106,6 +119,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  true,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},
@@ -125,6 +139,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  true,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},
@@ -144,6 +159,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  false,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},
@@ -197,6 +213,7 @@ func TestLoad(t *testing.T) {
 					Name:     "medminder",
 					SSLMode:  false,
 				},
+				JWT: JWTConfig{Secret: defaultJWTSecret},
 			},
 			expectedError: false,
 		},

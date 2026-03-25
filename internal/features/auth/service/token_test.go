@@ -10,22 +10,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testJWTSecret = "test-secret-key"
+
 func TestGenerateAccessToken(t *testing.T) {
 	userID := uuid.New()
 	email := "test@example.com"
 
-	tokenSvc := service.NewTokenService()
+	tokenSvc := service.NewTokenService(testJWTSecret)
 	token, err := tokenSvc.GenerateAccessToken(userID, email)
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
 
-	claims, err := service.ValidateAccessToken(token)
+	claims, err := tokenSvc.ValidateAccessToken(token)
 	require.NoError(t, err)
 	assert.Equal(t, userID.String(), claims["sub"])
 	assert.Equal(t, email, claims["email"])
 }
 
 func TestValidateAccessToken_Invalid(t *testing.T) {
+	tokenSvc := service.NewTokenService(testJWTSecret)
+
 	tests := []struct {
 		name  string
 		token string
@@ -37,7 +41,7 @@ func TestValidateAccessToken_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := service.ValidateAccessToken(tt.token)
+			_, err := tokenSvc.ValidateAccessToken(tt.token)
 			assert.Error(t, err)
 		})
 	}
@@ -47,12 +51,13 @@ func TestAccessTokenExpiry(t *testing.T) {
 	userID := uuid.New()
 	email := "test@example.com"
 
-	token, err := service.GenerateAccessToken(userID, email)
+	tokenSvc := service.NewTokenService(testJWTSecret)
+	token, err := tokenSvc.GenerateAccessToken(userID, email)
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
-	claims, err := service.ValidateAccessToken(token)
+	claims, err := tokenSvc.ValidateAccessToken(token)
 	require.NoError(t, err)
 
 	exp, ok := claims["exp"].(float64)

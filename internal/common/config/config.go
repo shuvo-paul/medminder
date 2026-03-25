@@ -11,6 +11,7 @@
 //	DB_PASSWORD - Database password (default: medminder)
 //	DB_NAME     - Database name (default: medminder)
 //	DB_SSLMODE  - Enable SSL for database connection (default: false)
+//	JWT_SECRET  - Secret key for JWT signing (required in production)
 package config
 
 import (
@@ -23,6 +24,7 @@ type Config struct {
 	AppPort  int
 	AppEnv   string
 	Database DatabaseConfig
+	JWT      JWTConfig
 }
 
 type DatabaseConfig struct {
@@ -32,6 +34,10 @@ type DatabaseConfig struct {
 	Password string
 	Name     string
 	SSLMode  bool
+}
+
+type JWTConfig struct {
+	Secret string
 }
 
 func Load() (Config, error) {
@@ -63,6 +69,15 @@ func Load() (Config, error) {
 		Name:     getEnv("DB_NAME", "medminder"),
 		SSLMode:  sslMode,
 	}
+
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if cfg.AppEnv == "production" && jwtSecret == "" {
+		return Config{}, fmt.Errorf("JWT_SECRET is required in production")
+	}
+	if jwtSecret == "" {
+		jwtSecret = "medminder-secret-key-change-in-production"
+	}
+	cfg.JWT = JWTConfig{Secret: jwtSecret}
 
 	return cfg, nil
 }
