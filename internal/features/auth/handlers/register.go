@@ -1,0 +1,100 @@
+package handlers
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrEmailExists     = errors.New("email already exists")
+	ErrInvalidInput    = errors.New("invalid input")
+	bcryptCost         = 12
+	refreshTokenExpiry = 7 * 24 * time.Hour
+)
+
+type RegisterInput struct {
+	Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
+	DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
+	Password    string `json:"password" minLength:"8"`
+}
+
+type RegisterOutput struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	User         struct {
+		ID            uuid.UUID `json:"id"`
+		Email         string    `json:"email"`
+		DisplayName   string    `json:"display_name"`
+		EmailVerified bool      `json:"email_verified"`
+	} `json:"user"`
+}
+
+type TokenServiceInterface interface {
+	GenerateAccessToken(userID uuid.UUID, email string) (string, error)
+	GenerateRefreshToken() (string, error)
+	HashRefreshToken(token string) string
+}
+
+func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterface) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
+	return func(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
+		if err := ValidateEmail(input.Email); err != nil {
+			return nil, ErrInvalidInput
+		}
+		if err := ValidatePassword(input.Password); err != nil {
+			return nil, ErrInvalidInput
+		}
+		if err := ValidateDisplayName(input.DisplayName); err != nil {
+			return nil, ErrInvalidInput
+		}
+
+		existingUser, err := repo.GetUserByEmail(ctx, input.Email)
+		if err == nil && existingUser.Email != "" {
+			return nil, ErrEmailExists
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcryptCost)
+		if err != nil {
+			return nil, err
+		}
+
+		user, err := repo.CreateUser(ctx, input.Email, input.DisplayName, string(hashedPassword))
+		if err != nil {
+			return nil, err
+		}
+
+		accessToken, err := tokenSvc.GenerateAccessToken(user.ID, user.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		refreshToken, err := tokenSvc.GenerateRefreshToken()
+		if err != nil {
+			return nil, err
+		}
+
+		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
+		expiresAt := time.Now().Add(refreshTokenExpiry)
+		if _, err := repo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
+			return nil, err
+		}
+
+		resp := &RegisterOutput{}
+		resp.AccessToken = accessToken
+		resp.RefreshToken = refreshToken
+		resp.User.ID = user.ID
+		resp.User.Email = user.Email
+		resp.User.DisplayName = user.DisplayName
+		resp.User.EmailVerified = user.EmailVerified.Bool
+
+		return resp, nil
+	}
+}

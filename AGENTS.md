@@ -57,10 +57,15 @@ Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots
 ```
 ├── cmd/server/         # Application entrypoint
 ├── internal/           # Private application code
-│   ├── common/        # Shared utilities
-│   ├── config/        # Configuration
-│   ├── features/      # Feature modules
-│   ├── middleware/    # HTTP middleware
+│   ├── common/         # Shared utilities
+│   ├── config/         # Configuration
+│   ├── features/      # Feature modules (auth, medications, reminders)
+│   │   └── <feature>/  # Feature package
+│   │       ├── repository/  # Data access layer (e.g., user_repository.go)
+│   │       ├── service/      # Business logic
+│   │       ├── handler/      # HTTP handlers
+│   │       └── dto/          # Data transfer objects
+│   ├── middleware/     # HTTP middleware
 │   ├── router/        # Route definitions
 │   └── server/        # Server setup
 ├── pkg/               # Public packages
@@ -104,6 +109,8 @@ Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
 - Test functions: `TestFunctionName`, `TestStruct_MethodName`
 - Interfaces with "-er" suffix (Reader, Writer) or descriptive names
 - Avoid underscores in file names except for `_test.go` and `_mock.go`
+- Repository files: `*_repository.go` (e.g., `user_repository.go`, `medication_repository.go`)
+- Repository constructors: `NewUserRepository`, `NewMedicationRepository` (exported), implementation types private (e.g., `userRepository`)
 
 ### Types
 - Define structs close to their usage

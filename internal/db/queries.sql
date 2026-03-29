@@ -1,2 +1,0 @@
--- Placeholder queries for MedMinder
--- Add your SQL queries here as the application grows

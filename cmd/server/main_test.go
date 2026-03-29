@@ -8,6 +8,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/shuvo-paul/medminder/internal/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +20,27 @@ func testDistFS() fs.FS {
 	}
 }
 
+func testConfig() config.Config {
+	return config.Config{
+		AppPort: 8080,
+		AppEnv:  "test",
+		Database: config.DatabaseConfig{
+			Host:     "localhost",
+			Port:     5432,
+			User:     "test",
+			Password: "test",
+			Name:     "test",
+			SSLMode:  false,
+		},
+	}
+}
+
 func TestHealthCheck_ReturnsOK(t *testing.T) {
-	router := newRouter(testDistFS())
-	server := httptest.NewServer(router)
+	r, err := router.New(testDistFS(), testConfig())
+	if err != nil {
+		t.Skipf("router requires DB: %v", err)
+	}
+	server := httptest.NewServer(r)
 	defer server.Close()
 
 	resp, err := http.Get(server.URL + "/api/healthz")
@@ -40,8 +60,11 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 }
 
 func TestOpenAPISpec_IsServed(t *testing.T) {
-	router := newRouter(testDistFS())
-	server := httptest.NewServer(router)
+	r, err := router.New(testDistFS(), testConfig())
+	if err != nil {
+		t.Skipf("router requires DB: %v", err)
+	}
+	server := httptest.NewServer(r)
 	defer server.Close()
 
 	resp, err := http.Get(server.URL + "/api/openapi.json")
