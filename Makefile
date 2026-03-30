@@ -64,7 +64,7 @@ db-migrate-up:
 	$(GO) run -mod=mod cmd/migrate/main.go -direction up
 
 db-migrate-down:
-	$(GO) run -mod=mod $(MIGRATE) -path internal/common/database/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" down
+	$(GO) run -mod=mod cmd/migrate/main.go -direction down
 
 db-migrate-steps:
 	@echo "Usage: make db-migrate-steps STEPS=<n> (negative for down)"
