@@ -4,6 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
@@ -12,10 +16,25 @@ import (
 )
 
 func main() {
-	direction := flag.String("direction", "up", "migration direction: up, down, steps")
+	direction := flag.String("direction", "up", "migration direction: up, down, steps, force, create")
 	steps := flag.Int("steps", 1, "number of steps for 'steps' direction (negative for down)")
 	version := flag.Int("version", -1, "version to force migrations to")
+	name := flag.String("name", "", "name for migration (required for create)")
+	migrationDir := flag.String("dir", "internal/common/database/migrations", "directory for migration files")
 	flag.Parse()
+
+	if *direction == "create" {
+		if *name == "" {
+			fmt.Fprintf(os.Stderr, "name is required for create\n")
+			os.Exit(1)
+		}
+		if err := createMigration(*migrationDir, *name); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create migration: %v\n", err)
+			os.Exit(1)
+		}
+		log.Info("migration created", log.F("name", *name), log.F("dir", *migrationDir))
+		return
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -75,7 +94,49 @@ func main() {
 		log.Info("migration forced", log.F("version", *version))
 
 	default:
-		fmt.Fprintf(os.Stderr, "unknown direction: %s (use: up, down, steps, force)\n", *direction)
+		fmt.Fprintf(os.Stderr, "unknown direction: %s (use: up, down, steps, force, create)\n", *direction)
 		os.Exit(1)
 	}
+}
+
+func createMigration(dir, name string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read migration directory: %w", err)
+	}
+
+	var versions []int
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			parts := strings.Split(e.Name(), "_")
+			if len(parts) > 0 {
+				v, err := strconv.Atoi(parts[0])
+				if err == nil {
+					versions = append(versions, v)
+				}
+			}
+		}
+	}
+
+	nextVersion := 1
+	if len(versions) > 0 {
+		sort.Ints(versions)
+		nextVersion = versions[len(versions)-1] + 1
+	}
+
+	versionStr := fmt.Sprintf("%06d", nextVersion)
+	filename := fmt.Sprintf("%s_%s", versionStr, name)
+
+	upPath := filepath.Join(dir, filename+".up.sql")
+	downPath := filepath.Join(dir, filename+".down.sql")
+
+	if err := os.WriteFile(upPath, []byte("-- migration: "+name+"\n\n"), 0644); err != nil {
+		return fmt.Errorf("failed to create up migration: %w", err)
+	}
+
+	if err := os.WriteFile(downPath, []byte("-- migration: "+name+"\n\n"), 0644); err != nil {
+		return fmt.Errorf("failed to create down migration: %w", err)
+	}
+
+	return nil
 }

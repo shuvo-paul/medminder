@@ -78,7 +78,7 @@ db-migrate-force:
 
 db-migrate-create:
 	@if [ -z "$(NAME)" ]; then echo "Usage: make db-migrate-create NAME=<name>"; exit 1; fi
-	$(GO) run -mod=mod $(MIGRATE) create -dir internal/common/database/migrations -ext .sql -sequence $(NAME)
+	$(GO) run -mod=mod cmd/migrate/main.go -direction create -name $(NAME)
 
 sqlc-generate:
 	sqlc generate
