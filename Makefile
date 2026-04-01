@@ -7,7 +7,6 @@ BIN_DIR := bin
 BIN := $(BIN_DIR)/medminder
 CMD := cmd/server/main.go
 WEB_DIR := web
-MIGRATE := migrate
 DB_HOST ?= localhost
 DB_PORT ?= 5432
 DB_USER ?= medminder
@@ -68,7 +67,7 @@ db-migrate-down:
 
 db-migrate-steps:
 	@echo "Usage: make db-migrate-steps STEPS=<n> (negative for down)"
-	@if [ -z "$(STEPS)" ]; then exit 1; fi
+	@if [ -z "$(STEPS)" ]; then echo "STEPS is required"; exit 1; fi
 	$(GO) run -mod=mod cmd/migrate/main.go -direction steps -steps $(STEPS)
 
 db-migrate-force:

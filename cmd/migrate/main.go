@@ -17,7 +17,7 @@ import (
 
 func main() {
 	direction := flag.String("direction", "up", "migration direction: up, down, steps, force, create")
-	steps := flag.Int("steps", 1, "number of steps for 'steps' direction (negative for down)")
+	steps := flag.Int("steps", 0, "number of steps for 'steps' direction (negative for down)")
 	version := flag.Int("version", -1, "version to force migrations to")
 	name := flag.String("name", "", "name for migration (required for create)")
 	migrationDir := flag.String("dir", "internal/common/database/migrations", "directory for migration files")
@@ -32,7 +32,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "failed to create migration: %v\n", err)
 			os.Exit(1)
 		}
-		log.Info("migration created", log.F("name", *name), log.F("dir", *migrationDir))
+		fmt.Println("migration created:", *name)
 		return
 	}
 
