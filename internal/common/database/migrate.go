@@ -58,7 +58,7 @@ func (m *Migrator) Down() error {
 }
 
 func (m *Migrator) Steps(n int) error {
-	if err := m.m.Steps(n); err != nil {
+	if err := m.m.Steps(n); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("failed to run %d migration steps: %w", n, err)
 	}
 	return nil
