@@ -49,7 +49,14 @@ func main() {
 		return
 	}
 
-	r, err := router.New(distFS, cfg)
+	dbConn, err := database.Connect(cfg.Database)
+	if err != nil {
+		log.Error("failed to connect to database", log.F("error", err.Error()))
+		return
+	}
+	defer dbConn.Close()
+
+	r, err := router.New(distFS, dbConn, cfg)
 	if err != nil {
 		log.Error("failed to create router", log.F("error", err.Error()))
 		return
