@@ -21,7 +21,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 
 	queries := db.New(dbConn)
 
-	auth.RegisterRoutes(api, queries, cfg)
+	auth.RegisterRoutes(api, queries, cfg.JWT.Secret)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)

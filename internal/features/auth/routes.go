@@ -8,7 +8,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
-	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/db"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
@@ -28,9 +27,9 @@ type registerOutput struct {
 	}
 }
 
-func RegisterRoutes(api huma.API, queries *db.Queries, cfg config.Config) {
+func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	repo := repository.NewUserRepository(queries)
-	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
+	tokenSvc := service.NewTokenService(jwtSecret)
 	handler := handlers.RegisterHandler(repo, tokenSvc)
 
 	huma.Register(api, huma.Operation{
