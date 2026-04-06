@@ -36,3 +36,6 @@ web/.pnpm-store/
 
 # Worktrees
 .worktrees
+
+# IDE/AI tool config
+.opencode/
