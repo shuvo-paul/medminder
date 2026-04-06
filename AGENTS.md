@@ -64,9 +64,10 @@ Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots
 │   │       ├── repository/  # Data access layer (e.g., user_repository.go)
 │   │       ├── service/      # Business logic
 │   │       ├── handler/      # HTTP handlers
+│   │       ├── routes.go    # Feature-owned route registration
 │   │       └── dto/          # Data transfer objects
 │   ├── middleware/     # HTTP middleware
-│   ├── router/        # Route definitions
+│   ├── router/        # Route orchestrator (infra, SPA, huma setup)
 │   └── server/        # Server setup
 ├── pkg/               # Public packages
 ├── tests/             # Test suites
@@ -77,6 +78,36 @@ Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots
 ├── web/              # SvelteKit frontend (see web/AGENTS.md)
 └── configs/          # Configuration files
 ```
+
+## Feature-Owned Route Registration
+
+Each feature package owns its route registration via a `RegisterRoutes` function in `routes.go`:
+
+```go
+// internal/features/auth/routes.go
+func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string)
+```
+
+The router orchestrates by calling feature `RegisterRoutes` functions. This keeps feature wiring inside the feature package.
+
+### Router Pattern
+
+- `internal/router/router.go` — Thin orchestrator that wires features together
+- `internal/router/infra.go` — Infrastructure routes (health check, OpenAPI JSON)
+- `internal/router/spa.go` — SPA file server and service worker handlers
+
+### Dependency Injection
+
+DB connections are passed via DI from `main.go` to `router.New`:
+
+```go
+// cmd/server/main.go
+dbConn, err := database.Connect(cfg.Database)
+defer dbConn.Close()
+r, err := router.New(distFS, dbConn, cfg)
+```
+
+Never create DB connections inside `router.New` — this causes lifecycle bugs.
 
 ## Git Conventions
 - Feature branches: `feature/description`

@@ -33,3 +33,6 @@ cmd/server/web/dist/
 # Local/OS artifacts
 .DS_Store
 web/.pnpm-store/
+
+# Worktrees
+.worktrees

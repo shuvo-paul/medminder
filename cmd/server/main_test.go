@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -36,10 +37,8 @@ func testConfig() config.Config {
 }
 
 func TestHealthCheck_ReturnsOK(t *testing.T) {
-	r, err := router.New(testDistFS(), testConfig())
-	if err != nil {
-		t.Skipf("router requires DB: %v", err)
-	}
+	r, err := router.New(testDistFS(), &sql.DB{}, testConfig())
+	require.NoError(t, err)
 	server := httptest.NewServer(r)
 	defer server.Close()
 
@@ -60,10 +59,8 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 }
 
 func TestOpenAPISpec_IsServed(t *testing.T) {
-	r, err := router.New(testDistFS(), testConfig())
-	if err != nil {
-		t.Skipf("router requires DB: %v", err)
-	}
+	r, err := router.New(testDistFS(), &sql.DB{}, testConfig())
+	require.NoError(t, err)
 	server := httptest.NewServer(r)
 	defer server.Close()
 
