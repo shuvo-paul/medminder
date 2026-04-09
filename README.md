@@ -45,7 +45,7 @@ To override any defaults, copy `.env.example` to `.env` and rerun `docker compos
 | URL | Description |
 |---|---|
 | `http://localhost:8080/api/openapi.json` | Live OpenAPI 3.1 spec (always in sync with code) |
-| `http://localhost:8080/api/docs` | Swagger UI |
+| `http://localhost:8080/api/docs` | Scalar Docs UI |
 
 ### Running Tests
 
