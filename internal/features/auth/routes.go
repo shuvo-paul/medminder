@@ -41,8 +41,14 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	}, func(ctx context.Context, input *handlers.RegisterInput) (*registerOutput, error) {
 		resp, err := handler(ctx, input)
 		if err != nil {
-			if errors.Is(err, handlers.ErrInvalidInput) {
-				return nil, huma.Error400BadRequest("Invalid input", err)
+			if errors.Is(err, handlers.ErrInvalidEmail) {
+				return nil, huma.Error400BadRequest("Invalid email format", err)
+			}
+			if errors.Is(err, handlers.ErrInvalidPassword) {
+				return nil, huma.Error400BadRequest("Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number", err)
+			}
+			if errors.Is(err, handlers.ErrInvalidDisplayName) {
+				return nil, huma.Error400BadRequest("Display name must be 1-100 characters", err)
 			}
 			if errors.Is(err, handlers.ErrEmailExists) {
 				return nil, huma.Error409Conflict("Email already exists", err)

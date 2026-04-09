@@ -13,7 +13,6 @@ import (
 
 var (
 	ErrEmailExists     = errors.New("email already exists")
-	ErrInvalidInput    = errors.New("invalid input")
 	bcryptCost         = 12
 	refreshTokenExpiry = 7 * 24 * time.Hour
 )
@@ -44,13 +43,13 @@ type TokenServiceInterface interface {
 func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterface) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
 	return func(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
-			return nil, ErrInvalidInput
+			return nil, ErrInvalidEmail
 		}
 		if err := ValidatePassword(input.Password); err != nil {
-			return nil, ErrInvalidInput
+			return nil, ErrInvalidPassword
 		}
 		if err := ValidateDisplayName(input.DisplayName); err != nil {
-			return nil, ErrInvalidInput
+			return nil, ErrInvalidDisplayName
 		}
 
 		existingUser, err := repo.GetUserByEmail(ctx, input.Email)
