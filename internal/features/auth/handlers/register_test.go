@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/db"
+	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

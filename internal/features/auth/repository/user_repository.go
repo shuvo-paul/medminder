@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/db"
+	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 )
 
 type UserRepository interface {

@@ -8,7 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
-	"github.com/shuvo-paul/medminder/internal/db"
+	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
