@@ -38,7 +38,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 func setupHuma(router *chi.Mux) huma.API {
 	humaConfig := huma.DefaultConfig("MedMinder API", "1.0.0")
 	humaConfig.Info.Description = "Medication reminder application API"
-	humaConfig.DocsRenderer = huma.DocsRendererSwaggerUI
+	humaConfig.DocsRenderer = huma.DocsRendererScalar
 	humaConfig.DocsPath = "/api/docs"
 	return humachi.New(router, humaConfig)
 }
