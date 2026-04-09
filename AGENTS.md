@@ -8,7 +8,7 @@ Module: `github.com/shuvo-paul/medminder`
 
 **Backend**
 - HTTP router: Chi (wrapped by huma for API routes)
-- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/openapi.json`, Swagger UI at `/docs`
+- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/openapi.json`, Scalar Docs at `/docs`
 - Database migrations: golang-migrate
 - Query generation: sqlc
 - Testing/assertions: testify
