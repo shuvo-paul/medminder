@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
-	"github.com/shuvo-paul/medminder/internal/db"
+	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth"
 )
 
