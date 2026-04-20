@@ -11,11 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	ErrEmailExists     = errors.New("email already exists")
-	bcryptCost         = 12
-	refreshTokenExpiry = 7 * 24 * time.Hour
-)
+var ErrEmailExists = errors.New("email already exists")
 
 type RegisterInput struct {
 	Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
@@ -60,7 +56,7 @@ func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterf
 			return nil, err
 		}
 
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcryptCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), BcryptCost)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +77,7 @@ func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterf
 		}
 
 		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
-		expiresAt := time.Now().Add(refreshTokenExpiry)
+		expiresAt := time.Now().Add(RefreshTokenExpiry)
 		if _, err := repo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
 			return nil, err
 		}

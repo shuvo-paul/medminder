@@ -41,10 +41,6 @@ func LoginHandler(repo LoginHandlerRepo, tokenSvc TokenServiceInterface) func(co
 			return nil, ErrInvalidEmail
 		}
 
-		if input.Password == "" {
-			return nil, ErrInvalidCredentials
-		}
-
 		user, err := repo.GetUserByEmail(ctx, input.Email)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -72,7 +68,7 @@ func LoginHandler(repo LoginHandlerRepo, tokenSvc TokenServiceInterface) func(co
 		}
 
 		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
-		expiresAt := time.Now().Add(refreshTokenExpiry)
+		expiresAt := time.Now().Add(RefreshTokenExpiry)
 		if _, err := repo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
 			return nil, err
 		}

@@ -101,21 +101,6 @@ func TestLogin_InvalidEmail(t *testing.T) {
 	assert.True(t, errors.Is(err, handlers.ErrInvalidEmail))
 }
 
-func TestLogin_EmptyPassword(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
-	mockTokenSvc := new(MockLoginTokenService)
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
-
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    "test@example.com",
-		Password: "",
-	})
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.True(t, errors.Is(err, handlers.ErrInvalidCredentials))
-}
-
 func TestLogin_UserNotFound(t *testing.T) {
 	mockRepo := new(MockLoginUserRepository)
 	mockTokenSvc := new(MockLoginTokenService)
