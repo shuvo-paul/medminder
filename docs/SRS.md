@@ -934,8 +934,8 @@ All timestamps in API responses are in ISO 8601 format (UTC). All datetime stora
 
 | Feature | Module | Status | Priority | Notes |
 |---------|--------|--------|----------|-------|
-| Email/password registration | Auth | Not Started | P0 | Requires display_name field |
-| JWT login/logout | Auth | Not Started | P0 | |
+| Email/password registration | Auth | Completed | P0 | Requires display_name field |
+| JWT login/logout | Auth | Completed | P0 | Access token (24h) + refresh token (7 days) |
 | Token refresh | Auth | Not Started | P0 | |
 | Password reset (request + confirm) | Auth | Not Started | P0 | Two-step flow |
 | Email verification + resend | Auth | Not Started | P0 | Max 3/day |
