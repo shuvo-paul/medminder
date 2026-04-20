@@ -27,6 +27,26 @@ type registerOutput struct {
 	}
 }
 
+type loginInput struct {
+	Body struct {
+		Email    string `json:"email" minLength:"1" maxLength:"255"`
+		Password string `json:"password" minLength:"1"`
+	}
+}
+
+type loginOutput struct {
+	Body struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		User         struct {
+			ID            uuid.UUID `json:"id"`
+			Email         string    `json:"email"`
+			DisplayName   string    `json:"display_name"`
+			EmailVerified bool      `json:"email_verified"`
+		} `json:"user"`
+	}
+}
+
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	repo := repository.NewUserRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
@@ -56,6 +76,35 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 			return nil, err
 		}
 		out := &registerOutput{}
+		out.Body.AccessToken = resp.AccessToken
+		out.Body.RefreshToken = resp.RefreshToken
+		out.Body.User = resp.User
+		return out, nil
+	})
+
+	loginHandler := handlers.LoginHandler(repo, tokenSvc)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "login-user",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/login",
+		Summary:     "Login user",
+		Tags:        []string{"auth"},
+	}, func(ctx context.Context, input *loginInput) (*loginOutput, error) {
+		resp, err := loginHandler(ctx, &handlers.LoginInput{
+			Email:    input.Body.Email,
+			Password: input.Body.Password,
+		})
+		if err != nil {
+			if errors.Is(err, handlers.ErrInvalidCredentials) {
+				return nil, huma.Error401Unauthorized("Invalid email or password", err)
+			}
+			if errors.Is(err, handlers.ErrInvalidEmail) {
+				return nil, huma.Error400BadRequest("Invalid email format", err)
+			}
+			return nil, err
+		}
+		out := &loginOutput{}
 		out.Body.AccessToken = resp.AccessToken
 		out.Body.RefreshToken = resp.RefreshToken
 		out.Body.User = resp.User
