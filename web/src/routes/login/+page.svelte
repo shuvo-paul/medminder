@@ -109,10 +109,12 @@
 						type="email"
 						placeholder="you@example.com"
 						bind:value={email}
-						autocomplete="email"
+						autocomplete="username"
+						aria-describedby={errors.email ? 'email-error' : undefined}
+						disabled={isLoading}
 					/>
-					{#if errors.email}
-						<p class="text-sm text-destructive">{errors.email}</p>
+				{#if errors.email}
+					<p id="email-error" class="text-sm text-destructive">{errors.email}</p>
 					{/if}
 				</div>
 
@@ -126,6 +128,8 @@
 							bind:value={password}
 							class="pr-10"
 							autocomplete="current-password"
+							aria-describedby={errors.password ? 'password-error' : undefined}
+							disabled={isLoading}
 						/>
 						<button
 							type="button"
@@ -141,13 +145,13 @@
 						</button>
 					</div>
 					{#if errors.password}
-						<p class="text-sm text-destructive">{errors.password}</p>
+						<p id="password-error" class="text-sm text-destructive">{errors.password}</p>
 					{/if}
 				</div>
 
 				<div class="flex items-center justify-between">
-					<label class="flex items-center gap-2 text-sm">
-						<input type="checkbox" bind:checked={rememberMe} class="h-4 w-4 rounded border-input accent-[#0d9488]" />
+					<label for="rememberMe" class="flex items-center gap-2 text-sm">
+						<input id="rememberMe" type="checkbox" bind:checked={rememberMe} class="h-4 w-4 rounded border-input accent-[#0d9488]" />
 						Remember me
 					</label>
 					<button type="button" onclick={handleForgotPassword} class="text-sm text-[#0d9488] hover:underline">Forgot password?</button>
