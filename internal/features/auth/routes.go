@@ -53,10 +53,23 @@ type registerInput struct {
 	}
 }
 
+type logoutInput struct {
+	Header struct {
+		Authorization string `header:"Authorization" minLength:"1"`
+	}
+}
+
+type logoutOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}
+
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
-	repo := repository.NewUserRepository(queries)
+	userRepo := repository.NewUserRepository(queries)
+	tokenRepo := repository.NewRefreshTokenRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
-	handler := handlers.RegisterHandler(repo)
+	handler := handlers.RegisterHandler(userRepo)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "register-user",
@@ -90,7 +103,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 		return out, nil
 	})
 
-	loginHandler := handlers.LoginHandler(repo, tokenSvc)
+	loginHandler := handlers.LoginHandler(userRepo, tokenRepo, tokenSvc)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "login-user",
@@ -117,5 +130,46 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 		out.Body.RefreshToken = resp.RefreshToken
 		out.Body.User = resp.User
 		return out, nil
+	})
+
+	logoutHandler := handlers.LogoutHandler(tokenRepo)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "logout-user",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/logout",
+		Summary:     "Logout user",
+		Tags:        []string{"auth"},
+	}, func(ctx context.Context, input *logoutInput) (*logoutOutput, error) {
+		authHeader := input.Header.Authorization
+		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			return nil, huma.Error401Unauthorized("Invalid authorization header", nil)
+		}
+		tokenString := authHeader[7:]
+
+		claims, err := tokenSvc.ValidateAccessToken(tokenString)
+		if err != nil {
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
+		}
+
+		userIDStr, ok := claims["sub"].(string)
+		if !ok {
+			return nil, huma.Error401Unauthorized("Invalid access token", nil)
+		}
+
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			return nil, huma.Error401Unauthorized("Invalid user ID in token", nil)
+		}
+
+		if err := logoutHandler(ctx, &handlers.LogoutInput{
+			UserID: userID,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("Failed to logout", err)
+		}
+
+		return &logoutOutput{Body: struct {
+			Message string `json:"message"`
+		}{Message: "logged out successfully"}}, nil
 	})
 }

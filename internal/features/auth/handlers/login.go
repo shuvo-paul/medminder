@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
+	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
@@ -36,13 +37,13 @@ type LoginOutput struct {
 	} `json:"user"`
 }
 
-func LoginHandler(repo LoginHandlerRepo, tokenSvc service.TokenServiceInterface) func(context.Context, *LoginInput) (*LoginOutput, error) {
+func LoginHandler(userRepo repository.UserRepository, tokenRepo repository.RefreshTokenRepository, tokenSvc service.TokenServiceInterface) func(context.Context, *LoginInput) (*LoginOutput, error) {
 	return func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
 			return nil, ErrInvalidEmail
 		}
 
-		user, err := repo.GetUserByEmail(ctx, input.Email)
+		user, err := userRepo.GetUserByEmail(ctx, input.Email)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, ErrInvalidCredentials
@@ -70,7 +71,7 @@ func LoginHandler(repo LoginHandlerRepo, tokenSvc service.TokenServiceInterface)
 
 		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
 		expiresAt := time.Now().Add(RefreshTokenExpiry)
-		if _, err := repo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
+		if _, err := tokenRepo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
 			return nil, err
 		}
 
