@@ -6,6 +6,6 @@ export const prerender = false;
 
 export const load: LayoutLoad = () => {
 	if (typeof window !== 'undefined' && !localStorage.getItem('access_token')) {
-		throw redirect(303, '/login');
+		throw redirect(302, '/login');
 	}
 };
