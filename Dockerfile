@@ -6,7 +6,7 @@ ENV GO111MODULE=on
 
 RUN go install github.com/air-verse/air@latest \
 	&& apt-get update \
-	&& apt-get install -y --no-install-recommends make postgresql-client curl \
+	&& apt-get install -y --no-install-recommends postgresql-client curl \
 	&& curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 	&& apt-get install -y --no-install-recommends nodejs \
 	&& rm -rf /var/lib/apt/lists/* \
@@ -19,4 +19,4 @@ COPY . .
 
 EXPOSE 8080 5173
 
-CMD ["make", "start"]
+CMD ["sh", "-c", "air & cd web && pnpm dev"]

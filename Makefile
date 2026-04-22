@@ -1,4 +1,4 @@
-.PHONY := build dev start run test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
+.PHONY := build test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
 
 GO ?= go
 PNPM ?= pnpm
@@ -19,19 +19,6 @@ build:
 	@mkdir -p $(BIN_DIR)
 	@mkdir -p cmd/server/web/dist
 	$(GO) build -o $(BIN) $(CMD)
-
-# Development: Go server with Air hot-reload. No frontend build.
-# Use alongside `make web-dev` in a second terminal.
-dev:
-	$(AIR)
-
-# Start both Air (Go) and Vite (frontend) together. Ctrl+C stops both.
-start:
-	trap 'kill 0' EXIT; $(AIR) & cd $(WEB_DIR) && $(PNPM) dev
-
-# Run Go server directly (use after make embed-frontend)
-run:
-	$(GO) run $(CMD)
 
 test:
 	$(GO) test ./...
