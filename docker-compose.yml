@@ -21,7 +21,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: sh -c "pnpm --prefix web install && make start"
     volumes:
       - .:/app
       - air_tmp:/app/tmp
