@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
@@ -35,7 +36,7 @@ type LoginOutput struct {
 	} `json:"user"`
 }
 
-func LoginHandler(repo LoginHandlerRepo, tokenSvc TokenServiceInterface) func(context.Context, *LoginInput) (*LoginOutput, error) {
+func LoginHandler(repo LoginHandlerRepo, tokenSvc service.TokenServiceInterface) func(context.Context, *LoginInput) (*LoginOutput, error) {
 	return func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
 			return nil, ErrInvalidEmail

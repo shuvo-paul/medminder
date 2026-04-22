@@ -16,9 +16,7 @@ import (
 
 type registerOutput struct {
 	Body struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		User         struct {
+		User struct {
 			ID            uuid.UUID `json:"id"`
 			Email         string    `json:"email"`
 			DisplayName   string    `json:"display_name"`
@@ -47,10 +45,18 @@ type loginOutput struct {
 	}
 }
 
+type registerInput struct {
+	Body struct {
+		Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
+		DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
+		Password    string `json:"password" minLength:"8"`
+	}
+}
+
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	repo := repository.NewUserRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
-	handler := handlers.RegisterHandler(repo, tokenSvc)
+	handler := handlers.RegisterHandler(repo)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "register-user",
@@ -58,8 +64,12 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 		Path:        "/api/auth/register",
 		Summary:     "Register a new user",
 		Tags:        []string{"auth"},
-	}, func(ctx context.Context, input *handlers.RegisterInput) (*registerOutput, error) {
-		resp, err := handler(ctx, input)
+	}, func(ctx context.Context, input *registerInput) (*registerOutput, error) {
+		resp, err := handler(ctx, &handlers.RegisterInput{
+			Email:       input.Body.Email,
+			DisplayName: input.Body.DisplayName,
+			Password:    input.Body.Password,
+		})
 		if err != nil {
 			if errors.Is(err, handlers.ErrInvalidEmail) {
 				return nil, huma.Error400BadRequest("Invalid email format", err)
@@ -76,8 +86,6 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 			return nil, err
 		}
 		out := &registerOutput{}
-		out.Body.AccessToken = resp.AccessToken
-		out.Body.RefreshToken = resp.RefreshToken
 		out.Body.User = resp.User
 		return out, nil
 	})
