@@ -16,7 +16,7 @@ type LogoutInput struct {
 
 func LogoutHandler(repo repository.RefreshTokenRepository) func(context.Context, *LogoutInput) error {
 	return func(ctx context.Context, input *LogoutInput) error {
-		if input == nil || input.UserID == uuid.Nil {
+		if input.UserID == uuid.Nil {
 			return ErrLogoutFailed
 		}
 

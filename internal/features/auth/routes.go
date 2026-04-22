@@ -55,7 +55,7 @@ type registerInput struct {
 
 type logoutInput struct {
 	Header struct {
-		Authorization string `header:"Authorization" minLength:"1"`
+		Authorization string `header:"Authorization"`
 	}
 }
 

@@ -9,17 +9,11 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
-
-type LoginHandlerRepo interface {
-	GetUserByEmail(ctx context.Context, email string) (db.User, error)
-	CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.CreateRefreshTokenRow, error)
-}
 
 type LoginInput struct {
 	Email    string `json:"email" minLength:"1" maxLength:"255"`

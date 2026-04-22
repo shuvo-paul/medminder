@@ -43,3 +43,16 @@ func TestLogout_DBError(t *testing.T) {
 	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
 	mockRepo.AssertExpectations(t)
 }
+
+func TestLogout_NilUserID(t *testing.T) {
+	mockRepo := new(MockRefreshTokenRepository)
+
+	handler := handlers.LogoutHandler(mockRepo)
+
+	err := handler(context.Background(), &handlers.LogoutInput{
+		UserID: uuid.Nil,
+	})
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
+}
