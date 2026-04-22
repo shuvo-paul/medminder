@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
@@ -15,41 +14,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type MockLoginUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockLoginUserRepository) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
-	args := m.Called(ctx, email)
-	return args.Get(0).(db.User), args.Error(1)
-}
-
-func (m *MockLoginUserRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.CreateRefreshTokenRow, error) {
-	args := m.Called(ctx, userID, tokenHash, expiresAt)
-	return args.Get(0).(db.CreateRefreshTokenRow), args.Error(1)
-}
-
-type MockLoginTokenService struct {
-	mock.Mock
-}
-
-func (m *MockLoginTokenService) GenerateAccessToken(userID uuid.UUID, email string) (string, error) {
-	args := m.Called(userID, email)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockLoginTokenService) GenerateRefreshToken() (string, error) {
-	args := m.Called()
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockLoginTokenService) HashRefreshToken(token string) string {
-	args := m.Called(token)
-	return args.String(0)
-}
-
 func TestLogin_Successful(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
+	mockUserRepo := new(MockUserRepository)
+	mockTokenRepo := new(MockRefreshTokenRepository)
 	mockTokenSvc := new(MockLoginTokenService)
 
 	userID := uuid.New()
@@ -58,7 +25,7 @@ func TestLogin_Successful(t *testing.T) {
 	displayName := "Test User"
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 12)
 
-	mockRepo.On("GetUserByEmail", mock.Anything, email).Return(db.User{
+	mockUserRepo.On("GetUserByEmail", mock.Anything, email).Return(db.User{
 		ID:            userID,
 		Email:         email,
 		DisplayName:   displayName,
@@ -68,9 +35,9 @@ func TestLogin_Successful(t *testing.T) {
 	mockTokenSvc.On("GenerateAccessToken", userID, email).Return("access-token", nil)
 	mockTokenSvc.On("GenerateRefreshToken").Return("refresh-token", nil)
 	mockTokenSvc.On("HashRefreshToken", "refresh-token").Return("hashed-token")
-	mockRepo.On("CreateRefreshToken", mock.Anything, userID, "hashed-token", mock.Anything).Return(db.CreateRefreshTokenRow{}, nil)
+	mockTokenRepo.On("CreateRefreshToken", mock.Anything, userID, "hashed-token", mock.Anything).Return(db.CreateRefreshTokenRow{}, nil)
 
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
+	handler := handlers.LoginHandler(mockUserRepo, mockTokenRepo, mockTokenSvc)
 
 	resp, err := handler(context.Background(), &handlers.LoginInput{
 		Email:    email,
@@ -87,9 +54,10 @@ func TestLogin_Successful(t *testing.T) {
 }
 
 func TestLogin_InvalidEmail(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
+	mockUserRepo := new(MockUserRepository)
+	mockTokenRepo := new(MockRefreshTokenRepository)
 	mockTokenSvc := new(MockLoginTokenService)
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
+	handler := handlers.LoginHandler(mockUserRepo, mockTokenRepo, mockTokenSvc)
 
 	resp, err := handler(context.Background(), &handlers.LoginInput{
 		Email:    "invalid-email",
@@ -102,12 +70,13 @@ func TestLogin_InvalidEmail(t *testing.T) {
 }
 
 func TestLogin_UserNotFound(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
+	mockUserRepo := new(MockUserRepository)
+	mockTokenRepo := new(MockRefreshTokenRepository)
 	mockTokenSvc := new(MockLoginTokenService)
 
-	mockRepo.On("GetUserByEmail", mock.Anything, "nonexistent@example.com").Return(db.User{}, sql.ErrNoRows)
+	mockUserRepo.On("GetUserByEmail", mock.Anything, "nonexistent@example.com").Return(db.User{}, sql.ErrNoRows)
 
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
+	handler := handlers.LoginHandler(mockUserRepo, mockTokenRepo, mockTokenSvc)
 
 	resp, err := handler(context.Background(), &handlers.LoginInput{
 		Email:    "nonexistent@example.com",
@@ -120,12 +89,13 @@ func TestLogin_UserNotFound(t *testing.T) {
 }
 
 func TestLogin_EmptyPasswordHash(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
+	mockUserRepo := new(MockUserRepository)
+	mockTokenRepo := new(MockRefreshTokenRepository)
 	mockTokenSvc := new(MockLoginTokenService)
 
 	userID := uuid.New()
 
-	mockRepo.On("GetUserByEmail", mock.Anything, "test@example.com").Return(db.User{
+	mockUserRepo.On("GetUserByEmail", mock.Anything, "test@example.com").Return(db.User{
 		ID:            userID,
 		Email:         "test@example.com",
 		DisplayName:   "Test User",
@@ -133,7 +103,7 @@ func TestLogin_EmptyPasswordHash(t *testing.T) {
 		EmailVerified: sql.NullBool{Bool: false, Valid: true},
 	}, nil)
 
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
+	handler := handlers.LoginHandler(mockUserRepo, mockTokenRepo, mockTokenSvc)
 
 	resp, err := handler(context.Background(), &handlers.LoginInput{
 		Email:    "test@example.com",
@@ -146,13 +116,14 @@ func TestLogin_EmptyPasswordHash(t *testing.T) {
 }
 
 func TestLogin_WrongPassword(t *testing.T) {
-	mockRepo := new(MockLoginUserRepository)
+	mockUserRepo := new(MockUserRepository)
+	mockTokenRepo := new(MockRefreshTokenRepository)
 	mockTokenSvc := new(MockLoginTokenService)
 
 	userID := uuid.New()
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("CorrectPassword123"), 12)
 
-	mockRepo.On("GetUserByEmail", mock.Anything, "test@example.com").Return(db.User{
+	mockUserRepo.On("GetUserByEmail", mock.Anything, "test@example.com").Return(db.User{
 		ID:            userID,
 		Email:         "test@example.com",
 		DisplayName:   "Test User",
@@ -160,7 +131,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 		EmailVerified: sql.NullBool{Bool: false, Valid: true},
 	}, nil)
 
-	handler := handlers.LoginHandler(mockRepo, mockTokenSvc)
+	handler := handlers.LoginHandler(mockUserRepo, mockTokenRepo, mockTokenSvc)
 
 	resp, err := handler(context.Background(), &handlers.LoginInput{
 		Email:    "test@example.com",

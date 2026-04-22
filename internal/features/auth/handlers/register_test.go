@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
@@ -14,30 +13,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error) {
-	args := m.Called(ctx, email, displayName, passwordHash)
-	if args.Get(0) == nil {
-		return db.CreateUserRow{}, args.Error(1)
-	}
-	return args.Get(0).(db.CreateUserRow), args.Error(1)
-}
-
-func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
-	args := m.Called(ctx, email)
-	return args.Get(0).(db.User), args.Error(1)
-}
-
-func (m *MockUserRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.CreateRefreshTokenRow, error) {
-	args := m.Called(ctx, userID, tokenHash, expiresAt)
-	return args.Get(0).(db.CreateRefreshTokenRow), args.Error(1)
-}
-
 func TestRegister_Successful(t *testing.T) {
-	mockRepo := new(MockUserRepository)
+	mockRepo := new(MockRegisterUserRepository)
 
 	userID := uuid.New()
 	email := "test@example.com"
@@ -69,7 +46,7 @@ func TestRegister_Successful(t *testing.T) {
 }
 
 func TestRegister_InvalidEmail(t *testing.T) {
-	mockRepo := new(MockUserRepository)
+	mockRepo := new(MockRegisterUserRepository)
 	handler := handlers.RegisterHandler(mockRepo)
 
 	resp, err := handler(context.Background(), &handlers.RegisterInput{
@@ -83,7 +60,7 @@ func TestRegister_InvalidEmail(t *testing.T) {
 }
 
 func TestRegister_InvalidPassword(t *testing.T) {
-	mockRepo := new(MockUserRepository)
+	mockRepo := new(MockRegisterUserRepository)
 	handler := handlers.RegisterHandler(mockRepo)
 
 	resp, err := handler(context.Background(), &handlers.RegisterInput{
@@ -97,7 +74,7 @@ func TestRegister_InvalidPassword(t *testing.T) {
 }
 
 func TestRegister_EmailAlreadyExists(t *testing.T) {
-	mockRepo := new(MockUserRepository)
+	mockRepo := new(MockRegisterUserRepository)
 
 	email := "test@example.com"
 	userID := uuid.New()
