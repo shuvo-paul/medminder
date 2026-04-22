@@ -174,7 +174,7 @@
 						<span class="w-full border-t border-border"></span>
 					</div>
 					<div class="relative flex justify-center text-xs uppercase">
-						<span class="bg-[#f8f7f4] px-2 text-muted-foreground">or</span>
+						<span class="bg-background px-2 text-muted-foreground">or</span>
 					</div>
 				</div>
 
