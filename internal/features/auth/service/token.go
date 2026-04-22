@@ -23,6 +23,12 @@ type TokenService struct {
 	jwtSecret []byte
 }
 
+type TokenServiceInterface interface {
+	GenerateAccessToken(userID uuid.UUID, email string) (string, error)
+	GenerateRefreshToken() (string, error)
+	HashRefreshToken(token string) string
+}
+
 func NewTokenService(jwtSecret string) *TokenService {
 	return &TokenService{jwtSecret: []byte(jwtSecret)}
 }

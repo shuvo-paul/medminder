@@ -27,13 +27,7 @@ type RegisterOutput struct {
 	} `json:"user"`
 }
 
-type TokenServiceInterface interface {
-	GenerateAccessToken(userID uuid.UUID, email string) (string, error)
-	GenerateRefreshToken() (string, error)
-	HashRefreshToken(token string) string
-}
-
-func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterface) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
+func RegisterHandler(repo repository.UserRepository) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
 	return func(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
 			return nil, ErrInvalidEmail

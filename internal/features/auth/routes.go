@@ -47,7 +47,7 @@ type loginOutput struct {
 
 type registerInput struct {
 	Body struct {
-		Email       string `json:"email" minLength:"1" maxLength:"255"`
+		Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
 		DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
 		Password    string `json:"password" minLength:"8"`
 	}
@@ -56,7 +56,7 @@ type registerInput struct {
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	repo := repository.NewUserRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
-	handler := handlers.RegisterHandler(repo, tokenSvc)
+	handler := handlers.RegisterHandler(repo)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "register-user",
