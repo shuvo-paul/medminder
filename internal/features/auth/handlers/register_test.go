@@ -71,10 +71,6 @@ func TestRegister_Successful(t *testing.T) {
 		DisplayName:   displayName,
 		EmailVerified: sql.NullBool{Bool: false, Valid: true},
 	}, nil)
-	mockTokenSvc.On("GenerateAccessToken", userID, email).Return("access-token", nil)
-	mockTokenSvc.On("GenerateRefreshToken").Return("refresh-token", nil)
-	mockTokenSvc.On("HashRefreshToken", "refresh-token").Return("hashed-token")
-	mockRepo.On("CreateRefreshToken", mock.Anything, userID, "hashed-token", mock.Anything).Return(db.CreateRefreshTokenRow{}, nil)
 
 	handler := handlers.RegisterHandler(mockRepo, mockTokenSvc)
 
@@ -85,8 +81,7 @@ func TestRegister_Successful(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.NotEmpty(t, resp.AccessToken)
-	assert.NotEmpty(t, resp.RefreshToken)
+	assert.NotEmpty(t, resp.User.ID)
 	assert.Equal(t, userID, resp.User.ID)
 	assert.Equal(t, email, resp.User.Email)
 	assert.Equal(t, displayName, resp.User.DisplayName)

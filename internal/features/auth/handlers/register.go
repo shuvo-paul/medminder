@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
@@ -20,9 +19,7 @@ type RegisterInput struct {
 }
 
 type RegisterOutput struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	User         struct {
+	User struct {
 		ID            uuid.UUID `json:"id"`
 		Email         string    `json:"email"`
 		DisplayName   string    `json:"display_name"`
@@ -66,25 +63,7 @@ func RegisterHandler(repo repository.UserRepository, tokenSvc TokenServiceInterf
 			return nil, err
 		}
 
-		accessToken, err := tokenSvc.GenerateAccessToken(user.ID, user.Email)
-		if err != nil {
-			return nil, err
-		}
-
-		refreshToken, err := tokenSvc.GenerateRefreshToken()
-		if err != nil {
-			return nil, err
-		}
-
-		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
-		expiresAt := time.Now().Add(RefreshTokenExpiry)
-		if _, err := repo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
-			return nil, err
-		}
-
 		resp := &RegisterOutput{}
-		resp.AccessToken = accessToken
-		resp.RefreshToken = refreshToken
 		resp.User.ID = user.ID
 		resp.User.Email = user.Email
 		resp.User.DisplayName = user.DisplayName

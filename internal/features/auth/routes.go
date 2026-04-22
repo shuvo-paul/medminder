@@ -16,9 +16,7 @@ import (
 
 type registerOutput struct {
 	Body struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		User         struct {
+		User struct {
 			ID            uuid.UUID `json:"id"`
 			Email         string    `json:"email"`
 			DisplayName   string    `json:"display_name"`
@@ -88,8 +86,6 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 			return nil, err
 		}
 		out := &registerOutput{}
-		out.Body.AccessToken = resp.AccessToken
-		out.Body.RefreshToken = resp.RefreshToken
 		out.Body.User = resp.User
 		return out, nil
 	})
