@@ -47,6 +47,14 @@ type loginOutput struct {
 	}
 }
 
+type registerInput struct {
+	Body struct {
+		Email       string `json:"email" minLength:"1" maxLength:"255"`
+		DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
+		Password    string `json:"password" minLength:"8"`
+	}
+}
+
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 	repo := repository.NewUserRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
@@ -58,8 +66,12 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 		Path:        "/api/auth/register",
 		Summary:     "Register a new user",
 		Tags:        []string{"auth"},
-	}, func(ctx context.Context, input *handlers.RegisterInput) (*registerOutput, error) {
-		resp, err := handler(ctx, input)
+	}, func(ctx context.Context, input *registerInput) (*registerOutput, error) {
+		resp, err := handler(ctx, &handlers.RegisterInput{
+			Email:       input.Body.Email,
+			DisplayName: input.Body.DisplayName,
+			Password:    input.Body.Password,
+		})
 		if err != nil {
 			if errors.Is(err, handlers.ErrInvalidEmail) {
 				return nil, huma.Error400BadRequest("Invalid email format", err)
