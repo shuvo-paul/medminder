@@ -20,13 +20,6 @@ import (
 	"strconv"
 )
 
-type Config struct {
-	AppPort  int
-	AppEnv   string
-	Database DatabaseConfig
-	JWT      JWTConfig
-}
-
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -38,6 +31,20 @@ type DatabaseConfig struct {
 
 type JWTConfig struct {
 	Secret string
+}
+
+type EmailConfig struct {
+	BaseURL     string
+	FromAddress string
+	FromName    string
+}
+
+type Config struct {
+	AppPort  int
+	AppEnv   string
+	Database DatabaseConfig
+	JWT      JWTConfig
+	Email    EmailConfig
 }
 
 func Load() (Config, error) {
@@ -78,6 +85,15 @@ func Load() (Config, error) {
 		jwtSecret = "medminder-secret-key-change-in-production"
 	}
 	cfg.JWT = JWTConfig{Secret: jwtSecret}
+
+	emailBaseURL := getEnv("EMAIL_SERVICE_BASE_URL", "http://localhost:9000")
+	emailFromAddress := getEnv("EMAIL_FROM_ADDRESS", "noreply@medminder.app")
+	emailFromName := getEnv("EMAIL_FROM_NAME", "MedMinder")
+	cfg.Email = EmailConfig{
+		BaseURL:     emailBaseURL,
+		FromAddress: emailFromAddress,
+		FromName:    emailFromName,
+	}
 
 	return cfg, nil
 }
