@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/shuvo-paul/medminder/internal/common/email"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
@@ -65,7 +66,7 @@ type logoutOutput struct {
 	}
 }
 
-func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
+func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailClient email.EmailClient) {
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
@@ -172,4 +173,12 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string) {
 			Message string `json:"message"`
 		}{Message: "logged out successfully"}}, nil
 	})
+
+	passwordResetDeps := handlers.NewPasswordResetDeps(
+		userRepo,
+		repository.NewPasswordResetTokenRepository(queries),
+		tokenRepo,
+		emailClient,
+	)
+	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 }
