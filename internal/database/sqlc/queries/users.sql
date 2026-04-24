@@ -16,3 +16,8 @@ WHERE email = $1;
 SELECT id, email, display_name, password_hash, email_verified, created_at, updated_at
 FROM users
 WHERE id = $1;
+
+-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = $2, updated_at = NOW()
+WHERE id = $1;

@@ -13,6 +13,7 @@ type RefreshTokenRepository interface {
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (db.RefreshToken, error)
 	DeleteRefreshToken(ctx context.Context, id uuid.UUID) error
 	DeleteUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+	DeleteAllForUser(ctx context.Context, userID uuid.UUID) error
 }
 
 type refreshTokenRepository struct {
@@ -40,5 +41,9 @@ func (r *refreshTokenRepository) DeleteRefreshToken(ctx context.Context, id uuid
 }
 
 func (r *refreshTokenRepository) DeleteUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
+	return r.queries.DeleteUserRefreshTokens(ctx, userID)
+}
+
+func (r *refreshTokenRepository) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
 	return r.queries.DeleteUserRefreshTokens(ctx, userID)
 }
