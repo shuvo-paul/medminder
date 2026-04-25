@@ -72,18 +72,30 @@ func RegisterPasswordResetRoutes(api huma.API, deps PasswordResetDeps) {
 			return nil, fmt.Errorf("hashing token: %w", err)
 		}
 
-		expiresAt := time.Now().Add(1 * time.Hour)
-		_, err = deps.TokenRepo.CreateToken(ctx, user.ID, tokenHash, expiresAt)
-		if err != nil {
-			return nil, fmt.Errorf("storing token: %w", err)
-		}
+expiresAt := time.Now().Add(1 * time.Hour)
 
-		resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", deps.FrontendURL, token)
-		emailBody := fmt.Sprintf("<p>Click <a href=\"%s\">here</a> to reset your password. This link expires in 1 hour.</p>", resetLink)
-		err = deps.EmailClient.SendEmail(ctx, user.Email, "MedMinder Password Reset", emailBody)
-		if err != nil {
-			log.Printf("failed to send password reset email: %v", err)
+	err = deps.TokenRepo.DeleteAllForUser(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("cleaning up existing tokens: %w", err)
+	}
+
+	_, err = deps.TokenRepo.CreateToken(ctx, user.ID, tokenHash, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("storing token: %w", err)
+	}
+
+	resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", deps.FrontendURL, token)
+	emailBody := fmt.Sprintf("<p>Click <a href=\"%s\">here</a> to reset your password. This link expires in 1 hour.</p>", resetLink)
+	err = deps.EmailClient.SendEmail(ctx, user.Email, "MedMinder Password Reset", emailBody)
+	if err != nil {
+		log.Printf("failed to send password reset email, cleaning up token: %v", err)
+		if cleanupErr := deps.TokenRepo.DeleteAllForUser(ctx, user.ID); cleanupErr != nil {
+			log.Printf("failed to cleanup token after email failure: %v", cleanupErr)
 		}
+		return &dto.PasswordResetRequestOutput{Body: struct {
+			Message string `json:"message"`
+		}{Message: "If the email exists, a reset link has been sent"}}, nil
+	}
 
 		return &dto.PasswordResetRequestOutput{Body: struct {
 			Message string `json:"message"`
@@ -123,14 +135,14 @@ func RegisterPasswordResetRoutes(api huma.API, deps PasswordResetDeps) {
 		if err != nil {
 			return nil, fmt.Errorf("hashing password: %w", err)
 		}
-		err = deps.UserRepo.UpdatePassword(ctx, user.ID.String(), string(passwordHash))
-		if err != nil {
-			return nil, err
-		}
-
 		err = deps.TokenRepo.MarkAsUsed(ctx, storedToken.ID)
 		if err != nil {
-			log.Printf("failed to mark token as used: %v", err)
+			return nil, fmt.Errorf("marking token as used: %w", err)
+		}
+
+		err = deps.UserRepo.UpdatePassword(ctx, user.ID.String(), string(passwordHash))
+		if err != nil {
+			return nil, fmt.Errorf("updating password: %w", err)
 		}
 
 		err = deps.RefreshTokenRepo.DeleteAllForUser(ctx, user.ID)

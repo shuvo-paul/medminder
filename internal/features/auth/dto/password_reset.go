@@ -2,7 +2,7 @@ package dto
 
 type PasswordResetRequestInput struct {
 	Body struct {
-		Email string `json:"email" minLength:"1" maxLength:"255"`
+		Email string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"`
 	}
 }
 

@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/wneessen/go-mail"
 	"github.com/shuvo-paul/medminder/internal/common/config"
@@ -13,12 +14,13 @@ type EmailClient interface {
 }
 
 type emailClient struct {
-	host     string
-	port     int
-	username string
-	password string
-	fromAddr string
-	fromName string
+	host            string
+	port            int
+	username        string
+	password        string
+	fromAddr        string
+	fromName        string
+	clientTimeout   time.Duration
 }
 
 func NewEmailClient(cfg config.EmailConfig) EmailClient {
@@ -29,6 +31,7 @@ func NewEmailClient(cfg config.EmailConfig) EmailClient {
 		password: cfg.SMTPPassword,
 		fromAddr: cfg.FromAddress,
 		fromName: cfg.FromName,
+		clientTimeout: 10 * time.Second,
 	}
 }
 
@@ -39,6 +42,7 @@ func (c *emailClient) SendEmail(ctx context.Context, to, subject, body string) e
 		mail.WithPassword(c.password),
 		mail.WithTLSPolicy(mail.TLSOpportunistic),
 		mail.WithSMTPAuth(mail.SMTPAuthPlain),
+		mail.WithTimeout(c.clientTimeout),
 	)
 	if err != nil {
 		return fmt.Errorf("creating mail client: %w", err)
