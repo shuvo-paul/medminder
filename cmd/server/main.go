@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
 	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
@@ -17,6 +18,9 @@ import (
 var webDist embed.FS
 
 func main() {
+	// Silently ignore missing .env — exported env vars take precedence.
+	_ = godotenv.Load()
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Error("failed to load config", log.F("error", err.Error()))
