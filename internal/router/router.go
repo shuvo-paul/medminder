@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/shuvo-paul/medminder/internal/common/email"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth"
 )
@@ -21,7 +22,9 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 
 	queries := db.New(dbConn)
 
-	auth.RegisterRoutes(api, queries, cfg.JWT.Secret)
+	emailClient := email.NewEmailClient(cfg.Email)
+
+	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)

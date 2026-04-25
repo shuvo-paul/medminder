@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 )
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
+	GetUserByID(ctx context.Context, id string) (db.User, error)
+	UpdatePassword(ctx context.Context, id, passwordHash string) error
 }
 
 type userRepository struct {
@@ -31,4 +34,15 @@ func (r *userRepository) CreateUser(ctx context.Context, email, displayName, pas
 
 func (r *userRepository) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	return r.queries.GetUserByEmail(ctx, email)
+}
+
+func (r *userRepository) GetUserByID(ctx context.Context, id string) (db.User, error) {
+	return r.queries.GetUserByID(ctx, uuid.MustParse(id))
+}
+
+func (r *userRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	return r.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+		ID:           uuid.MustParse(id),
+		PasswordHash: sql.NullString{String: passwordHash, Valid: true},
+	})
 }

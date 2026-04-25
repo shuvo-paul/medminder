@@ -20,13 +20,6 @@ import (
 	"strconv"
 )
 
-type Config struct {
-	AppPort  int
-	AppEnv   string
-	Database DatabaseConfig
-	JWT      JWTConfig
-}
-
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -40,6 +33,24 @@ type JWTConfig struct {
 	Secret string
 }
 
+type EmailConfig struct {
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	FromAddress  string
+	FromName     string
+}
+
+type Config struct {
+	AppPort     int
+	AppEnv      string
+	FrontendURL string
+	Database    DatabaseConfig
+	JWT         JWTConfig
+	Email       EmailConfig
+}
+
 func Load() (Config, error) {
 	cfg := Config{}
 
@@ -50,6 +61,8 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid APP_PORT: must be a number between 0 and 65535")
 	}
 	cfg.AppPort = port
+
+	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:5173")
 
 	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
 	if err != nil || dbPort < 0 || dbPort > 65535 {
@@ -78,6 +91,24 @@ func Load() (Config, error) {
 		jwtSecret = "medminder-secret-key-change-in-production"
 	}
 	cfg.JWT = JWTConfig{Secret: jwtSecret}
+
+	smtpHost := getEnv("SMTP_HOST", "localhost")
+	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
+	if err != nil || smtpPort < 1 || smtpPort > 65535 {
+		return Config{}, fmt.Errorf("invalid SMTP_PORT: must be a number between 1 and 65535")
+	}
+	smtpUsername := getEnv("SMTP_USERNAME", "")
+	smtpPassword := getEnv("SMTP_PASSWORD", "")
+	emailFromAddress := getEnv("EMAIL_FROM_ADDRESS", "noreply@medminder.app")
+	emailFromName := getEnv("EMAIL_FROM_NAME", "MedMinder")
+	cfg.Email = EmailConfig{
+		SMTPHost:     smtpHost,
+		SMTPPort:     smtpPort,
+		SMTPUsername: smtpUsername,
+		SMTPPassword: smtpPassword,
+		FromAddress:  emailFromAddress,
+		FromName:     emailFromName,
+	}
 
 	return cfg, nil
 }
