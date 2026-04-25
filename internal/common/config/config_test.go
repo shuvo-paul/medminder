@@ -28,8 +28,9 @@ func TestLoad(t *testing.T) {
 			name:    "default values",
 			envVars: map[string]string{},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -48,6 +49,7 @@ func TestLoad(t *testing.T) {
 			envVars: map[string]string{
 				"APP_PORT":         "3000",
 				"APP_ENV":          "production",
+				"FRONTEND_URL":     "https://app.example.com",
 				"DB_HOST":          "db.example.com",
 				"DB_PORT":          "5433",
 				"DB_USER":          "admin",
@@ -63,8 +65,9 @@ func TestLoad(t *testing.T) {
 				"EMAIL_FROM_NAME":  "CustomApp",
 			},
 			expected: Config{
-				AppPort: 3000,
-				AppEnv:  "production",
+				AppPort:     3000,
+				AppEnv:      "production",
+				FrontendURL: "https://app.example.com",
 				Database: DatabaseConfig{
 					Host:     "db.example.com",
 					Port:     5433,
@@ -112,8 +115,9 @@ func TestLoad(t *testing.T) {
 				"DB_SSLMODE": "false",
 			},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -133,8 +137,9 @@ func TestLoad(t *testing.T) {
 				"DB_SSLMODE": "true",
 			},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -154,8 +159,9 @@ func TestLoad(t *testing.T) {
 				"DB_SSLMODE": "1",
 			},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -175,8 +181,9 @@ func TestLoad(t *testing.T) {
 				"DB_SSLMODE": "0",
 			},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,
@@ -230,8 +237,9 @@ func TestLoad(t *testing.T) {
 				"DB_SSLMODE":  "",
 			},
 			expected: Config{
-				AppPort: 8080,
-				AppEnv:  "development",
+				AppPort:     8080,
+				AppEnv:      "development",
+				FrontendURL: "http://localhost:5173",
 				Database: DatabaseConfig{
 					Host:     "localhost",
 					Port:     5432,

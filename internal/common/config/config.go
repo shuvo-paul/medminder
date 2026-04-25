@@ -43,11 +43,12 @@ type EmailConfig struct {
 }
 
 type Config struct {
-	AppPort  int
-	AppEnv   string
-	Database DatabaseConfig
-	JWT      JWTConfig
-	Email    EmailConfig
+	AppPort     int
+	AppEnv      string
+	FrontendURL string
+	Database    DatabaseConfig
+	JWT         JWTConfig
+	Email       EmailConfig
 }
 
 func Load() (Config, error) {
@@ -60,6 +61,8 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid APP_PORT: must be a number between 0 and 65535")
 	}
 	cfg.AppPort = port
+
+	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:5173")
 
 	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
 	if err != nil || dbPort < 0 || dbPort > 65535 {

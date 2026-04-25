@@ -66,7 +66,7 @@ type logoutOutput struct {
 	}
 }
 
-func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailClient email.EmailClient) {
+func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
@@ -179,6 +179,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		repository.NewPasswordResetTokenRepository(queries),
 		tokenRepo,
 		emailClient,
+		frontendURL,
 	)
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 }

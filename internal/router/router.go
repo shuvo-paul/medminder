@@ -24,7 +24,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 
 	emailClient := email.NewEmailClient(cfg.Email)
 
-	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient)
+	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)

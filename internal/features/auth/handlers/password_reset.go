@@ -25,6 +25,7 @@ type PasswordResetDeps struct {
 	TokenRepo        repository.PasswordResetTokenRepository
 	RefreshTokenRepo repository.RefreshTokenRepository
 	EmailClient      emailclient.EmailClient
+	FrontendURL      string
 }
 
 func NewPasswordResetDeps(
@@ -32,12 +33,14 @@ func NewPasswordResetDeps(
 	tokenRepo repository.PasswordResetTokenRepository,
 	refreshTokenRepo repository.RefreshTokenRepository,
 	emailClient emailclient.EmailClient,
+	frontendURL string,
 ) PasswordResetDeps {
 	return PasswordResetDeps{
 		UserRepo:         userRepo,
 		TokenRepo:        tokenRepo,
 		RefreshTokenRepo: refreshTokenRepo,
 		EmailClient:      emailClient,
+		FrontendURL:      frontendURL,
 	}
 }
 
@@ -75,7 +78,7 @@ func RegisterPasswordResetRoutes(api huma.API, deps PasswordResetDeps) {
 			return nil, fmt.Errorf("storing token: %w", err)
 		}
 
-		resetLink := fmt.Sprintf("https://medminder.app/auth/reset-password?token=%s", token)
+		resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", deps.FrontendURL, token)
 		emailBody := fmt.Sprintf("<p>Click <a href=\"%s\">here</a> to reset your password. This link expires in 1 hour.</p>", resetLink)
 		err = deps.EmailClient.SendEmail(ctx, user.Email, "MedMinder Password Reset", emailBody)
 		if err != nil {
