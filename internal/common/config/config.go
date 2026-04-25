@@ -34,9 +34,12 @@ type JWTConfig struct {
 }
 
 type EmailConfig struct {
-	BaseURL     string
-	FromAddress string
-	FromName    string
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	FromAddress  string
+	FromName     string
 }
 
 type Config struct {
@@ -86,13 +89,22 @@ func Load() (Config, error) {
 	}
 	cfg.JWT = JWTConfig{Secret: jwtSecret}
 
-	emailBaseURL := getEnv("EMAIL_SERVICE_BASE_URL", "http://localhost:9000")
+	smtpHost := getEnv("SMTP_HOST", "localhost")
+	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
+	if err != nil || smtpPort < 1 || smtpPort > 65535 {
+		return Config{}, fmt.Errorf("invalid SMTP_PORT: must be a number between 1 and 65535")
+	}
+	smtpUsername := getEnv("SMTP_USERNAME", "")
+	smtpPassword := getEnv("SMTP_PASSWORD", "")
 	emailFromAddress := getEnv("EMAIL_FROM_ADDRESS", "noreply@medminder.app")
 	emailFromName := getEnv("EMAIL_FROM_NAME", "MedMinder")
 	cfg.Email = EmailConfig{
-		BaseURL:     emailBaseURL,
-		FromAddress: emailFromAddress,
-		FromName:    emailFromName,
+		SMTPHost:     smtpHost,
+		SMTPPort:     smtpPort,
+		SMTPUsername: smtpUsername,
+		SMTPPassword: smtpPassword,
+		FromAddress:  emailFromAddress,
+		FromName:     emailFromName,
 	}
 
 	return cfg, nil

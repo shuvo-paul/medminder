@@ -22,11 +22,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 
 	queries := db.New(dbConn)
 
-	emailClient := email.NewEmailClient(email.Config{
-		BaseURL:     cfg.Email.BaseURL,
-		FromAddress: cfg.Email.FromAddress,
-		FromName:    cfg.Email.FromName,
-	})
+	emailClient := email.NewEmailClient(cfg.Email)
 
 	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient)
 

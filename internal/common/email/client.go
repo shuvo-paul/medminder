@@ -1,81 +1,59 @@
 package email
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
-)
 
-type Config struct {
-	BaseURL     string
-	FromAddress string
-	FromName    string
-}
+	"github.com/wneessen/go-mail"
+	"github.com/shuvo-paul/medminder/internal/common/config"
+)
 
 type EmailClient interface {
 	SendEmail(ctx context.Context, to, subject, body string) error
 }
 
 type emailClient struct {
-	baseURL    string
-	fromAddr   string
-	fromName   string
-	httpClient *http.Client
+	host     string
+	port     int
+	username string
+	password string
+	fromAddr string
+	fromName string
 }
 
-func NewEmailClient(cfg Config) EmailClient {
+func NewEmailClient(cfg config.EmailConfig) EmailClient {
 	return &emailClient{
-		baseURL:  cfg.BaseURL,
+		host:     cfg.SMTPHost,
+		port:     cfg.SMTPPort,
+		username: cfg.SMTPUsername,
+		password: cfg.SMTPPassword,
 		fromAddr: cfg.FromAddress,
 		fromName: cfg.FromName,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
 	}
-}
-
-type sendEmailRequest struct {
-	To          string `json:"to"`
-	From        string `json:"from"`
-	FromName    string `json:"from_name"`
-	Subject     string `json:"subject"`
-	Body        string `json:"body"`
-	ContentType string `json:"content_type"`
 }
 
 func (c *emailClient) SendEmail(ctx context.Context, to, subject, body string) error {
-	reqBody := sendEmailRequest{
-		To:          to,
-		From:        c.fromAddr,
-		FromName:    c.fromName,
-		Subject:     subject,
-		Body:        body,
-		ContentType: "text/html",
+	client, err := mail.NewClient(c.host,
+		mail.WithPort(c.port),
+		mail.WithUsername(c.username),
+		mail.WithPassword(c.password),
+	)
+	if err != nil {
+		return fmt.Errorf("creating mail client: %w", err)
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("marshalling email request: %w", err)
+	msg := mail.NewMsg()
+	if err := msg.FromFormat(c.fromName, c.fromAddr); err != nil {
+		return fmt.Errorf("setting from address: %w", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/send", bytes.NewReader(jsonBody))
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+	if err := msg.To(to); err != nil {
+		return fmt.Errorf("setting to address: %w", err)
 	}
+	msg.Subject(subject)
+	msg.SetBodyString(mail.TypeTextHTML, body)
 
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
+	if err := client.DialAndSendWithContext(ctx, msg); err != nil {
 		return fmt.Errorf("sending email: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("email service returned status %d", resp.StatusCode)
 	}
 
 	return nil

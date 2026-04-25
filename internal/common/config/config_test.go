@@ -10,9 +10,12 @@ import (
 func TestLoad(t *testing.T) {
 	defaultJWTSecret := "medminder-secret-key-change-in-production"
 	defaultEmailConfig := EmailConfig{
-		BaseURL:     "http://localhost:9000",
-		FromAddress: "noreply@medminder.app",
-		FromName:    "MedMinder",
+		SMTPHost:     "localhost",
+		SMTPPort:     587,
+		SMTPUsername: "",
+		SMTPPassword: "",
+		FromAddress:  "noreply@medminder.app",
+		FromName:     "MedMinder",
 	}
 
 	tests := []struct {
@@ -43,18 +46,21 @@ func TestLoad(t *testing.T) {
 		{
 			name: "custom values",
 			envVars: map[string]string{
-				"APP_PORT":               "3000",
-				"APP_ENV":                "production",
-				"DB_HOST":                "db.example.com",
-				"DB_PORT":                "5433",
-				"DB_USER":                "admin",
-				"DB_PASSWORD":            "secret",
-				"DB_NAME":                "testdb",
-				"DB_SSLMODE":             "true",
-				"JWT_SECRET":             "production-secret",
-				"EMAIL_SERVICE_BASE_URL": "https://email.example.com",
-				"EMAIL_FROM_ADDRESS":     "custom@example.com",
-				"EMAIL_FROM_NAME":        "CustomApp",
+				"APP_PORT":         "3000",
+				"APP_ENV":          "production",
+				"DB_HOST":          "db.example.com",
+				"DB_PORT":          "5433",
+				"DB_USER":          "admin",
+				"DB_PASSWORD":      "secret",
+				"DB_NAME":          "testdb",
+				"DB_SSLMODE":       "true",
+				"JWT_SECRET":       "production-secret",
+				"SMTP_HOST":        "smtp.example.com",
+				"SMTP_PORT":        "465",
+				"SMTP_USERNAME":    "smtpuser",
+				"SMTP_PASSWORD":   "smtppass",
+				"EMAIL_FROM_ADDRESS": "custom@example.com",
+				"EMAIL_FROM_NAME":  "CustomApp",
 			},
 			expected: Config{
 				AppPort: 3000,
@@ -69,9 +75,12 @@ func TestLoad(t *testing.T) {
 				},
 				JWT: JWTConfig{Secret: "production-secret"},
 				Email: EmailConfig{
-					BaseURL:     "https://email.example.com",
-					FromAddress: "custom@example.com",
-					FromName:    "CustomApp",
+					SMTPHost:     "smtp.example.com",
+					SMTPPort:     465,
+					SMTPUsername: "smtpuser",
+					SMTPPassword: "smtppass",
+					FromAddress:  "custom@example.com",
+					FromName:     "CustomApp",
 				},
 			},
 			expectedError: false,
