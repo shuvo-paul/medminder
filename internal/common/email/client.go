@@ -37,6 +37,8 @@ func (c *emailClient) SendEmail(ctx context.Context, to, subject, body string) e
 		mail.WithPort(c.port),
 		mail.WithUsername(c.username),
 		mail.WithPassword(c.password),
+		mail.WithTLSPolicy(mail.TLSOpportunistic),
+		mail.WithSMTPAuth(mail.SMTPAuthPlain),
 	)
 	if err != nil {
 		return fmt.Errorf("creating mail client: %w", err)
