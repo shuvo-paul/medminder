@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -12,6 +13,8 @@
 	let errors = $state<Record<string, string>>({});
 	let isLoading = $state(false);
 	let generalError = $state('');
+
+	const showResetSuccess = $derived($page.url.searchParams.get('reset') === 'success');
 
 	if (typeof window !== 'undefined' && localStorage.getItem('access_token')) {
 		goto('/');
@@ -63,7 +66,7 @@
 	}
 
 	function handleForgotPassword() {
-		alert('Coming soon');
+		goto('/forgot-password');
 	}
 </script>
 
@@ -77,6 +80,12 @@
 		{#if generalError}
 			<div class="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
 				{generalError}
+			</div>
+		{/if}
+
+		{#if showResetSuccess}
+			<div class="mb-4 rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
+				Password reset successful. You can now sign in with your new password.
 			</div>
 		{/if}
 
