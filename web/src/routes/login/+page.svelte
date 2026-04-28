@@ -63,7 +63,7 @@
 	}
 
 	function handleForgotPassword() {
-		alert('Coming soon');
+		goto('/forgot-password');
 	}
 </script>
 
