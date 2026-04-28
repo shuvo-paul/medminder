@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Eye, EyeOff } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 
 	let token = $state('');
@@ -32,8 +33,14 @@
 		}
 		if (!newPassword) {
 			newErrors.newPassword = 'Password is required';
-		} else if (newPassword.length < 8) {
+	} else if (newPassword.length < 8) {
 			newErrors.newPassword = 'Password must be at least 8 characters';
+		} else if (!/[A-Z]/.test(newPassword)) {
+			newErrors.newPassword = 'Password must contain at least 1 uppercase letter';
+		} else if (!/[a-z]/.test(newPassword)) {
+			newErrors.newPassword = 'Password must contain at least 1 lowercase letter';
+		} else if (!/[0-9]/.test(newPassword)) {
+			newErrors.newPassword = 'Password must contain at least 1 number';
 		}
 		if (!confirmPassword) {
 			newErrors.confirmPassword = 'Please confirm your password';
@@ -92,8 +99,6 @@
 		{/if}
 
 		<form onsubmit={handleSubmit} class="space-y-5">
-			<input type="hidden" bind:value={token} />
-
 			<div class="space-y-2">
 				<Label for="newPassword">New Password</Label>
 				<div class="relative">
@@ -102,6 +107,7 @@
 						type={showPassword ? 'text' : 'password'}
 						placeholder="At least 8 characters"
 						bind:value={newPassword}
+						variant={errors.newPassword ? 'error' : 'default'}
 						class="pr-10"
 						autocomplete="new-password"
 						aria-describedby={errors.newPassword ? 'newPassword-error' : undefined}
@@ -114,9 +120,9 @@
 						aria-label={showPassword ? 'Hide password' : 'Show password'}
 					>
 						{#if showPassword}
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+							<EyeOff class="h-4 w-4" />
 						{:else}
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+							<Eye class="h-4 w-4" />
 						{/if}
 					</button>
 				</div>
@@ -132,6 +138,7 @@
 					type={showPassword ? 'text' : 'password'}
 					placeholder="Confirm your password"
 					bind:value={confirmPassword}
+					variant={errors.confirmPassword ? 'error' : 'default'}
 					autocomplete="new-password"
 					aria-describedby={errors.confirmPassword ? 'confirmPassword-error' : undefined}
 					disabled={isLoading}

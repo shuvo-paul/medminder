@@ -83,16 +83,17 @@
 					type="email"
 					placeholder="you@example.com"
 					bind:value={email}
+					variant={errors.email ? 'error' : 'default'}
 					autocomplete="email"
 					aria-describedby={errors.email ? 'email-error' : undefined}
-					disabled={isLoading}
+					disabled={isLoading || !!successMessage}
 				/>
 				{#if errors.email}
 					<p id="email-error" class="text-sm text-destructive">{errors.email}</p>
 				{/if}
 			</div>
 
-			<Button type="submit" class="w-full" disabled={isLoading}>
+			<Button type="submit" class="w-full" disabled={isLoading || !!successMessage}>
 				{#if isLoading}
 					Sending...
 				{:else}
