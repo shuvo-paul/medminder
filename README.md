@@ -24,20 +24,19 @@ Open `http://localhost:5173`. The Go server hot-reloads on `.go` changes via Air
 ### Quick Start (Docker)
 
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
-Runs Go + Node.js in a single container alongside Postgres. Go API on `:8080`, Vite dev server on `:5173`.
-
-To override any defaults, copy `.env.example` to `.env` and rerun `docker compose up --build`.
+Runs Postgres only. The Go API and Vite dev server run natively via `make start`.
 
 ### Individual targets
 
 | Command | Description |
 |---|---|
+| `make start` | Both together (Ctrl+C stops both) |
 | `make dev` | Go API only (Air hot-reload on `:8080`) |
 | `make web-dev` | Frontend only (Vite HMR on `:5173`) |
-| `make start` | Both together (Ctrl+C stops both) |
+| `make run` | Run the built binary (after `make embed-frontend`) |
 | `make embed-frontend` | Production build — frontend embedded in Go binary |
 
 ### API Docs
@@ -50,11 +49,7 @@ To override any defaults, copy `.env.example` to `.env` and rerun `docker compos
 ### Running Tests
 
 ```bash
-# Local
 make test
-
-# Docker
-docker compose run --rm app go test ./...
 ```
 
 ### Database Access

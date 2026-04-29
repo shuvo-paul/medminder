@@ -1,4 +1,4 @@
-.PHONY := build test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
+.PHONY := start dev run build test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
 
 GO ?= go
 PNPM ?= pnpm
@@ -14,6 +14,18 @@ DB_PASSWORD ?= medminder
 DB_NAME ?= medminder
 DB_SSLMODE ?= disable
 MIGRATION_SOURCE ?= file://internal/common/database/migrations
+
+start:
+	@trap 'kill 0' EXIT; \
+	$(AIR) & \
+	cd $(WEB_DIR) && $(PNPM) dev & \
+	wait
+
+dev:
+	$(AIR)
+
+run:
+	./$(BIN)
 
 build:
 	@mkdir -p $(BIN_DIR)

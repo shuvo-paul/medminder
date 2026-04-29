@@ -17,32 +17,5 @@ services:
       retries: 5
       start_period: 5s
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-      - air_tmp:/app/tmp
-      - ./web:/app/web
-      - web_node_modules:/app/web/node_modules
-    environment:
-      CI: "true"
-      APP_PORT: ${APP_PORT:-8080}
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: ${DB_USER:-medminder}
-      DB_PASSWORD: ${DB_PASSWORD:-medminder}
-      DB_NAME: ${DB_NAME:-medminder}
-      DB_SSLMODE: ${DB_SSLMODE:-false}
-    ports:
-      - "${APP_PORT:-8080}:8080"
-      - "${WEB_PORT:-5173}:5173"
-    depends_on:
-      db:
-        condition: service_healthy
-
 volumes:
   postgres_data:
-  air_tmp:
-  web_node_modules:
