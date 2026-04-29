@@ -42,8 +42,8 @@ make web-preview
 # Production
 make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
 
-# Docker (equivalent to make start + postgres)
-docker compose up --build
+# Docker (Postgres only)
+docker compose up -d
 ```
 
 **Always use Makefile targets for Go builds — never run `go` commands directly.**
