@@ -67,10 +67,23 @@ type logoutOutput struct {
 }
 
 func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
+	// Repos (used to construct services)
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
-	handler := handlers.RegisterHandler(userRepo)
+
+	// Services
+	authSvc := service.NewAuthService(userRepo, tokenRepo, tokenSvc)
+	passwordResetSvc := service.NewPasswordResetService(
+		userRepo,
+		repository.NewPasswordResetTokenRepository(queries),
+		tokenRepo,
+		emailClient,
+		frontendURL,
+	)
+
+	// Handlers (take services)
+	handler := handlers.RegisterHandler(authSvc)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "register-user",
@@ -94,7 +107,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 			if errors.Is(err, handlers.ErrInvalidDisplayName) {
 				return nil, huma.Error400BadRequest("Display name must be 1-100 characters", err)
 			}
-			if errors.Is(err, handlers.ErrEmailExists) {
+			if errors.Is(err, service.ErrEmailExists) {
 				return nil, huma.Error409Conflict("Email already exists", err)
 			}
 			return nil, err
@@ -104,7 +117,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		return out, nil
 	})
 
-	loginHandler := handlers.LoginHandler(userRepo, tokenRepo, tokenSvc)
+	loginHandler := handlers.LoginHandler(authSvc)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "login-user",
@@ -118,7 +131,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 			Password: input.Body.Password,
 		})
 		if err != nil {
-			if errors.Is(err, handlers.ErrInvalidCredentials) {
+			if errors.Is(err, service.ErrInvalidCredentials) {
 				return nil, huma.Error401Unauthorized("Invalid email or password", err)
 			}
 			if errors.Is(err, handlers.ErrInvalidEmail) {
@@ -133,7 +146,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		return out, nil
 	})
 
-	logoutHandler := handlers.LogoutHandler(tokenRepo)
+	logoutHandler := handlers.LogoutHandler(authSvc)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "logout-user",
@@ -174,12 +187,6 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		}{Message: "logged out successfully"}}, nil
 	})
 
-	passwordResetDeps := handlers.NewPasswordResetDeps(
-		userRepo,
-		repository.NewPasswordResetTokenRepository(queries),
-		tokenRepo,
-		emailClient,
-		frontendURL,
-	)
+	passwordResetDeps := handlers.NewPasswordResetDeps(passwordResetSvc)
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 }

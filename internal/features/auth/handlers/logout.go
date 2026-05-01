@@ -4,24 +4,28 @@ import (
 	"context"
 	"errors"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-var ErrLogoutFailed = errors.New("logout failed")
-
+// LogoutInput represents the HTTP input for logout.
 type LogoutInput struct {
 	UserID uuid.UUID
 }
 
-func LogoutHandler(repo repository.RefreshTokenRepository) func(context.Context, *LogoutInput) error {
+// LogoutHandler returns a thin HTTP adapter that delegates logout to AuthService.
+func LogoutHandler(svc service.AuthService) func(context.Context, *LogoutInput) error {
 	return func(ctx context.Context, input *LogoutInput) error {
 		if input.UserID == uuid.Nil {
-			return ErrLogoutFailed
+			return huma.Error401Unauthorized("Invalid user ID", nil)
 		}
 
-		if err := repo.DeleteUserRefreshTokens(ctx, input.UserID); err != nil {
-			return errors.Join(ErrLogoutFailed, err)
+		if err := svc.Logout(ctx, input.UserID); err != nil {
+			if errors.Is(err, service.ErrLogoutFailed) {
+				return huma.Error500InternalServerError("Failed to logout", err)
+			}
+			return err
 		}
 
 		return nil

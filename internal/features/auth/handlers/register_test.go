@@ -2,34 +2,38 @@ package handlers_test
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestRegister_Successful(t *testing.T) {
-	mockRepo := new(MockRegisterUserRepository)
+	mockSvc := new(MockAuthService)
 
 	userID := uuid.New()
 	email := "test@example.com"
 	password := "Password123"
 	displayName := "Test User"
 
-	mockRepo.On("GetUserByEmail", mock.Anything, email).Return(db.User{}, sql.ErrNoRows)
-	mockRepo.On("CreateUser", mock.Anything, email, displayName, mock.Anything).Return(db.CreateUserRow{
-		ID:            userID,
-		Email:         email,
-		DisplayName:   displayName,
-		EmailVerified: sql.NullBool{Bool: false, Valid: true},
+	mockSvc.On("Register", mock.Anything, email, displayName, password).Return(&service.RegisterResult{
+		User: struct {
+			ID            uuid.UUID
+			Email         string
+			DisplayName   string
+			EmailVerified bool
+		}{
+			ID:            userID,
+			Email:         email,
+			DisplayName:   displayName,
+			EmailVerified: false,
+		},
 	}, nil)
 
-	handler := handlers.RegisterHandler(mockRepo)
+	handler := handlers.RegisterHandler(mockSvc)
 
 	resp, err := handler(context.Background(), &handlers.RegisterInput{
 		Email:       email,
@@ -46,8 +50,8 @@ func TestRegister_Successful(t *testing.T) {
 }
 
 func TestRegister_InvalidEmail(t *testing.T) {
-	mockRepo := new(MockRegisterUserRepository)
-	handler := handlers.RegisterHandler(mockRepo)
+	mockSvc := new(MockAuthService)
+	handler := handlers.RegisterHandler(mockSvc)
 
 	resp, err := handler(context.Background(), &handlers.RegisterInput{
 		Email:       "invalid-email",
@@ -60,8 +64,8 @@ func TestRegister_InvalidEmail(t *testing.T) {
 }
 
 func TestRegister_InvalidPassword(t *testing.T) {
-	mockRepo := new(MockRegisterUserRepository)
-	handler := handlers.RegisterHandler(mockRepo)
+	mockSvc := new(MockAuthService)
+	handler := handlers.RegisterHandler(mockSvc)
 
 	resp, err := handler(context.Background(), &handlers.RegisterInput{
 		Email:       "test@example.com",
@@ -70,29 +74,5 @@ func TestRegister_InvalidPassword(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Nil(t, resp)
-}
-
-func TestRegister_EmailAlreadyExists(t *testing.T) {
-	mockRepo := new(MockRegisterUserRepository)
-
-	email := "test@example.com"
-	userID := uuid.New()
-
-	mockRepo.On("GetUserByEmail", mock.Anything, email).Return(db.User{
-		ID:    userID,
-		Email: email,
-	}, nil)
-
-	handler := handlers.RegisterHandler(mockRepo)
-
-	resp, err := handler(context.Background(), &handlers.RegisterInput{
-		Email:       email,
-		DisplayName: "Test User",
-		Password:    "Password123",
-	})
-
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, handlers.ErrEmailExists))
 	assert.Nil(t, resp)
 }

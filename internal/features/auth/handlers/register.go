@@ -2,15 +2,12 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
-
-var ErrEmailExists = errors.New("email already exists")
 
 type RegisterInput struct {
 	Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
@@ -27,7 +24,7 @@ type RegisterOutput struct {
 	} `json:"user"`
 }
 
-func RegisterHandler(repo repository.UserRepository) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
+func RegisterHandler(svc service.AuthService) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
 	return func(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
 			return nil, ErrInvalidEmail
@@ -39,29 +36,19 @@ func RegisterHandler(repo repository.UserRepository) func(context.Context, *Regi
 			return nil, ErrInvalidDisplayName
 		}
 
-		existingUser, err := repo.GetUserByEmail(ctx, input.Email)
-		if err == nil && existingUser.Email != "" {
-			return nil, ErrEmailExists
-		}
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), BcryptCost)
+		result, err := svc.Register(ctx, input.Email, input.DisplayName, input.Password)
 		if err != nil {
-			return nil, err
-		}
-
-		user, err := repo.CreateUser(ctx, input.Email, input.DisplayName, string(hashedPassword))
-		if err != nil {
+			if errors.Is(err, service.ErrEmailExists) {
+				return nil, huma.Error409Conflict("Email already exists", err)
+			}
 			return nil, err
 		}
 
 		resp := &RegisterOutput{}
-		resp.User.ID = user.ID
-		resp.User.Email = user.Email
-		resp.User.DisplayName = user.DisplayName
-		resp.User.EmailVerified = user.EmailVerified.Bool
+		resp.User.ID = result.User.ID
+		resp.User.Email = result.User.Email
+		resp.User.DisplayName = result.User.DisplayName
+		resp.User.EmailVerified = result.User.EmailVerified
 
 		return resp, nil
 	}

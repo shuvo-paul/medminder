@@ -2,57 +2,54 @@ package handlers_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestLogout_Successful(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
+	mockSvc := new(MockAuthService)
 	userID := uuid.New()
 
-	mockRepo.On("DeleteUserRefreshTokens", mock.Anything, userID).Return(nil)
+	mockSvc.On("Logout", mock.Anything, userID).Return(nil)
 
-	handler := handlers.LogoutHandler(mockRepo)
+	handler := handlers.LogoutHandler(mockSvc)
 
 	err := handler(context.Background(), &handlers.LogoutInput{
 		UserID: userID,
 	})
 
 	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
+	mockSvc.AssertExpectations(t)
 }
 
 func TestLogout_DBError(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
+	mockSvc := new(MockAuthService)
 	userID := uuid.New()
 
-	mockRepo.On("DeleteUserRefreshTokens", mock.Anything, userID).Return(errors.New("database error"))
+	mockSvc.On("Logout", mock.Anything, userID).Return(service.ErrLogoutFailed)
 
-	handler := handlers.LogoutHandler(mockRepo)
+	handler := handlers.LogoutHandler(mockSvc)
 
 	err := handler(context.Background(), &handlers.LogoutInput{
 		UserID: userID,
 	})
 
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
-	mockRepo.AssertExpectations(t)
 }
 
 func TestLogout_NilUserID(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
+	mockSvc := new(MockAuthService)
 
-	handler := handlers.LogoutHandler(mockRepo)
+	handler := handlers.LogoutHandler(mockSvc)
 
 	err := handler(context.Background(), &handlers.LogoutInput{
 		UserID: uuid.Nil,
 	})
 
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
 }

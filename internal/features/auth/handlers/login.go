@@ -2,18 +2,12 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-
-	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
-
-var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type LoginInput struct {
 	Email    string `json:"email" minLength:"1" maxLength:"255"`
@@ -31,51 +25,27 @@ type LoginOutput struct {
 	} `json:"user"`
 }
 
-func LoginHandler(userRepo repository.UserRepository, tokenRepo repository.RefreshTokenRepository, tokenSvc service.TokenServiceInterface) func(context.Context, *LoginInput) (*LoginOutput, error) {
+func LoginHandler(svc service.AuthService) func(context.Context, *LoginInput) (*LoginOutput, error) {
 	return func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
 		if err := ValidateEmail(input.Email); err != nil {
 			return nil, ErrInvalidEmail
 		}
 
-		user, err := userRepo.GetUserByEmail(ctx, input.Email)
+		result, err := svc.Login(ctx, input.Email, input.Password)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, ErrInvalidCredentials
+			if errors.Is(err, service.ErrInvalidCredentials) {
+				return nil, huma.Error401Unauthorized("Invalid email or password", err)
 			}
 			return nil, err
 		}
 
-		if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
-			return nil, ErrInvalidCredentials
-		}
-
-		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(input.Password)); err != nil {
-			return nil, ErrInvalidCredentials
-		}
-
-		accessToken, err := tokenSvc.GenerateAccessToken(user.ID, user.Email)
-		if err != nil {
-			return nil, err
-		}
-
-		refreshToken, err := tokenSvc.GenerateRefreshToken()
-		if err != nil {
-			return nil, err
-		}
-
-		tokenHash := tokenSvc.HashRefreshToken(refreshToken)
-		expiresAt := time.Now().Add(RefreshTokenExpiry)
-		if _, err := tokenRepo.CreateRefreshToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
-			return nil, err
-		}
-
 		resp := &LoginOutput{}
-		resp.AccessToken = accessToken
-		resp.RefreshToken = refreshToken
-		resp.User.ID = user.ID
-		resp.User.Email = user.Email
-		resp.User.DisplayName = user.DisplayName
-		resp.User.EmailVerified = user.EmailVerified.Bool
+		resp.AccessToken = result.AccessToken
+		resp.RefreshToken = result.RefreshToken
+		resp.User.ID = result.User.ID
+		resp.User.Email = result.User.Email
+		resp.User.DisplayName = result.User.DisplayName
+		resp.User.EmailVerified = result.User.EmailVerified
 
 		return resp, nil
 	}
