@@ -1,6 +1,5 @@
 ---
 name: TestEngineer
-model: minimax/MiniMax-M2.7
 description: Test authoring and TDD agent
 mode: subagent
 temperature: 0.1

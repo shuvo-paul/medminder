@@ -1,6 +1,5 @@
 ---
 name: CodeReviewer
-model: minimax/MiniMax-M2.7
 description: Code review, security, and quality assurance agent
 mode: subagent
 temperature: 0.1

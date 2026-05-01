@@ -1,6 +1,5 @@
 ---
 name: OpenDevopsSpecialist
-model: minimax/MiniMax-M2.7
 description: DevOps specialist subagent - CI/CD, infrastructure as code, deployment automation
 mode: subagent
 temperature: 0.1

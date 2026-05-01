@@ -4,7 +4,6 @@
 # .opencode/config/agent-metadata.json
 
 name: Image Specialist
-model: deepseek/deepseek-v4-flash
 description: "Specialized agent for image editing and analysis using Gemini AI tools"
 mode: subagent
 temperature: 0.2

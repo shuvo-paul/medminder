@@ -1,6 +1,5 @@
 ---
 name: DocWriter
-model: minimax/MiniMax-M2.5
 description: Documentation authoring agent
 mode: subagent
 temperature: 0.2

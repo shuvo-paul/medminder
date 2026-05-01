@@ -1,6 +1,5 @@
 ---
 name: OpenFrontendSpecialist
-model: minimax/MiniMax-M2.5
 description: Frontend UI design specialist - subagent for design systems, themes, animations
 mode: subagent
 temperature: 0.2

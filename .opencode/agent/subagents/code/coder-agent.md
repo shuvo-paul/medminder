@@ -1,6 +1,5 @@
 ---
 name: CoderAgent
-model: minimax/MiniMax-M2.7
 description: Executes coding subtasks in sequence, ensuring completion as specified
 mode: subagent
 temperature: 0

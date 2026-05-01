@@ -1,6 +1,5 @@
 ---
 name: ContextOrganizer
-model: minimax/MiniMax-M2.7
 description: Organizes and generates context files (domain, processes, standards, templates) for optimal knowledge management
 mode: subagent
 temperature: 0.1

@@ -1,6 +1,5 @@
 ---
 name: TaskManager
-model: minimax/MiniMax-M2.7
 description: JSON-driven task breakdown specialist transforming complex features into atomic, verifiable subtasks with dependency tracking and CLI integration
 mode: subagent
 temperature: 0.1
