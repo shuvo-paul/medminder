@@ -5,33 +5,17 @@ import (
 	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-type LoginInput struct {
-	Email    string `json:"email" minLength:"1" maxLength:"255"`
-	Password string `json:"password" minLength:"1"`
-}
-
-type LoginOutput struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	User         struct {
-		ID            uuid.UUID `json:"id"`
-		Email         string    `json:"email"`
-		DisplayName   string    `json:"display_name"`
-		EmailVerified bool      `json:"email_verified"`
-	} `json:"user"`
-}
-
-func LoginHandler(svc service.AuthService) func(context.Context, *LoginInput) (*LoginOutput, error) {
-	return func(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
-		if err := ValidateEmail(input.Email); err != nil {
-			return nil, ErrInvalidEmail
+func LoginHandler(svc service.AuthService) func(context.Context, *dto.LoginInput) (*dto.LoginOutput, error) {
+	return func(ctx context.Context, input *dto.LoginInput) (*dto.LoginOutput, error) {
+		if err := ValidateEmail(input.Body.Email); err != nil {
+			return nil, huma.Error400BadRequest("Invalid email format", err)
 		}
 
-		result, err := svc.Login(ctx, input.Email, input.Password)
+		result, err := svc.Login(ctx, input.Body.Email, input.Body.Password)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
 				return nil, huma.Error401Unauthorized("Invalid email or password", err)
@@ -39,13 +23,13 @@ func LoginHandler(svc service.AuthService) func(context.Context, *LoginInput) (*
 			return nil, err
 		}
 
-		resp := &LoginOutput{}
-		resp.AccessToken = result.AccessToken
-		resp.RefreshToken = result.RefreshToken
-		resp.User.ID = result.User.ID
-		resp.User.Email = result.User.Email
-		resp.User.DisplayName = result.User.DisplayName
-		resp.User.EmailVerified = result.User.EmailVerified
+		resp := &dto.LoginOutput{}
+		resp.Body.AccessToken = result.AccessToken
+		resp.Body.RefreshToken = result.RefreshToken
+		resp.Body.User.ID = result.User.ID
+		resp.Body.User.Email = result.User.Email
+		resp.Body.User.DisplayName = result.User.DisplayName
+		resp.Body.User.EmailVerified = result.User.EmailVerified
 
 		return resp, nil
 	}

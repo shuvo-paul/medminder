@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/stretchr/testify/assert"
@@ -35,29 +36,31 @@ func TestRegister_Successful(t *testing.T) {
 
 	handler := handlers.RegisterHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.RegisterInput{
-		Email:       email,
-		DisplayName: displayName,
-		Password:    password,
-	})
+	input := &dto.RegisterInput{}
+	input.Body.Email = email
+	input.Body.DisplayName = displayName
+	input.Body.Password = password
+
+	resp, err := handler(context.Background(), input)
 
 	assert.NoError(t, err)
-	assert.NotEmpty(t, resp.User.ID)
-	assert.Equal(t, userID, resp.User.ID)
-	assert.Equal(t, email, resp.User.Email)
-	assert.Equal(t, displayName, resp.User.DisplayName)
-	assert.False(t, resp.User.EmailVerified)
+	assert.NotEmpty(t, resp.Body.User.ID)
+	assert.Equal(t, userID, resp.Body.User.ID)
+	assert.Equal(t, email, resp.Body.User.Email)
+	assert.Equal(t, displayName, resp.Body.User.DisplayName)
+	assert.False(t, resp.Body.User.EmailVerified)
 }
 
 func TestRegister_InvalidEmail(t *testing.T) {
 	mockSvc := new(MockAuthService)
 	handler := handlers.RegisterHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.RegisterInput{
-		Email:       "invalid-email",
-		DisplayName: "Test User",
-		Password:    "Password123",
-	})
+	input := &dto.RegisterInput{}
+	input.Body.Email = "invalid-email"
+	input.Body.DisplayName = "Test User"
+	input.Body.Password = "Password123"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -67,11 +70,12 @@ func TestRegister_InvalidPassword(t *testing.T) {
 	mockSvc := new(MockAuthService)
 	handler := handlers.RegisterHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.RegisterInput{
-		Email:       "test@example.com",
-		DisplayName: "Test User",
-		Password:    "weak",
-	})
+	input := &dto.RegisterInput{}
+	input.Body.Email = "test@example.com"
+	input.Body.DisplayName = "Test User"
+	input.Body.Password = "weak"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)

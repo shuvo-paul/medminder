@@ -19,9 +19,7 @@ func TestLogout_Successful(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockSvc)
 
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: userID,
-	})
+	err := handler(context.Background(), userID)
 
 	assert.NoError(t, err)
 	mockSvc.AssertExpectations(t)
@@ -35,9 +33,7 @@ func TestLogout_DBError(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockSvc)
 
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: userID,
-	})
+	err := handler(context.Background(), userID)
 
 	assert.Error(t, err)
 }
@@ -47,9 +43,7 @@ func TestLogout_NilUserID(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockSvc)
 
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: uuid.Nil,
-	})
+	err := handler(context.Background(), uuid.Nil)
 
 	assert.Error(t, err)
 }

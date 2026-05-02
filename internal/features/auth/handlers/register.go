@@ -5,38 +5,23 @@ import (
 	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-type RegisterInput struct {
-	Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
-	DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
-	Password    string `json:"password" minLength:"8"`
-}
-
-type RegisterOutput struct {
-	User struct {
-		ID            uuid.UUID `json:"id"`
-		Email         string    `json:"email"`
-		DisplayName   string    `json:"display_name"`
-		EmailVerified bool      `json:"email_verified"`
-	} `json:"user"`
-}
-
-func RegisterHandler(svc service.AuthService) func(context.Context, *RegisterInput) (*RegisterOutput, error) {
-	return func(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
-		if err := ValidateEmail(input.Email); err != nil {
-			return nil, ErrInvalidEmail
+func RegisterHandler(svc service.AuthService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
+	return func(ctx context.Context, input *dto.RegisterInput) (*dto.RegisterOutput, error) {
+		if err := ValidateEmail(input.Body.Email); err != nil {
+			return nil, huma.Error400BadRequest("Invalid email format", err)
 		}
-		if err := ValidatePassword(input.Password); err != nil {
-			return nil, ErrInvalidPassword
+		if err := ValidatePassword(input.Body.Password); err != nil {
+			return nil, huma.Error400BadRequest("Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number", err)
 		}
-		if err := ValidateDisplayName(input.DisplayName); err != nil {
-			return nil, ErrInvalidDisplayName
+		if err := ValidateDisplayName(input.Body.DisplayName); err != nil {
+			return nil, huma.Error400BadRequest("Display name must be 1-100 characters", err)
 		}
 
-		result, err := svc.Register(ctx, input.Email, input.DisplayName, input.Password)
+		result, err := svc.Register(ctx, input.Body.Email, input.Body.DisplayName, input.Body.Password)
 		if err != nil {
 			if errors.Is(err, service.ErrEmailExists) {
 				return nil, huma.Error409Conflict("Email already exists", err)
@@ -44,11 +29,11 @@ func RegisterHandler(svc service.AuthService) func(context.Context, *RegisterInp
 			return nil, err
 		}
 
-		resp := &RegisterOutput{}
-		resp.User.ID = result.User.ID
-		resp.User.Email = result.User.Email
-		resp.User.DisplayName = result.User.DisplayName
-		resp.User.EmailVerified = result.User.EmailVerified
+		resp := &dto.RegisterOutput{}
+		resp.Body.User.ID = result.User.ID
+		resp.Body.User.Email = result.User.Email
+		resp.Body.User.DisplayName = result.User.DisplayName
+		resp.Body.User.EmailVerified = result.User.EmailVerified
 
 		return resp, nil
 	}

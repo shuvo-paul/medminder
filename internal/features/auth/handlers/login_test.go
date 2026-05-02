@@ -2,10 +2,10 @@ package handlers_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/stretchr/testify/assert"
@@ -38,18 +38,19 @@ func TestLogin_Successful(t *testing.T) {
 
 	handler := handlers.LoginHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    email,
-		Password: password,
-	})
+	input := &dto.LoginInput{}
+	input.Body.Email = email
+	input.Body.Password = password
+
+	resp, err := handler(context.Background(), input)
 
 	assert.NoError(t, err)
-	assert.NotEmpty(t, resp.AccessToken)
-	assert.NotEmpty(t, resp.RefreshToken)
-	assert.Equal(t, userID, resp.User.ID)
-	assert.Equal(t, email, resp.User.Email)
-	assert.Equal(t, displayName, resp.User.DisplayName)
-	assert.True(t, resp.User.EmailVerified)
+	assert.NotEmpty(t, resp.Body.AccessToken)
+	assert.NotEmpty(t, resp.Body.RefreshToken)
+	assert.Equal(t, userID, resp.Body.User.ID)
+	assert.Equal(t, email, resp.Body.User.Email)
+	assert.Equal(t, displayName, resp.Body.User.DisplayName)
+	assert.True(t, resp.Body.User.EmailVerified)
 }
 
 func TestLogin_InvalidEmail(t *testing.T) {
@@ -57,14 +58,15 @@ func TestLogin_InvalidEmail(t *testing.T) {
 
 	handler := handlers.LoginHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    "invalid-email",
-		Password: "Password123",
-	})
+	input := &dto.LoginInput{}
+	input.Body.Email = "invalid-email"
+	input.Body.Password = "Password123"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.True(t, errors.Is(err, handlers.ErrInvalidEmail))
+	assert.Contains(t, err.Error(), "Invalid email format")
 }
 
 func TestLogin_UserNotFound(t *testing.T) {
@@ -74,10 +76,11 @@ func TestLogin_UserNotFound(t *testing.T) {
 
 	handler := handlers.LoginHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    "nonexistent@example.com",
-		Password: "Password123",
-	})
+	input := &dto.LoginInput{}
+	input.Body.Email = "nonexistent@example.com"
+	input.Body.Password = "Password123"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -90,10 +93,11 @@ func TestLogin_EmptyPasswordHash(t *testing.T) {
 
 	handler := handlers.LoginHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    "test@example.com",
-		Password: "Password123",
-	})
+	input := &dto.LoginInput{}
+	input.Body.Email = "test@example.com"
+	input.Body.Password = "Password123"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -106,10 +110,11 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 	handler := handlers.LoginHandler(mockSvc)
 
-	resp, err := handler(context.Background(), &handlers.LoginInput{
-		Email:    "test@example.com",
-		Password: "WrongPassword123",
-	})
+	input := &dto.LoginInput{}
+	input.Body.Email = "test@example.com"
+	input.Body.Password = "WrongPassword123"
+
+	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
