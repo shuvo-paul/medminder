@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
@@ -91,6 +92,14 @@ func (m *MockTokenService) GenerateRefreshToken() (string, error) {
 func (m *MockTokenService) HashRefreshToken(token string) string {
 	args := m.Called(token)
 	return args.String(0)
+}
+
+func (m *MockTokenService) ValidateAccessToken(tokenString string) (jwt.MapClaims, error) {
+	args := m.Called(tokenString)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(jwt.MapClaims), args.Error(1)
 }
 
 // Test cases for Register

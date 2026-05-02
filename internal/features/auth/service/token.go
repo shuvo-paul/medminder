@@ -27,6 +27,7 @@ type TokenServiceInterface interface {
 	GenerateAccessToken(userID uuid.UUID, email string) (string, error)
 	GenerateRefreshToken() (string, error)
 	HashRefreshToken(token string) string
+	ValidateAccessToken(tokenString string) (jwt.MapClaims, error)
 }
 
 func NewTokenService(jwtSecret string) *TokenService {
