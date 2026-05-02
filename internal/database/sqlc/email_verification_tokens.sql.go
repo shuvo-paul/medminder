@@ -81,10 +81,9 @@ func (q *Queries) DeleteEmailVerificationToken(ctx context.Context, id uuid.UUID
 }
 
 const findValidEmailVerificationToken = `-- name: FindValidEmailVerificationToken :one
-SELECT e.id, e.user_id, e.token_hash, e.created_at, e.expires_at
-FROM email_verification_tokens e
-JOIN users u ON u.id = e.user_id
-WHERE e.token_hash = $1 AND e.expires_at > NOW()
+SELECT id, user_id, token_hash, created_at, expires_at
+FROM email_verification_tokens
+WHERE token_hash = $1 AND expires_at > NOW()
 `
 
 func (q *Queries) FindValidEmailVerificationToken(ctx context.Context, tokenHash string) (EmailVerificationToken, error) {

@@ -8,10 +8,9 @@ INSERT INTO email_verification_tokens (
 RETURNING id, user_id, token_hash, created_at, expires_at;
 
 -- name: FindValidEmailVerificationToken :one
-SELECT e.id, e.user_id, e.token_hash, e.created_at, e.expires_at
-FROM email_verification_tokens e
-JOIN users u ON u.id = e.user_id
-WHERE e.token_hash = $1 AND e.expires_at > NOW();
+SELECT id, user_id, token_hash, created_at, expires_at
+FROM email_verification_tokens
+WHERE token_hash = $1 AND expires_at > NOW();
 
 -- name: DeleteEmailVerificationToken :exec
 DELETE FROM email_verification_tokens
