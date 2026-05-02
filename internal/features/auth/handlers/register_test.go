@@ -64,6 +64,7 @@ func TestRegister_InvalidEmail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Invalid email")
 }
 
 func TestRegister_InvalidPassword(t *testing.T) {
@@ -79,4 +80,25 @@ func TestRegister_InvalidPassword(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Password must be at least")
+}
+
+func TestRegister_EmailAlreadyExists(t *testing.T) {
+	mockSvc := new(MockAuthService)
+
+	mockSvc.On("Register", mock.Anything, "test@example.com", "Test User", "Password123").
+		Return(nil, service.ErrEmailExists)
+
+	handler := handlers.RegisterHandler(mockSvc)
+
+	input := &dto.RegisterInput{}
+	input.Body.Email = "test@example.com"
+	input.Body.DisplayName = "Test User"
+	input.Body.Password = "Password123"
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Email already exists")
 }
