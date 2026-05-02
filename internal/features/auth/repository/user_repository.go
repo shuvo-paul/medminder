@@ -13,6 +13,7 @@ type UserRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id string) (db.User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
+	VerifyEmail(ctx context.Context, id uuid.UUID) error
 }
 
 type userRepository struct {
@@ -45,4 +46,8 @@ func (r *userRepository) UpdatePassword(ctx context.Context, id, passwordHash st
 		ID:           uuid.MustParse(id),
 		PasswordHash: sql.NullString{String: passwordHash, Valid: true},
 	})
+}
+
+func (r *userRepository) VerifyEmail(ctx context.Context, id uuid.UUID) error {
+	return r.queries.VerifyUserEmail(ctx, id)
 }

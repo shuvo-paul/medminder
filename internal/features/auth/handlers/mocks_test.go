@@ -60,3 +60,20 @@ func (m *MockTokenService) ValidateAccessToken(tokenString string) (jwt.MapClaim
 	}
 	return args.Get(0).(jwt.MapClaims), args.Error(1)
 }
+
+type MockEmailVerificationService struct {
+	mock.Mock
+}
+
+func (m *MockEmailVerificationService) VerifyEmail(ctx context.Context, token string) (*service.VerifyResult, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.VerifyResult), args.Error(1)
+}
+
+func (m *MockEmailVerificationService) ResendVerification(ctx context.Context, userID uuid.UUID, email string) error {
+	args := m.Called(ctx, userID, email)
+	return args.Error(0)
+}

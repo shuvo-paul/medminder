@@ -14,6 +14,7 @@ import (
 
 func TestRegister_Successful(t *testing.T) {
 	mockSvc := new(MockAuthService)
+	mockEmailSvc := new(MockEmailVerificationService)
 
 	userID := uuid.New()
 	email := "test@example.com"
@@ -33,8 +34,9 @@ func TestRegister_Successful(t *testing.T) {
 			EmailVerified: false,
 		},
 	}, nil)
+	mockEmailSvc.On("ResendVerification", mock.Anything, mock.Anything, email).Return(nil)
 
-	handler := handlers.RegisterHandler(mockSvc)
+	handler := handlers.RegisterHandler(mockSvc, mockEmailSvc)
 
 	input := &dto.RegisterInput{}
 	input.Body.Email = email
@@ -53,7 +55,8 @@ func TestRegister_Successful(t *testing.T) {
 
 func TestRegister_InvalidEmail(t *testing.T) {
 	mockSvc := new(MockAuthService)
-	handler := handlers.RegisterHandler(mockSvc)
+	mockEmailSvc := new(MockEmailVerificationService)
+	handler := handlers.RegisterHandler(mockSvc, mockEmailSvc)
 
 	input := &dto.RegisterInput{}
 	input.Body.Email = "invalid-email"
@@ -69,7 +72,8 @@ func TestRegister_InvalidEmail(t *testing.T) {
 
 func TestRegister_InvalidPassword(t *testing.T) {
 	mockSvc := new(MockAuthService)
-	handler := handlers.RegisterHandler(mockSvc)
+	mockEmailSvc := new(MockEmailVerificationService)
+	handler := handlers.RegisterHandler(mockSvc, mockEmailSvc)
 
 	input := &dto.RegisterInput{}
 	input.Body.Email = "test@example.com"
@@ -89,7 +93,8 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	mockSvc.On("Register", mock.Anything, "test@example.com", "Test User", "Password123").
 		Return(nil, service.ErrEmailExists)
 
-	handler := handlers.RegisterHandler(mockSvc)
+	mockEmailSvc := new(MockEmailVerificationService)
+	handler := handlers.RegisterHandler(mockSvc, mockEmailSvc)
 
 	input := &dto.RegisterInput{}
 	input.Body.Email = "test@example.com"

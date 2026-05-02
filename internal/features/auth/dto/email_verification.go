@@ -17,7 +17,7 @@ type VerifyEmailOutput struct {
 // ResendVerificationInput is the input for resending a verification email.
 type ResendVerificationInput struct {
 	Body struct {
-		Email string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
+		Authorization string `json:"authorization"`
 	}
 }
 

@@ -14,4 +14,6 @@ var (
 	ErrEmailExists        = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrLogoutFailed       = errors.New("logout failed")
+	ErrRateLimitExceeded  = errors.New("rate limit exceeded")
+	ErrEmailNotFound      = errors.New("email not found")
 )

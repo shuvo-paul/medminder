@@ -9,7 +9,7 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-func RegisterHandler(svc service.AuthService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
+func RegisterHandler(svc service.AuthService, emailSvc service.EmailVerificationService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
 	return func(ctx context.Context, input *dto.RegisterInput) (*dto.RegisterOutput, error) {
 		if err := ValidateEmail(input.Body.Email); err != nil {
 			return nil, huma.Error400BadRequest("Invalid email format", err)
@@ -28,6 +28,10 @@ func RegisterHandler(svc service.AuthService) func(context.Context, *dto.Registe
 			}
 			return nil, err
 		}
+
+		go func() {
+			emailSvc.ResendVerification(context.Background(), result.User.ID, result.User.Email)
+		}()
 
 		resp := &dto.RegisterOutput{}
 		resp.Body.User.ID = result.User.ID

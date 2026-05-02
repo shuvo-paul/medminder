@@ -10,12 +10,6 @@ import (
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 )
 
-var (
-	ErrTokenNotFound = errors.New("token not found")
-	ErrTokenExpired  = errors.New("token expired")
-	ErrTokenUsed     = errors.New("token already used")
-)
-
 type PasswordResetTokenRepository interface {
 	CreateToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.PasswordResetToken, error)
 	FindValidToken(ctx context.Context, tokenHash string) (db.PasswordResetToken, error)

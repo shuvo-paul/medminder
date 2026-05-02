@@ -21,6 +21,7 @@ type MockPRUserRepository struct {
 	GetUserByIDFn    func(ctx context.Context, id string) (db.User, error)
 	UpdatePasswordFn func(ctx context.Context, id, passwordHash string) error
 	CreateUserFn     func(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error)
+	VerifyEmailFn     func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *MockPRUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error) {
@@ -47,6 +48,13 @@ func (m *MockPRUserRepository) GetUserByID(ctx context.Context, id string) (db.U
 func (m *MockPRUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
 	if m.UpdatePasswordFn != nil {
 		return m.UpdatePasswordFn(ctx, id, passwordHash)
+	}
+	return nil
+}
+
+func (m *MockPRUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) error {
+	if m.VerifyEmailFn != nil {
+		return m.VerifyEmailFn(ctx, id)
 	}
 	return nil
 }
