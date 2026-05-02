@@ -2,57 +2,99 @@ package handlers_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestLogout_Successful(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
+	mockAuthSvc := new(MockAuthService)
+	mockTokenSvc := new(MockTokenService)
 	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
 
-	mockRepo.On("DeleteUserRefreshTokens", mock.Anything, userID).Return(nil)
+	mockAuthSvc.On("Logout", mock.Anything, userID).Return(nil)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
 
-	handler := handlers.LogoutHandler(mockRepo)
+	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: userID,
-	})
+	input := &dto.LogoutInput{Header: struct {
+		Authorization string `header:"Authorization"`
+	}{Authorization: "Bearer " + token}}
+	_, err := handler(context.Background(), input)
 
 	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
+	mockAuthSvc.AssertExpectations(t)
+}
+
+func TestLogout_InvalidHeader(t *testing.T) {
+	mockAuthSvc := new(MockAuthService)
+	mockTokenSvc := new(MockTokenService)
+
+	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
+
+	input := &dto.LogoutInput{Header: struct {
+		Authorization string `header:"Authorization"`
+	}{Authorization: "Invalid"}}
+	_, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid authorization header")
+}
+
+func TestLogout_ExpiredToken(t *testing.T) {
+	mockAuthSvc := new(MockAuthService)
+	mockTokenSvc := new(MockTokenService)
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(-time.Hour))
+
+	mockTokenSvc.On("ValidateAccessToken", token).Return(nil, service.ErrTokenExpired)
+
+	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
+
+	input := &dto.LogoutInput{Header: struct {
+		Authorization string `header:"Authorization"`
+	}{Authorization: "Bearer " + token}}
+	_, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestLogout_DBError(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
+	mockAuthSvc := new(MockAuthService)
+	mockTokenSvc := new(MockTokenService)
 	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
 
-	mockRepo.On("DeleteUserRefreshTokens", mock.Anything, userID).Return(errors.New("database error"))
+	mockAuthSvc.On("Logout", mock.Anything, userID).Return(service.ErrLogoutFailed)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
 
-	handler := handlers.LogoutHandler(mockRepo)
+	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: userID,
-	})
+	input := &dto.LogoutInput{Header: struct {
+		Authorization string `header:"Authorization"`
+	}{Authorization: "Bearer " + token}}
+	_, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
-	mockRepo.AssertExpectations(t)
 }
 
-func TestLogout_NilUserID(t *testing.T) {
-	mockRepo := new(MockRefreshTokenRepository)
-
-	handler := handlers.LogoutHandler(mockRepo)
-
-	err := handler(context.Background(), &handlers.LogoutInput{
-		UserID: uuid.Nil,
-	})
-
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, handlers.ErrLogoutFailed))
+func makeAccessToken(userID uuid.UUID, email string, exp time.Time) string {
+	claims := jwt.MapClaims{
+		"sub":   userID.String(),
+		"email": email,
+		"exp":   exp.Unix(),
+		"iat":   time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, _ := token.SignedString([]byte("test-secret"))
+	return tokenString
 }

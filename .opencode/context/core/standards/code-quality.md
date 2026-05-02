@@ -42,12 +42,42 @@
 ### Package Structure
 ```
 internal/features/<feature>/
-├── handler/         # HTTP handlers (huma types)
-├── service/         # Business logic (pure functions)
-├── repository/      # Data access layer
-├── dto/             # Request/response types
-└── routes.go        # Feature-owned route registration
+├── dto/              # Request/response types with Huma struct tags (Body wrappers, validation tags)
+├── handler/         # Thin HTTP adapter: accepts dto.Input → calls service → returns dto.Output
+├── service/         # Business logic: pure functions, no HTTP awareness
+├── repository/      # Data access layer (sqlc queries)
+└── routes.go        # Feature-owned route registration (pure wiring, no error translation)
 ```
+
+## Feature Module Design Pattern (Mandatory)
+
+**Every** feature module MUST live under `internal/features/<feature>/`. No exceptions. This is the only valid location for feature code.
+
+```
+internal/features/<feature>/
+├── dto/              # Request/response types with Huma struct tags (Body wrappers, validation tags)
+├── handler/         # Thin HTTP adapter: accepts dto.Input → calls service → returns dto.Output
+├── service/         # Business logic: pure functions, no HTTP awareness
+├── repository/      # Data access layer (sqlc queries)
+└── routes.go        # Feature-owned route registration (pure wiring, no error translation)
+```
+
+**Rules (enforced, not optional):**
+1. Feature code lives in `internal/features/<feature>/` — not scattered across `internal/` root
+2. `dto/` owns all wire-format types with Huma struct tags — handlers do NOT define these
+3. Handler functions accept `*dto.Input`, return `*dto.Output` — never bare types
+4. Error translation (sentinel errors → `huma.Error400BadRequest`, etc.) lives **inside** the handler, not in `routes.go`
+5. Routes are pure wiring: `huma.Register(api, huma.Operation{...}, handlers.MyHandler(svc))` — no inline closures, no error translation, no intermediate wrappers
+6. All route registrations look identical: just `handlers.XxxHandler(svcA, svcB)` passed directly to `huma.Register`. If a handler needs external dependencies (e.g., `TokenService` for JWT extraction), pass them via the handler constructor, not the route closure
+7. Shared types (e.g., `User`) live in `dto/` and are reused across input/output structs
+
+**Why this pattern:**
+- `dto/` = wire format + validation (what the client sends/receives)
+- `handler/` = HTTP↔service adapter (where HTTP semantics belong)
+- `service/` = pure business logic (testable without HTTP)
+- `routes.go` = wiring only (reads like a manifest, not code)
+
+Canonical reference: `internal/features/auth/`
 
 ## Patterns
 
