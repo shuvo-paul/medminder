@@ -111,8 +111,16 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, ...) {
         OperationID: "register-user", Method: http.MethodPost,
         Path: "/api/auth/register", Summary: "Register a new user", Tags: []string{"auth"},
     }, handlers.RegisterHandler(authSvc))
+
+    // All routes look identical — handler does JWT extraction internally when needed
+    huma.Register(api, huma.Operation{
+        OperationID: "logout-user", Method: http.MethodPost,
+        Path: "/api/auth/logout", Summary: "Logout user", Tags: []string{"auth"},
+    }, handlers.LogoutHandler(authSvc, tokenSvc))
 }
 ```
+
+**Handler with multiple dependencies** (e.g., JWT extraction): pass all dependencies via the handler constructor — not inline closures in `routes.go`. The handler signature reflects what it needs.
 
 ### SvelteKit Page Component
 ```svelte

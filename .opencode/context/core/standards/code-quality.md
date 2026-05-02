@@ -67,8 +67,8 @@ internal/features/<feature>/
 2. `dto/` owns all wire-format types with Huma struct tags — handlers do NOT define these
 3. Handler functions accept `*dto.Input`, return `*dto.Output` — never bare types
 4. Error translation (sentinel errors → `huma.Error400BadRequest`, etc.) lives **inside** the handler, not in `routes.go`
-5. Routes are pure wiring: `huma.Register(api, huma.Operation{...}, handlers.MyHandler(svc))` — no inline closures doing error mapping
-6. `LogoutHandler` accepts bare domain types (e.g., `uuid.UUID`) when the wrapper struct adds no value
+5. Routes are pure wiring: `huma.Register(api, huma.Operation{...}, handlers.MyHandler(svc))` — no inline closures, no error translation, no intermediate wrappers
+6. All route registrations look identical: just `handlers.XxxHandler(svcA, svcB)` passed directly to `huma.Register`. If a handler needs external dependencies (e.g., `TokenService` for JWT extraction), pass them via the handler constructor, not the route closure
 7. Shared types (e.g., `User`) live in `dto/` and are reused across input/output structs
 
 **Why this pattern:**
