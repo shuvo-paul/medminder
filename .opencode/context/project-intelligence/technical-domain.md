@@ -66,7 +66,7 @@ repository/→ Data access: sqlc queries, CRUD. No business logic.
 │   ├── common/              # Shared utilities: config, database, email, log
 │   ├── database/sqlc/       # sqlc-generated Go code from SQL queries
 │   ├── features/
-│   │   └── auth/            # Feature module: routes.go, repository/, service/, handler/
+│   │   └── auth/            # Feature module: routes.go, repository/, service/, handler/, dto/
 │   ├── middleware/          # HTTP middleware
 │   └── router/              # Thin orchestrator: infra.go, spa.go, router.go
 ├── migrations/              # Database migration SQL files
@@ -82,20 +82,36 @@ repository/→ Data access: sqlc queries, CRUD. No business logic.
 
 ## Code Patterns
 
-### huma v2 API Handler
+### huma v2 API Handler + DTO Pattern
 ```go
-type myInput struct { Body struct { Field string `json:"field" minLength:"1"` } }
-type myOutput struct { Body struct { Result string `json:"result"` } }
+// dto/auth.go — wire format + validation tags owned by dto package
+// type RegisterInput struct { Body struct { Email string `json:"email" ...` } }
+// type RegisterOutput struct { Body struct { User User `json:"user"` } }
 
-huma.Register(api, huma.Operation{
-    OperationID: "my-operation", Method: http.MethodPost,
-    Path: "/api/resource", Summary: "Description", Tags: []string{"tag"},
-}, func(ctx context.Context, input *myInput) (*myOutput, error) {
-    svc := service.NewMyService(repo)
-    result, err := svc.DoBusinessLogic(ctx, input.Body.Field)
-    if err != nil { return nil, huma.Error400BadRequest("failed", err) }
-    return &myOutput{Body: struct{ Result string }{Result: result}}, nil
-})
+// handlers/register.go — thin HTTP adapter (error translation lives here)
+func RegisterHandler(svc service.AuthService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
+    return func(ctx context.Context, input *dto.RegisterInput) (*dto.RegisterOutput, error) {
+        if err := ValidateEmail(input.Body.Email); err != nil {
+            return nil, huma.Error400BadRequest("Invalid email", err)
+        }
+        result, err := svc.Register(ctx, input.Body.Email, input.Body.DisplayName, input.Body.Password)
+        if err != nil {
+            if errors.Is(err, service.ErrEmailExists) {
+                return nil, huma.Error409Conflict("Email already exists", err)
+            }
+            return nil, err
+        }
+        return &dto.RegisterOutput{Body: struct{ User dto.User }{User: result.User}}, nil
+    }
+}
+
+// routes.go — pure wiring, one liner per route
+func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, ...) {
+    huma.Register(api, huma.Operation{
+        OperationID: "register-user", Method: http.MethodPost,
+        Path: "/api/auth/register", Summary: "Register a new user", Tags: []string{"auth"},
+    }, handlers.RegisterHandler(authSvc))
+}
 ```
 
 ### SvelteKit Page Component
@@ -126,13 +142,14 @@ huma.Register(api, huma.Operation{
 ## Code Standards
 
 ### Layered Separation (Critical)
-- **Handlers are thin** — HTTP concerns ONLY: parse input, call service, map errors to HTTP codes, format response. NO business logic, NO direct repository calls.
+- **Handlers are thin adapters** — HTTP concerns ONLY: parse input from `dto.Input`, call service, map errors to HTTP codes (`huma.Error*`), return `dto.Output`. NO business logic, NO direct repository calls.
 - **Services own business logic** — Validation, hashing, token generation, orchestration of repository calls. Testable without HTTP. Service structs accept repository interfaces via DI.
 - **Repositories own data access** — Direct DB queries via sqlc. NO business logic. One repository per entity.
+- **DTOs own wire format** — All request/response types with Huma struct tags live in `dto/`. Handlers accept `*dto.Input`, return `*dto.Output`.
 
 ### General Standards
 - **TDD required** — Write tests first for all features; table-driven tests with testify
-- **Feature-module layout** — Each feature is self-contained with `routes.go`, `repository/`, `service/`, `handler/`, `dto/`
+- **Feature-module layout** — Each feature is self-contained with `routes.go`, `repository/`, `service/`, `handler/`, `dto/`, `dto/`
 - **Feature-owned routes** — `RegisterRoutes(api huma.API, ...)` per feature; router just calls it
 - **huma typed handlers** — All API routes use `func(ctx, *Input) (*Output, error)`, never plain Chi handlers for API
 - **Makefile targets** — Always use Makefile, never raw Go commands
@@ -161,10 +178,10 @@ huma.Register(api, huma.Operation{
 | huma API handler | `internal/features/auth/routes.go` | Register, login, logout endpoints |
 | Feature structure | `internal/features/auth/` | Full feature module layout |
 | Router orchestration | `internal/router/router.go` | DI wiring, feature registration |
-| Handler example | `internal/features/auth/handlers/register.go` | Should be thin — call service only |
+| Handler example | `internal/features/auth/handlers/register.go` | Thin adapter: input → service → dto.Output |
 | Service example | `internal/features/auth/service/token.go` | Token generation service |
 | Repository example | `internal/features/auth/repository/user_repository.go` | Data access layer |
-| DTO example | `internal/features/auth/dto/` | Request/response types for password reset |
+| DTO example | `internal/features/auth/dto/auth.go` | RegisterInput, LoginInput, etc. with Huma tags |
 | SvelteKit page | `web/src/routes/login/+page.svelte` | Login page with validation |
 | UI components | `web/src/lib/components/ui/` | shadcn-svelte component library |
 | DB connection | `internal/common/database/db.go` | PostgreSQL connection setup |

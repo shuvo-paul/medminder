@@ -78,6 +78,39 @@
 
 ---
 
+## Decision: DTO Extraction from Handlers
+
+**Date**: 2026-05-02
+**Status**: Decided
+**Owner**: MedMinder Core Team
+
+### Context
+The auth feature had handler types (`RegisterInput`, `LoginInput`, `LogoutInput`, etc.) living in `handlers/` packages, but they served double duty — they were both the Huma HTTP contract (with validation struct tags) AND the domain types consumed by handler functions. This caused several problems: (1) `routes.go` had to do sentinel→Huma error translation, bleeding HTTP concerns into the wiring layer; (2) output structs were duplicated inline across multiple routes; (3) the boundary between "wire format" and "handler domain" was blurred.
+
+### Decision
+Introduce a dedicated `dto` package per feature (`internal/features/<feature>/dto/`) that owns all request/response types with Huma struct tags. Handlers accept `*dto.Input` types and return `*dto.Output` types directly. Error translation (sentinel errors → `huma.Error*`) lives inside the handler, not in `routes.go`. Routes become pure wiring that passes handlers directly to `huma.Register`.
+
+### Rationale
+Separation: `dto` = wire format + validation, `handlers` = HTTP↔service adapter, `routes.go` = wiring only. Each package has one job. This follows the adapter pattern from Clean Architecture — handlers are the primary adapter between HTTP and the service layer. Routes were doing too much.
+
+### Alternatives Considered
+| Alternative | Pros | Cons | Why Rejected? |
+|-------------|------|------|---------------|
+| Keep handler types as DTOs | Less files, simple structure | Blurs boundaries, error translation in routes | Violates single responsibility |
+| DTOs in routes.go | Keeps handlers thin | Still no shared types, routes gets complex | Routes is not the right place for domain types |
+| Flat handler package with all types | Single package to import | Giants package, poor locality | Goes against Go package design principles |
+
+### Impact
+- **Positive**: Clean boundaries, handlers own HTTP semantics, routes are 1-liners, error translation at the right layer
+- **Negative**: Extra `dto/` package per feature (minimal)
+- **Risk**: None identified — the pattern is proven in the codebase already (`password_reset.go` already used DTOs)
+
+### Related
+- PR: feature/issue-60-auth-service-refactor (`8eef3a8`)
+- `technical-domain.md` — updated to reflect `dto/` package
+
+---
+
 ## Decision: [Title]
 
 **Date**: YYYY-MM-DD
