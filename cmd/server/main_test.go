@@ -37,7 +37,7 @@ func testConfig() config.Config {
 }
 
 func TestHealthCheck_ReturnsOK(t *testing.T) {
-	r, err := router.New(testDistFS(), &sql.DB{}, testConfig())
+	r, _, err := router.New(testDistFS(), &sql.DB{}, testConfig())
 	require.NoError(t, err)
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -59,7 +59,7 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 }
 
 func TestOpenAPISpec_IsServed(t *testing.T) {
-	r, err := router.New(testDistFS(), &sql.DB{}, testConfig())
+	r, _, err := router.New(testDistFS(), &sql.DB{}, testConfig())
 	require.NoError(t, err)
 	server := httptest.NewServer(r)
 	defer server.Close()

@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/shuvo-paul/medminder/internal/common/config"
@@ -60,11 +63,21 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	r, err := router.New(distFS, dbConn, cfg)
+	r, cleanup, err := router.New(distFS, dbConn, cfg)
 	if err != nil {
 		log.Error("failed to create router", log.F("error", err.Error()))
 		return
 	}
+	defer cleanup()
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigCh
+		log.Info("shutting down server", log.F("signal", sig.String()))
+		cleanup()
+		os.Exit(0)
+	}()
 
 	log.Info("starting server", log.F("port", cfg.AppPort), log.F("env", cfg.AppEnv))
 	addr := fmt.Sprintf(":%d", cfg.AppPort)

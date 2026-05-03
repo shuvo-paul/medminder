@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	emailqueue "github.com/shuvo-paul/medminder/internal/common/email"
+	"github.com/shuvo-paul/medminder/internal/common/log"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 )
 
@@ -86,10 +87,10 @@ func (s *emailVerificationService) VerifyEmail(ctx context.Context, token string
 	}
 
 	if err := s.tokenRepo.DeleteToken(ctx, storedToken.ID); err != nil {
-		fmt.Printf("warning: failed to delete used token: %v\n", err)
+		log.Warn("failed to delete used token", log.F("token_id", storedToken.ID.String()), log.F("error", err.Error()))
 	}
 	if err := s.tokenRepo.DeleteAllForUser(ctx, user.ID); err != nil {
-		fmt.Printf("warning: failed to delete user tokens: %v\n", err)
+		log.Warn("failed to delete user tokens", log.F("user_id", user.ID.String()), log.F("error", err.Error()))
 	}
 
 	accessToken, err := s.tokenSvc.GenerateAccessToken(user.ID, user.Email)
@@ -124,7 +125,7 @@ func (s *emailVerificationService) ResendVerification(ctx context.Context, userI
 	}
 	rawToken := hex.EncodeToString(tokenBytes)
 
-	tokenHash, err := hashToken(rawToken)
+	tokenHash, err := hashEmailVerificationToken(rawToken)
 	if err != nil {
 		return fmt.Errorf("hashing token: %w", err)
 	}
