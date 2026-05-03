@@ -16,10 +16,12 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 	// Repos (used to construct services)
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
+	evTokenRepo := repository.NewEmailVerificationTokenRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
 
 	// Services
 	authSvc := service.NewAuthService(userRepo, tokenRepo, tokenSvc)
+	emailVerifSvc := service.NewEmailVerificationService(userRepo, evTokenRepo, tokenSvc, frontendURL)
 	passwordResetSvc := service.NewPasswordResetService(
 		userRepo,
 		repository.NewPasswordResetTokenRepository(queries),
@@ -28,14 +30,14 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		frontendURL,
 	)
 
-	// Register
+	// Register (with email verification)
 	huma.Register(api, huma.Operation{
 		OperationID: "register-user",
 		Method:      http.MethodPost,
 		Path:        "/api/auth/register",
 		Summary:     "Register a new user",
 		Tags:        []string{"auth"},
-	}, handlers.RegisterHandler(authSvc))
+	}, handlers.RegisterHandler(authSvc, emailVerifSvc))
 
 	// Login
 	huma.Register(api, huma.Operation{
@@ -54,6 +56,24 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		Summary:     "Logout user",
 		Tags:        []string{"auth"},
 	}, handlers.LogoutHandler(authSvc, tokenSvc))
+
+	// Email verification (unauthenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "verify-email",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/email/verify",
+		Summary:     "Verify email address",
+		Tags:        []string{"auth"},
+	}, handlers.VerifyEmailHandler(emailVerifSvc))
+
+	// Resend verification (authenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "resend-verification",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/email/resend-verification",
+		Summary:     "Resend verification email",
+		Tags:        []string{"auth"},
+	}, handlers.ResendVerificationHandler(emailVerifSvc, tokenSvc))
 
 	// Password reset routes (already use dto types)
 	passwordResetDeps := handlers.NewPasswordResetDeps(passwordResetSvc)

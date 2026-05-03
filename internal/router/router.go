@@ -15,7 +15,7 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth"
 )
 
-func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) {
+func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(), error) {
 	router := chi.NewRouter()
 
 	api := setupHuma(router)
@@ -23,6 +23,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 	queries := db.New(dbConn)
 
 	emailClient := email.NewEmailClient(cfg.Email)
+	email.StartEmailQueue(emailClient, 3, nil)
 
 	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
 
@@ -35,7 +36,11 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, error) 
 
 	router.Handle("/*", newSPAHandler(distFS))
 
-	return router, nil
+	cleanup := func() {
+		email.StopEmailQueue()
+	}
+
+	return router, cleanup, nil
 }
 
 func setupHuma(router *chi.Mux) huma.API {

@@ -10,10 +10,8 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-// LogoutHandler returns a thin HTTP adapter that extracts the user ID from
-// the Authorization header and delegates logout to AuthService.
-func LogoutHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.LogoutInput) (*dto.LogoutOutput, error) {
-	return func(ctx context.Context, input *dto.LogoutInput) (*dto.LogoutOutput, error) {
+func ResendVerificationHandler(svc service.EmailVerificationService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.ResendVerificationInput) (*dto.ResendVerificationOutput, error) {
+	return func(ctx context.Context, input *dto.ResendVerificationInput) (*dto.ResendVerificationOutput, error) {
 		authHeader := input.Body.Authorization
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			return nil, huma.Error401Unauthorized("Invalid authorization header", nil)
@@ -39,15 +37,22 @@ func LogoutHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInt
 			return nil, huma.Error401Unauthorized("Invalid user ID", nil)
 		}
 
-		if err := authSvc.Logout(ctx, userID); err != nil {
-			if errors.Is(err, service.ErrLogoutFailed) {
-				return nil, huma.Error500InternalServerError("Failed to logout", err)
+		email, ok := claims["email"].(string)
+		if !ok {
+			return nil, huma.Error401Unauthorized("Invalid email in token", nil)
+		}
+
+		if err := svc.ResendVerification(ctx, userID, email); err != nil {
+			if errors.Is(err, service.ErrRateLimitExceeded) {
+				return nil, huma.Error429TooManyRequests("Daily verification limit exceeded", err)
 			}
 			return nil, err
 		}
 
-		return &dto.LogoutOutput{Body: struct {
-			Message string `json:"message"`
-		}{Message: "logged out successfully"}}, nil
+		return &dto.ResendVerificationOutput{
+			Body: struct {
+				Message string `json:"message"`
+			}{Message: "Verification email sent"},
+		}, nil
 	}
 }

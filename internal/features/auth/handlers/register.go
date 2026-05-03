@@ -5,11 +5,12 @@ import (
 	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/shuvo-paul/medminder/internal/common/log"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-func RegisterHandler(svc service.AuthService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
+func RegisterHandler(svc service.AuthService, emailSvc service.EmailVerificationService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {
 	return func(ctx context.Context, input *dto.RegisterInput) (*dto.RegisterOutput, error) {
 		if err := ValidateEmail(input.Body.Email); err != nil {
 			return nil, huma.Error400BadRequest("Invalid email format", err)
@@ -28,6 +29,16 @@ func RegisterHandler(svc service.AuthService) func(context.Context, *dto.Registe
 			}
 			return nil, err
 		}
+
+go func() {
+		if err := emailSvc.ResendVerification(context.Background(), result.User.ID, result.User.Email); err != nil {
+			log.Error("failed to send verification email",
+				log.F("user_id", result.User.ID.String()),
+				log.F("email", result.User.Email),
+				log.F("error", err.Error()),
+			)
+		}
+	}()
 
 		resp := &dto.RegisterOutput{}
 		resp.Body.User.ID = result.User.ID
