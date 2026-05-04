@@ -2,6 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import EmailVerificationBanner from '$lib/components/EmailVerificationBanner.svelte';
 
 	let { children } = $props();
 </script>
@@ -14,7 +15,9 @@
 	</div>
 </header>
 
-<main>
+<EmailVerificationBanner />
+
+<main class="pt-12">
 	<div class="mx-auto max-w-md">
 		{@render children()}
 	</div>

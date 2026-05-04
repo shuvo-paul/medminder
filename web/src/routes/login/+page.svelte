@@ -56,6 +56,7 @@
 			const data = await response.json();
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.setItem('refresh_token', data.refresh_token);
+			localStorage.setItem('email_verified', String(data.user.email_verified));
 			if (rememberMe) localStorage.setItem('remember_me', 'true');
 			goto('/');
 		} catch {
