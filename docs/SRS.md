@@ -145,17 +145,17 @@ MedMinder is a **Monolithic Full-Stack Go Application with Embedded Frontend**:
 
 #### 3.1.5 Password Reset
 
-- [ ] **REQ-AUTH-010**: The system shall allow users to request a password reset via email (`POST /api/auth/password/reset/request`).
-- [ ] **REQ-AUTH-011**: Password reset tokens shall expire after 1 hour.
-- [ ] **REQ-AUTH-012**: The system shall allow users to set a new password using a valid reset token (`POST /api/auth/password/reset/confirm`).
-- [ ] **REQ-AUTH-013**: The system shall invalidate all refresh tokens when a password is reset.
+- [x] **REQ-AUTH-010**: The system shall allow users to request a password reset via email (`POST /api/auth/password/reset/request`).
+- [x] **REQ-AUTH-011**: Password reset tokens shall expire after 1 hour.
+- [x] **REQ-AUTH-012**: The system shall allow users to set a new password using a valid reset token (`POST /api/auth/password/reset/confirm`).
+- [x] **REQ-AUTH-013**: The system shall invalidate all refresh tokens when a password is reset.
 
 #### 3.1.6 Email Verification
 
-- [ ] **REQ-AUTH-014**: The system shall send an email verification link upon registration.
-- [ ] **REQ-AUTH-015**: Email verification tokens shall expire after 24 hours.
-- [ ] **REQ-AUTH-016**: Users shall not receive medication reminders until their email is verified.
-- [ ] **REQ-AUTH-017**: The system shall allow resending the verification email (`POST /api/auth/email/resend-verification`), limited to 3 requests per day per user.
+- [x] **REQ-AUTH-014**: The system shall send an email verification link upon registration.
+- [x] **REQ-AUTH-015**: Email verification tokens shall expire after 24 hours.
+- [x] **REQ-AUTH-016**: Users shall not receive medication reminders until their email is verified.
+- [x] **REQ-AUTH-017**: The system shall allow resending the verification email (`POST /api/auth/email/resend-verification`), limited to 3 requests per day per user.
 
 #### 3.1.7 OAuth Authentication (Extensible)
 
