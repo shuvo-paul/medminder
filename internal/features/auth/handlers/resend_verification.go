@@ -12,7 +12,7 @@ import (
 
 func ResendVerificationHandler(svc service.EmailVerificationService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.ResendVerificationInput) (*dto.ResendVerificationOutput, error) {
 	return func(ctx context.Context, input *dto.ResendVerificationInput) (*dto.ResendVerificationOutput, error) {
-		authHeader := input.Body.Authorization
+		authHeader := input.Header.Authorization
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			return nil, huma.Error401Unauthorized("Invalid authorization header", nil)
 		}
