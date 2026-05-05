@@ -73,6 +73,9 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		Path:        "/api/auth/email/resend-verification",
 		Summary:     "Resend verification email",
 		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
 	}, handlers.ResendVerificationHandler(emailVerifSvc, tokenSvc))
 
 	// Password reset routes (already use dto types)
