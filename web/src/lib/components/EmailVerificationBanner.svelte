@@ -26,9 +26,11 @@
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
+		const path = $page.url.pathname;
+
+		// Track localStorage reactively via storage event
 		const token = localStorage.getItem('access_token');
 		const emailVerified = localStorage.getItem('email_verified');
-		const path = $page.url.pathname;
 
 		// Never show on login/register pages
 		if (path === '/login' || path === '/register') {
@@ -42,6 +44,20 @@
 		} else {
 			visible = false;
 		}
+
+		// Re-run when localStorage changes (e.g., after login)
+		function handleStorageChange() {
+			const newToken = localStorage.getItem('access_token');
+			const newEmailVerified = localStorage.getItem('email_verified');
+			if (newToken && newEmailVerified === 'false' && !isDismissed()) {
+				visible = true;
+			} else {
+				visible = false;
+			}
+		}
+
+		window.addEventListener('storage', handleStorageChange);
+		return () => window.removeEventListener('storage', handleStorageChange);
 	});
 
 	async function resendVerification(e: Event) {

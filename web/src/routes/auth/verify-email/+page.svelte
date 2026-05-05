@@ -31,12 +31,19 @@
 			});
 
 			if (!response.ok) {
-				const data = await response.json();
-				const detail = data.detail || 'Verification failed. The link may have expired.';
+				let detail = 'Verification failed. The link may have expired.';
+				try {
+					const data = await response.json();
+					detail = data.detail || detail;
+				} catch {
+					// Non-JSON response — use default message
+				}
 
 				if (response.status === 404 || detail.includes('not found') || detail.includes('invalid')) {
 					errorMessage = 'This verification link is invalid or has expired. Please request a new one.';
 				} else if (response.status === 400) {
+					errorMessage = detail;
+				} else if (response.status === 409) {
 					errorMessage = detail;
 				} else {
 					errorMessage = 'Something went wrong. Please try again later.';
@@ -45,7 +52,14 @@
 				return;
 			}
 
-			const data = await response.json();
+			let data;
+			try {
+				data = await response.json();
+			} catch {
+				errorMessage = 'Invalid response from server. Please try again.';
+				status = 'error';
+				return;
+			}
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.removeItem('refresh_token');
 			status = 'success';
