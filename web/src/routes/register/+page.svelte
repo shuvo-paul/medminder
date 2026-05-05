@@ -12,6 +12,7 @@
 	let errors = $state<Record<string, string>>({});
 	let isLoading = $state(false);
 	let generalError = $state('');
+	let registrationSuccess = $state(false);
 
 	function validateForm(): boolean {
 		const newErrors: Record<string, string> = {};
@@ -77,9 +78,7 @@
 				return;
 			}
 
-			localStorage.setItem('access_token', data.access_token);
-			localStorage.setItem('refresh_token', data.refresh_token);
-			goto('/');
+			registrationSuccess = true;
 		} catch {
 			generalError = 'Network error. Please try again.';
 		} finally {
@@ -94,6 +93,21 @@
 		<p class="text-muted-foreground text-sm mt-1">Your personal medication reminder</p>
 	</div>
 
+	{#if registrationSuccess}
+		<Card class="w-full max-w-sm">
+			<CardHeader>
+				<CardTitle class="text-center">Check your email</CardTitle>
+				<CardDescription class="text-center">We've sent a verification link to your email address.</CardDescription>
+			</CardHeader>
+			<CardContent class="space-y-4 text-center">
+				<p class="text-sm text-muted-foreground">Please click the link in your email to verify your account. If you don't see it, check your spam folder.</p>
+				<div class="rounded-md bg-muted p-4">
+					<p class="text-xs text-muted-foreground">Didn't receive an email?</p>
+					<a href="/login" class="text-sm text-primary hover:underline">Back to sign in</a>
+				</div>
+			</CardContent>
+		</Card>
+	{:else}
 	<Card class="w-full max-w-sm">
 		<CardHeader>
 			<CardTitle>Create Account</CardTitle>
@@ -198,4 +212,5 @@
 			</form>
 		</CardContent>
 	</Card>
+	{/if}
 </div>
