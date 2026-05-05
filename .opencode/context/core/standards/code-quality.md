@@ -1,4 +1,4 @@
-<!-- Context: standards/code | Priority: critical | Version: 3.0 | Updated: 2026-05-01 -->
+<!-- Context: standards/code | Priority: critical | Version: 3.1 | Updated: 2026-05-05 -->
 # Code Standards
 
 ## Quick Reference
@@ -223,16 +223,16 @@ func createUser(data string) User {
 ```go
 // ✅ Dependencies explicit — passed via constructor
 type UserService struct {
-    repo  UserRepository
-    log   *slog.Logger
+    repo UserRepository
+    log  *log.Logger
 }
 
-func NewUserService(repo UserRepository, log *slog.Logger) *UserService {
-    return &UserService{repo: repo, log: log}
+func NewUserService(repo UserRepository) *UserService {
+    return &UserService{repo: repo}
 }
 
 func (s *UserService) Create(ctx context.Context, user User) error {
-    s.log.InfoContext(ctx, "creating user")
+    s.log.Info("creating user", log.F("user_id", user.ID))
     return s.repo.Insert(ctx, user)
 }
 
@@ -244,6 +244,8 @@ func CreateUser(user User) error {
     return err
 }
 ```
+
+**Note**: Use `internal/common/log/log.go` for all logging. It wraps `phuslu/log` with structured field support via `log.F(key, value)`. Configure via `log.Configure(log.Config{Env: log.Development, Level: log.InfoLevel})`.
 
 ## Anti-Patterns
 
