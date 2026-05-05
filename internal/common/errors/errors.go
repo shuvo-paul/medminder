@@ -39,6 +39,8 @@ func StatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, ErrBadRequest):
 		return http.StatusBadRequest
+	case errors.Is(err, ErrTooManyRequests):
+		return http.StatusTooManyRequests
 	default:
 		return http.StatusInternalServerError
 	}
