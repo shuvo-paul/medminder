@@ -2,18 +2,15 @@ package service
 
 import (
 	"errors"
-	"time"
-)
+	"fmt"
 
-const (
-	BcryptCost         = 12
-	RefreshTokenExpiry = 7 * 24 * time.Hour
+	commonerrors "github.com/shuvo-paul/medminder/internal/common/errors"
 )
 
 var (
-	ErrEmailExists        = errors.New("email already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrLogoutFailed       = errors.New("logout failed")
-	ErrRateLimitExceeded  = errors.New("rate limit exceeded")
-	ErrEmailNotFound      = errors.New("email not found")
+	ErrEmailExists        = fmt.Errorf("%w: %w", errors.New("email already exists"), commonerrors.ErrConflict)
+	ErrInvalidCredentials = fmt.Errorf("%w: %w", errors.New("invalid credentials"), commonerrors.ErrUnauthorized)
+	ErrLogoutFailed       = fmt.Errorf("%w: %w", errors.New("logout failed"), commonerrors.ErrInternal)
+	ErrRateLimitExceeded  = fmt.Errorf("%w: %w", errors.New("rate limit exceeded"), commonerrors.ErrTooManyRequests)
+	ErrEmailNotFound      = fmt.Errorf("%w: %w", errors.New("email not found"), commonerrors.ErrNotFound)
 )
