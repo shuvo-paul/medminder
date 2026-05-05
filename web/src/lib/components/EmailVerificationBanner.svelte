@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 
 	let isResending = $state(false);
 	let visible = $state(false);
@@ -23,11 +23,24 @@
 		visible = false;
 	}
 
-	onMount(() => {
-		const emailVerified = localStorage.getItem('email_verified');
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
 		const token = localStorage.getItem('access_token');
+		const emailVerified = localStorage.getItem('email_verified');
+		const path = $page.url.pathname;
+
+		// Never show on login/register pages
+		if (path === '/login' || path === '/register') {
+			visible = false;
+			return;
+		}
+
+		// Show banner only when: has token, email not verified, not dismissed
 		if (token && emailVerified === 'false' && !isDismissed()) {
 			visible = true;
+		} else {
+			visible = false;
 		}
 	});
 
