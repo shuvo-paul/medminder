@@ -46,7 +46,15 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 func setupHuma(router *chi.Mux) huma.API {
 	humaConfig := huma.DefaultConfig("MedMinder API", "1.0.0")
 	humaConfig.Info.Description = "Medication reminder application API"
-	humaConfig.DocsRenderer = huma.DocsRendererScalar
+	humaConfig.DocsRenderer = huma.DocsRendererSwaggerUI
 	humaConfig.DocsPath = "/api/docs"
+	humaConfig.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"bearer": {
+			Type:         "http",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
+			Description:  "Enter your JWT token",
+		},
+	}
 	return humachi.New(router, humaConfig)
 }
