@@ -40,9 +40,7 @@ type LoginOutput struct {
 }
 
 type LogoutInput struct {
-	Header struct {
-		Authorization string `json:"-"`
-	}
+	Authorization string `header:"Authorization" json:"-"`
 }
 
 type LogoutOutput struct {

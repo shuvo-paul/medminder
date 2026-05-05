@@ -29,8 +29,7 @@ func TestResendVerification_Successful(t *testing.T) {
 
 	handler := handlers.ResendVerificationHandler(mockSvc, mockTokenSvc)
 
-	input := &dto.ResendVerificationInput{}
-	input.Header.Authorization = "Bearer " + token
+	input := &dto.ResendVerificationInput{Authorization: "Bearer " + token}
 
 	resp, err := handler(context.Background(), input)
 
@@ -46,8 +45,7 @@ func TestResendVerification_InvalidAuthHeader(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	handler := handlers.ResendVerificationHandler(mockSvc, mockTokenSvc)
 
-	input := &dto.ResendVerificationInput{}
-	input.Header.Authorization = "Invalid"
+	input := &dto.ResendVerificationInput{Authorization: "Invalid"}
 
 	resp, err := handler(context.Background(), input)
 
@@ -64,8 +62,7 @@ func TestResendVerification_InvalidToken(t *testing.T) {
 
 	handler := handlers.ResendVerificationHandler(mockSvc, mockTokenSvc)
 
-	input := &dto.ResendVerificationInput{}
-	input.Header.Authorization = "Bearer invalid-token"
+	input := &dto.ResendVerificationInput{Authorization: "Bearer invalid-token"}
 
 	resp, err := handler(context.Background(), input)
 
@@ -90,8 +87,7 @@ func TestResendVerification_RateLimitExceeded(t *testing.T) {
 
 	handler := handlers.ResendVerificationHandler(mockSvc, mockTokenSvc)
 
-	input := &dto.ResendVerificationInput{}
-	input.Header.Authorization = "Bearer " + token
+	input := &dto.ResendVerificationInput{Authorization: "Bearer " + token}
 
 	resp, err := handler(context.Background(), input)
 

@@ -16,12 +16,9 @@ type VerifyEmailOutput struct {
 
 // ResendVerificationInput is the input for resending a verification email.
 type ResendVerificationInput struct {
-	Header struct {
-		Authorization string `json:"-"`
-	}
+	Authorization string `header:"Authorization" json:"-"`
 }
 
-// ResendVerificationOutput is the output after requesting a verification email resend.
 type ResendVerificationOutput struct {
 	Body struct {
 		Message string `json:"message"`
