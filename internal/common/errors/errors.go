@@ -23,6 +23,8 @@ var (
 	ErrBadRequest = errors.New("bad request")
 	// ErrInternal is returned for unexpected internal server errors.
 	ErrInternal = errors.New("internal error")
+	// ErrTooManyRequests is returned when the client has exceeded rate limits.
+	ErrTooManyRequests = errors.New("too many requests")
 )
 
 func StatusCode(err error) int {
