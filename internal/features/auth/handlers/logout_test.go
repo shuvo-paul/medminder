@@ -25,9 +25,7 @@ func TestLogout_Successful(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	input := &dto.LogoutInput{Body: struct {
-		Authorization string `json:"authorization"`
-	}{Authorization: "Bearer " + token}}
+	input := &dto.LogoutInput{Authorization: "Bearer " + token}
 	_, err := handler(context.Background(), input)
 
 	assert.NoError(t, err)
@@ -40,9 +38,7 @@ func TestLogout_InvalidHeader(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	input := &dto.LogoutInput{Body: struct {
-		Authorization string `json:"authorization"`
-	}{Authorization: "Invalid"}}
+	input := &dto.LogoutInput{Authorization: "Invalid"}
 	_, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
@@ -59,9 +55,7 @@ func TestLogout_ExpiredToken(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	input := &dto.LogoutInput{Body: struct {
-		Authorization string `json:"authorization"`
-	}{Authorization: "Bearer " + token}}
+	input := &dto.LogoutInput{Authorization: "Bearer " + token}
 	_, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
@@ -79,9 +73,7 @@ func TestLogout_DBError(t *testing.T) {
 
 	handler := handlers.LogoutHandler(mockAuthSvc, mockTokenSvc)
 
-	input := &dto.LogoutInput{Body: struct {
-		Authorization string `json:"authorization"`
-	}{Authorization: "Bearer " + token}}
+	input := &dto.LogoutInput{Authorization: "Bearer " + token}
 	_, err := handler(context.Background(), input)
 
 	assert.Error(t, err)

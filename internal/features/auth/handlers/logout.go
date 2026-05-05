@@ -14,7 +14,7 @@ import (
 // the Authorization header and delegates logout to AuthService.
 func LogoutHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.LogoutInput) (*dto.LogoutOutput, error) {
 	return func(ctx context.Context, input *dto.LogoutInput) (*dto.LogoutOutput, error) {
-		authHeader := input.Body.Authorization
+		authHeader := input.Authorization
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			return nil, huma.Error401Unauthorized("Invalid authorization header", nil)
 		}

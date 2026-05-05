@@ -85,8 +85,24 @@ repository/→ Data access: sqlc queries, CRUD. No business logic.
 ### huma v2 API Handler + DTO Pattern
 ```go
 // dto/auth.go — wire format + validation tags owned by dto package
+// Body input (request body):
 // type RegisterInput struct { Body struct { Email string `json:"email" ...` } }
-// type RegisterOutput struct { Body struct { User User `json:"user"` } }
+
+// Header input (request headers) — idiomatic huma pattern:
+// type LogoutInput struct { Authorization string `header:"Authorization" json:"-"` }
+
+type RegisterInput struct {
+	Body struct {
+		Email       string `json:"email" minLength:"1" maxLength:"255" pattern:"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2}$"`
+		DisplayName string `json:"display_name" minLength:"1" maxLength:"100"`
+		Password    string `json:"password" minLength:"8"`
+	}
+}
+
+// For header-based auth inputs, use direct field with header tag:
+type LogoutInput struct {
+	Authorization string `header:"Authorization" json:"-"`
+}
 
 // handlers/register.go — thin HTTP adapter (error translation lives here)
 func RegisterHandler(svc service.AuthService) func(context.Context, *dto.RegisterInput) (*dto.RegisterOutput, error) {

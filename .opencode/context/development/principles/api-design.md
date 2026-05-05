@@ -343,6 +343,7 @@ Link: <https://api.example.com/v2/users>; rel="successor-version"
 
 // Middleware
 function authenticateToken(req, res, next) {
+  // ✅ Always extract token from Authorization header
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
@@ -408,6 +409,7 @@ app.delete('/users/:id',
 - ❌ **No rate limiting** - Protect against abuse
 - ❌ **Verbose error messages** - Don't leak implementation details
 - ❌ **Synchronous long operations** - Use async jobs for long tasks
+- ❌ **Authorization tokens in request body** - Always use `Authorization: Bearer <token>` header; never pass auth tokens in the request body
 
 ## References
 
