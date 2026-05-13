@@ -38,3 +38,5 @@ web/.pnpm-store/
 .worktrees
 
 .tmp
+.opencode/
+.pi/
