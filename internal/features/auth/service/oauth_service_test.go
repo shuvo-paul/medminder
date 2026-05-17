@@ -272,3 +272,184 @@ func TestGetUserByOAuth_AccountNotFound(t *testing.T) {
 	assert.True(t, errors.Is(err, repository.ErrOAuthAccountNotFound))
 	oauthRepo.AssertExpectations(t)
 }
+
+func TestGetOrCreateUserByOAuth_OAuthAccountRepoError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	userInfo := &oauth.UserInfo{
+		ProviderUserID: "google-error",
+		Email:          "error@example.com",
+		EmailVerified:  true,
+		Name:           "Error User",
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, userInfo.ProviderUserID).
+		Return(db.OauthAccount{}, errors.New("database connection error"))
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, userInfo)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "database connection error")
+	oauthRepo.AssertExpectations(t)
+}
+
+func TestGetOrCreateUserByOAuth_UserRepoGetByEmailError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	userInfo := &oauth.UserInfo{
+		ProviderUserID: "google-email-error",
+		Email:          "email-error@example.com",
+		EmailVerified:  true,
+		Name:           "Email Error User",
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, userInfo.ProviderUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+	userRepo.On("GetUserByEmail", mock.Anything, userInfo.Email).
+		Return(db.User{}, errors.New("database error"))
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, userInfo)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "database error")
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestGetOrCreateUserByOAuth_CreateUserError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	userInfo := &oauth.UserInfo{
+		ProviderUserID: "google-create-error",
+		Email:          "create-error@example.com",
+		EmailVerified:  true,
+		Name:           "Create Error User",
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, userInfo.ProviderUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+	userRepo.On("GetUserByEmail", mock.Anything, userInfo.Email).
+		Return(db.User{}, sql.ErrNoRows)
+	userRepo.On("CreateUser", mock.Anything, userInfo.Email, userInfo.Name, "", true).
+		Return(db.CreateUserRow{}, errors.New("user creation failed"))
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, userInfo)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "user creation failed")
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestGetOrCreateUserByOAuth_CreateOAuthAccountError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	userInfo := &oauth.UserInfo{
+		ProviderUserID: "google-oauth-error",
+		Email:          "oauth-error@example.com",
+		EmailVerified:  true,
+		Name:           "OAuth Error User",
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, userInfo.ProviderUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+	userRepo.On("GetUserByEmail", mock.Anything, userInfo.Email).
+		Return(db.User{}, sql.ErrNoRows)
+	userRepo.On("CreateUser", mock.Anything, userInfo.Email, userInfo.Name, "", true).
+		Return(db.CreateUserRow{
+			ID:            uuid.New(),
+			Email:         userInfo.Email,
+			DisplayName:   userInfo.Name,
+			EmailVerified: sql.NullBool{Bool: true, Valid: true},
+		}, nil)
+	oauthRepo.On("CreateOAuthAccount", mock.Anything, mock.Anything, mock.Anything, provider, userInfo.ProviderUserID).
+		Return(db.OauthAccount{}, errors.New("oauth account creation failed"))
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, userInfo)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "oauth account creation failed")
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestGetOrCreateUserByOAuth_GetUserByIDError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	existingUserID := uuid.New()
+	providerUserID := "google-get-error"
+
+	oauthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         existingUserID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(oauthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, existingUserID.String()).
+		Return(db.User{}, errors.New("user lookup failed"))
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, &oauth.UserInfo{
+		ProviderUserID: providerUserID,
+		Email:          "get-error@example.com",
+		EmailVerified:  true,
+		Name:           "Get Error User",
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "user lookup failed")
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestGetUserByOAuth_GetUserByIDError(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	provider := "google"
+	existingUserID := uuid.New()
+	providerUserID := "google-user-error"
+
+	oauthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         existingUserID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(oauthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, existingUserID.String()).
+		Return(db.User{}, errors.New("user not found"))
+
+	result, err := oauthSvc.GetUserByOAuth(context.Background(), provider, providerUserID)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "user not found")
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}

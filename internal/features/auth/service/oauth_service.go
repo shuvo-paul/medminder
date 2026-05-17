@@ -55,7 +55,7 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, userInfo.Email)
 	if err == nil && existingUser.Email != "" {
-		log.Info("oauth login failed: email exists", log.F("provider", provider), log.F("email", userInfo.Email))
+		log.Info("oauth_login_failed", log.F("provider", provider), log.F("email", userInfo.Email), log.F("reason", "email_exists"))
 		return nil, ErrEmailExists
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
