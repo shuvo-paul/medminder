@@ -66,7 +66,7 @@ func (s *authService) Register(ctx context.Context, email, displayName, password
 		return nil, err
 	}
 
-	user, err := s.userRepo.CreateUser(ctx, email, displayName, string(hashedPassword))
+	user, err := s.userRepo.CreateUser(ctx, email, displayName, string(hashedPassword), false)
 	if err != nil {
 		return nil, err
 	}

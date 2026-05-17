@@ -20,13 +20,13 @@ type MockPRUserRepository struct {
 	GetUserByEmailFn func(ctx context.Context, email string) (db.User, error)
 	GetUserByIDFn    func(ctx context.Context, id string) (db.User, error)
 	UpdatePasswordFn func(ctx context.Context, id, passwordHash string) error
-	CreateUserFn     func(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error)
-	VerifyEmailFn     func(ctx context.Context, id uuid.UUID) error
+	CreateUserFn     func(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error)
+	VerifyEmailFn    func(ctx context.Context, id uuid.UUID) error
 }
 
-func (m *MockPRUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error) {
+func (m *MockPRUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
 	if m.CreateUserFn != nil {
-		return m.CreateUserFn(ctx, email, displayName, passwordHash)
+		return m.CreateUserFn(ctx, email, displayName, passwordHash, emailVerified)
 	}
 	return db.CreateUserRow{}, nil
 }

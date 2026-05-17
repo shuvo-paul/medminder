@@ -13,4 +13,5 @@ var (
 	ErrLogoutFailed       = fmt.Errorf("%w: %w", errors.New("logout failed"), commonerrors.ErrInternal)
 	ErrRateLimitExceeded  = fmt.Errorf("%w: %w", errors.New("rate limit exceeded"), commonerrors.ErrTooManyRequests)
 	ErrEmailNotFound      = fmt.Errorf("%w: %w", errors.New("email not found"), commonerrors.ErrNotFound)
+	ErrOAuthProviderError = fmt.Errorf("%w: %w", errors.New("oauth provider error"), commonerrors.ErrInternal)
 )

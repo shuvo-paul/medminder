@@ -9,7 +9,7 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error)
+	CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id string) (db.User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
@@ -24,12 +24,12 @@ func NewUserRepository(queries *db.Queries) UserRepository {
 	return &userRepository{queries: queries}
 }
 
-func (r *userRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error) {
+func (r *userRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
 	return r.queries.CreateUser(ctx, db.CreateUserParams{
 		Email:         email,
 		DisplayName:   displayName,
 		PasswordHash:  sql.NullString{String: passwordHash, Valid: true},
-		EmailVerified: sql.NullBool{Bool: false, Valid: true},
+		EmailVerified: sql.NullBool{Bool: emailVerified, Valid: true},
 	})
 }
 

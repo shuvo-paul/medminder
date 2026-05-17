@@ -21,8 +21,8 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string) (db.CreateUserRow, error) {
-	args := m.Called(ctx, email, displayName, passwordHash)
+func (m *MockUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
+	args := m.Called(ctx, email, displayName, passwordHash, emailVerified)
 	if args.Get(0) == nil {
 		return db.CreateUserRow{}, args.Error(1)
 	}
@@ -110,17 +110,17 @@ func (m *MockTokenService) ValidateAccessToken(tokenString string) (jwt.MapClaim
 // Test cases for Register
 func TestRegister(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*MockUserRepository, *MockTokenService)
-		input   struct{ email, displayName, password string }
-		expect  func(*testing.T, *service.RegisterResult, error)
+		name   string
+		setup  func(*MockUserRepository, *MockTokenService)
+		input  struct{ email, displayName, password string }
+		expect func(*testing.T, *service.RegisterResult, error)
 	}{
 		{
 			name: "Register_Success",
 			setup: func(userRepo *MockUserRepository, tokenSvc *MockTokenService) {
 				userRepo.On("GetUserByEmail", mock.Anything, "test@example.com").
 					Return(db.User{}, sql.ErrNoRows)
-				userRepo.On("CreateUser", mock.Anything, "test@example.com", "Test User", mock.AnythingOfType("string")).
+				userRepo.On("CreateUser", mock.Anything, "test@example.com", "Test User", mock.AnythingOfType("string"), false).
 					Return(db.CreateUserRow{
 						ID:            uuid.New(),
 						Email:         "test@example.com",
@@ -169,7 +169,7 @@ func TestRegister(t *testing.T) {
 			setup: func(userRepo *MockUserRepository, tokenSvc *MockTokenService) {
 				userRepo.On("GetUserByEmail", mock.Anything, "test@example.com").
 					Return(db.User{}, sql.ErrNoRows)
-				userRepo.On("CreateUser", mock.Anything, "test@example.com", "Test User", mock.AnythingOfType("string")).
+				userRepo.On("CreateUser", mock.Anything, "test@example.com", "Test User", mock.AnythingOfType("string"), false).
 					Return(db.CreateUserRow{}, errors.New("database error"))
 			},
 			input: struct{ email, displayName, password string }{
@@ -211,10 +211,10 @@ func TestLogin(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), service.BcryptCost)
 
 	tests := []struct {
-		name    string
-		setup   func(*MockUserRepository, *MockRefreshTokenRepository, *MockTokenService)
-		input   struct{ email, password string }
-		expect  func(*testing.T, *service.LoginResult, error)
+		name   string
+		setup  func(*MockUserRepository, *MockRefreshTokenRepository, *MockTokenService)
+		input  struct{ email, password string }
+		expect func(*testing.T, *service.LoginResult, error)
 	}{
 		{
 			name: "Login_Success",
@@ -363,10 +363,10 @@ func TestLogout(t *testing.T) {
 	userID := uuid.New()
 
 	tests := []struct {
-		name    string
-		setup   func(*MockRefreshTokenRepository, uuid.UUID)
-		input   struct{ userID uuid.UUID }
-		expect  func(*testing.T, error)
+		name   string
+		setup  func(*MockRefreshTokenRepository, uuid.UUID)
+		input  struct{ userID uuid.UUID }
+		expect func(*testing.T, error)
 	}{
 		{
 			name: "Logout_Success",
