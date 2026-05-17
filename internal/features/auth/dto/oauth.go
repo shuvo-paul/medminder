@@ -13,8 +13,6 @@ type OAuthProvider string
 // Valid OAuth providers.
 const (
 	OAuthProviderGoogle OAuthProvider = "google"
-	OAuthProviderGitHub OAuthProvider = "github"
-	OAuthProviderApple  OAuthProvider = "apple"
 )
 
 // OAuthErrorCode represents OAuth error codes.
@@ -91,17 +89,15 @@ type OAuthInitResponse struct {
 
 // OAuthLinkRequest represents the request to link an OAuth account.
 type OAuthLinkRequest struct {
-	Provider OAuthProvider `json:"provider" enum:"google,github,apple"` // OAuth provider
+	Provider OAuthProvider `json:"provider" enum:"google"` // OAuth provider
 }
 
 // Validate validates the OAuthLinkRequest.
 func (r *OAuthLinkRequest) Validate() error {
-	switch r.Provider {
-	case OAuthProviderGoogle, OAuthProviderGitHub, OAuthProviderApple:
-		return nil
-	default:
-		return errors.New("invalid provider: must be one of google, github, apple")
+	if r.Provider != OAuthProviderGoogle {
+		return errors.New("invalid provider: must be google")
 	}
+	return nil
 }
 
 // OAuthUnlinkResponse represents the response for unlinking an OAuth account.

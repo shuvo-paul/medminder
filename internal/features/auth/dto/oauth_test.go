@@ -104,9 +104,8 @@ func TestOAuthLinkRequest_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"google valid", "google", false},
-		{"github valid", "github", false},
-		{"apple valid", "apple", false},
-		{"invalid provider", "invalid", true},
+		{"invalid provider", "github", true},
+		{"invalid provider apple", "apple", true},
 		{"empty provider", "", true},
 	}
 
