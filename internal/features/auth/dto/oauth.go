@@ -164,50 +164,6 @@ type ProvidersResponse struct {
 	Providers []OAuthProviderInfo `json:"providers"`
 }
 
-// SetPasswordInput represents the input for setting a password.
-type SetPasswordInput struct {
-	NewPassword string `json:"new_password"` // must be 8+ chars, uppercase, lowercase, number
-}
-
-// Validate validates the SetPasswordInput.
-func (i *SetPasswordInput) Validate() error {
-	if len(i.NewPassword) < 8 {
-		return errors.New("password must be at least 8 characters")
-	}
-
-	hasUpper := false
-	hasLower := false
-	hasDigit := false
-
-	for _, c := range i.NewPassword {
-		switch {
-		case c >= 'A' && c <= 'Z':
-			hasUpper = true
-		case c >= 'a' && c <= 'z':
-			hasLower = true
-		case c >= '0' && c <= '9':
-			hasDigit = true
-		}
-	}
-
-	if !hasUpper {
-		return errors.New("password must contain at least one uppercase letter")
-	}
-	if !hasLower {
-		return errors.New("password must contain at least one lowercase letter")
-	}
-	if !hasDigit {
-		return errors.New("password must contain at least one digit")
-	}
-
-	return nil
-}
-
-// SetPasswordResponse represents the response for setting a password.
-type SetPasswordResponse struct {
-	Message string `json:"message"`
-}
-
 // ParseOAuthState parses the OAuth state from a string.
 // This is a convenience function that wraps DecodeOAuthState.
 func ParseOAuthState(stateStr string) (*OAuthState, error) {

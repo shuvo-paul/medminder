@@ -123,38 +123,6 @@ func TestOAuthLinkRequest_Validate(t *testing.T) {
 	}
 }
 
-func TestSetPasswordInput_Validate(t *testing.T) {
-	tests := []struct {
-		name       string
-		password   string
-		wantErr    bool
-		errMessage string
-	}{
-		{"valid password", "Password1", false, ""},
-		{"valid longer password", "MySecurePass123", false, ""},
-		{"too short", "Pass1", true, "at least 8 characters"},
-		{"no uppercase", "password1", true, "uppercase letter"},
-		{"no lowercase", "PASSWORD1", true, "lowercase letter"},
-		{"no digit", "Password", true, "digit"},
-		{"empty", "", true, "at least 8 characters"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			input := &SetPasswordInput{NewPassword: tt.password}
-			err := input.Validate()
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errMessage != "" {
-					assert.Contains(t, err.Error(), tt.errMessage)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestNewOAuthErrorResponse(t *testing.T) {
 	tests := []struct {
 		name        string
