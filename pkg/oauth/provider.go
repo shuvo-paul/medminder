@@ -69,23 +69,44 @@ type Provider interface {
 
 // ProviderInfo represents publicly available information about a provider.
 type ProviderInfo struct {
-	ID          string `json:"id"`           // provider identifier (e.g., "google")
-	Name        string `json:"name"`        // display name (e.g., "Google")
-	IconURL     string `json:"icon_url"`    // path to provider icon
+	ID           string `json:"id"`            // provider identifier (e.g., "google")
+	Name         string `json:"name"`          // display name (e.g., "Google")
+	IconURL      string `json:"icon_url"`      // path to provider icon
 	CallbackPath string `json:"callback_path"` // OAuth callback path
 }
 
-// providerRegistry holds the registered OAuth providers.
-type providerRegistry struct {
-	mu         sync.RWMutex
-	providers  map[string]Provider
+// ProviderRegistry holds the registered OAuth providers.
+type ProviderRegistry struct {
+	mu           sync.RWMutex
+	providers    map[string]Provider
 	providerInfo map[string]ProviderInfo
 }
 
 // globalRegistry is the global provider registry.
-var globalRegistry = &providerRegistry{
+var globalRegistry = &ProviderRegistry{
 	providers:    make(map[string]Provider),
 	providerInfo: make(map[string]ProviderInfo),
+}
+
+// MockProvider implements Provider for testing.
+type MockProvider struct {
+	NameVal            string
+	RequiredEnvVarsVal []string
+	AuthURLVal         string
+	ExchangeCodeResp   *TokenResponse
+	ExchangeCodeErr    error
+	GetUserInfoResp    *UserInfo
+	GetUserInfoErr     error
+}
+
+func (m *MockProvider) Name() string                { return m.NameVal }
+func (m *MockProvider) RequiredEnvVars() []string   { return m.RequiredEnvVarsVal }
+func (m *MockProvider) AuthURL(state string) string { return m.AuthURLVal }
+func (m *MockProvider) ExchangeCode(ctx context.Context, code string) (*TokenResponse, error) {
+	return m.ExchangeCodeResp, m.ExchangeCodeErr
+}
+func (m *MockProvider) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo, error) {
+	return m.GetUserInfoResp, m.GetUserInfoErr
 }
 
 // Register registers an OAuth provider with the global registry.

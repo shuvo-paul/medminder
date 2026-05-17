@@ -1,4 +1,4 @@
-package google
+package google_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/shuvo-paul/medminder/pkg/oauth"
+	"github.com/shuvo-paul/medminder/pkg/oauth/google"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	// Set required env vars
 	os.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
 	os.Setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
 	os.Setenv("GOOGLE_REDIRECT_URI", "https://example.com/callback")
@@ -24,20 +24,20 @@ func TestNew(t *testing.T) {
 		os.Unsetenv("GOOGLE_REDIRECT_URI")
 	}()
 
-	provider, err := New()
+	provider, err := google.New()
 	require.NoError(t, err)
-	assert.Equal(t, "test-client-id", provider.clientID)
-	assert.Equal(t, "test-client-secret", provider.clientSecret)
-	assert.Equal(t, "https://example.com/callback", provider.redirectURI)
+	assert.Equal(t, "test-client-id", provider.ClientID)
+	assert.Equal(t, "test-client-secret", provider.ClientSecret)
+	assert.Equal(t, "https://example.com/callback", provider.RedirectURI)
 }
 
 func TestProvider_Name(t *testing.T) {
-	provider := &googleProvider{}
+	provider := &google.GoogleProvider{}
 	assert.Equal(t, "google", provider.Name())
 }
 
 func TestProvider_RequiredEnvVars(t *testing.T) {
-	provider := &googleProvider{}
+	provider := &google.GoogleProvider{}
 	envVars := provider.RequiredEnvVars()
 	assert.Contains(t, envVars, "GOOGLE_CLIENT_ID")
 	assert.Contains(t, envVars, "GOOGLE_CLIENT_SECRET")
@@ -45,9 +45,9 @@ func TestProvider_RequiredEnvVars(t *testing.T) {
 }
 
 func TestProvider_AuthURL(t *testing.T) {
-	provider := &googleProvider{
-		clientID:    "test-client-id",
-		redirectURI: "https://example.com/callback",
+	provider := &google.GoogleProvider{
+		ClientID:    "test-client-id",
+		RedirectURI: "https://example.com/callback",
 	}
 
 	authURL := provider.AuthURL("test-state")
@@ -59,7 +59,6 @@ func TestProvider_AuthURL(t *testing.T) {
 }
 
 func TestProvider_ExchangeCode_Success(t *testing.T) {
-	// Create a test server that returns a valid token response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
@@ -75,15 +74,14 @@ func TestProvider_ExchangeCode_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Temporarily change token URL
-	oldTokenURL := tokenURL
-	tokenURL = server.URL
-	defer func() { tokenURL = oldTokenURL }()
+	oldTokenURL := google.TokenURL
+	google.TokenURL = server.URL
+	defer func() { google.TokenURL = oldTokenURL }()
 
-	provider := &googleProvider{
-		clientID:     "test-client-id",
-		clientSecret: "test-client-secret",
-		redirectURI:  "https://example.com/callback",
+	provider := &google.GoogleProvider{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		RedirectURI:  "https://example.com/callback",
 	}
 
 	resp, err := provider.ExchangeCode(context.Background(), "test-auth-code")
@@ -105,14 +103,14 @@ func TestProvider_ExchangeCode_Error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldTokenURL := tokenURL
-	tokenURL = server.URL
-	defer func() { tokenURL = oldTokenURL }()
+	oldTokenURL := google.TokenURL
+	google.TokenURL = server.URL
+	defer func() { google.TokenURL = oldTokenURL }()
 
-	provider := &googleProvider{
-		clientID:     "test-client-id",
-		clientSecret: "test-client-secret",
-		redirectURI:  "https://example.com/callback",
+	provider := &google.GoogleProvider{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		RedirectURI:  "https://example.com/callback",
 	}
 
 	_, err := provider.ExchangeCode(context.Background(), "invalid-code")
@@ -135,11 +133,11 @@ func TestProvider_GetUserInfo_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldUserInfoURL := userInfoURL
-	userInfoURL = server.URL
-	defer func() { userInfoURL = oldUserInfoURL }()
+	oldUserInfoURL := google.UserInfoURL
+	google.UserInfoURL = server.URL
+	defer func() { google.UserInfoURL = oldUserInfoURL }()
 
-	provider := &googleProvider{}
+	provider := &google.GoogleProvider{}
 
 	userInfo, err := provider.GetUserInfo(context.Background(), "test-access-token")
 	require.NoError(t, err)
@@ -155,11 +153,11 @@ func TestProvider_GetUserInfo_Error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldUserInfoURL := userInfoURL
-	userInfoURL = server.URL
-	defer func() { userInfoURL = oldUserInfoURL }()
+	oldUserInfoURL := google.UserInfoURL
+	google.UserInfoURL = server.URL
+	defer func() { google.UserInfoURL = oldUserInfoURL }()
 
-	provider := &googleProvider{}
+	provider := &google.GoogleProvider{}
 
 	_, err := provider.GetUserInfo(context.Background(), "invalid-token")
 	assert.Error(t, err)
@@ -167,19 +165,17 @@ func TestProvider_GetUserInfo_Error(t *testing.T) {
 }
 
 func TestTokenResponseWithExpiry_IsExpired(t *testing.T) {
-	// Create a token that expires in 1 hour
 	resp := &oauth.TokenResponse{
 		AccessToken: "test",
-		ExpiresIn:    3600,
+		ExpiresIn:   3600,
 	}
-	expiryResp := NewTokenResponseWithExpiry(resp)
+	expiryResp := google.NewTokenResponseWithExpiry(resp)
 	assert.False(t, expiryResp.IsExpired())
 
-	// Create an already expired token
 	expiredResp := &oauth.TokenResponse{
 		AccessToken: "test",
-		ExpiresIn:    -1, // Already expired
+		ExpiresIn:   -1,
 	}
-	expiryExpiredResp := NewTokenResponseWithExpiry(expiredResp)
+	expiryExpiredResp := google.NewTokenResponseWithExpiry(expiredResp)
 	assert.True(t, expiryExpiredResp.IsExpired())
 }

@@ -16,60 +16,60 @@ import (
 
 // Google OAuth 2.0 endpoints.
 var (
-	authURL     = "https://accounts.google.com/o/oauth2/v2/auth"
-	tokenURL    = "https://oauth2.googleapis.com/token"
-	userInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
+	AuthURL     = "https://accounts.google.com/o/oauth2/v2/auth"
+	TokenURL    = "https://oauth2.googleapis.com/token"
+	UserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
 )
 
-// googleProvider implements the oauth.Provider interface for Google.
-type googleProvider struct {
-	clientID     string
-	clientSecret string
-	redirectURI  string
+// GoogleProvider implements the oauth.Provider interface for Google.
+type GoogleProvider struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
 }
 
 // New creates a new Google OAuth provider.
-func New() (*googleProvider, error) {
-	return &googleProvider{
-		clientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		clientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		redirectURI:  os.Getenv("GOOGLE_REDIRECT_URI"),
+func New() (*GoogleProvider, error) {
+	return &GoogleProvider{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURI:  os.Getenv("GOOGLE_REDIRECT_URI"),
 	}, nil
 }
 
 // Name returns the provider identifier.
-func (p *googleProvider) Name() string {
+func (p *GoogleProvider) Name() string {
 	return "google"
 }
 
 // RequiredEnvVars returns the required environment variables.
-func (p *googleProvider) RequiredEnvVars() []string {
+func (p *GoogleProvider) RequiredEnvVars() []string {
 	return []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"}
 }
 
 // AuthURL returns the Google authorization URL.
-func (p *googleProvider) AuthURL(state string) string {
+func (p *GoogleProvider) AuthURL(state string) string {
 	params := url.Values{
-		"client_id":    {p.clientID},
-		"redirect_uri": {p.redirectURI},
+		"client_id":     {p.ClientID},
+		"redirect_uri":  {p.RedirectURI},
 		"response_type": {"code"},
-		"scope":        {"openid email profile"},
-		"state":        {state},
+		"scope":         {"openid email profile"},
+		"state":         {state},
 	}
-	return authURL + "?" + params.Encode()
+	return AuthURL + "?" + params.Encode()
 }
 
 // ExchangeCode exchanges an authorization code for tokens.
-func (p *googleProvider) ExchangeCode(ctx context.Context, code string) (*oauth.TokenResponse, error) {
+func (p *GoogleProvider) ExchangeCode(ctx context.Context, code string) (*oauth.TokenResponse, error) {
 	data := url.Values{
 		"code":          {code},
-		"client_id":     {p.clientID},
-		"client_secret": {p.clientSecret},
-		"redirect_uri":  {p.redirectURI},
+		"client_id":     {p.ClientID},
+		"client_secret": {p.ClientSecret},
+		"redirect_uri":  {p.RedirectURI},
 		"grant_type":    {"authorization_code"},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("google: creating token request: %w", err)
 	}
@@ -99,8 +99,8 @@ func (p *googleProvider) ExchangeCode(ctx context.Context, code string) (*oauth.
 }
 
 // GetUserInfo fetches user information from Google.
-func (p *googleProvider) GetUserInfo(ctx context.Context, accessToken string) (*oauth.UserInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, userInfoURL, nil)
+func (p *GoogleProvider) GetUserInfo(ctx context.Context, accessToken string) (*oauth.UserInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, UserInfoURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("google: creating userinfo request: %w", err)
 	}
@@ -128,9 +128,9 @@ func (p *googleProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 
 	return &oauth.UserInfo{
 		ProviderUserID: userInfo.ID,
-		Email:         userInfo.Email,
-		EmailVerified: userInfo.EmailVerified,
-		Name:          userInfo.Name,
+		Email:          userInfo.Email,
+		EmailVerified:  userInfo.EmailVerified,
+		Name:           userInfo.Name,
 	}, nil
 }
 
