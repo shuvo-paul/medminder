@@ -379,12 +379,13 @@ func TestGetOrCreateUserByOAuth_CreateOAuthAccountError(t *testing.T) {
 		}, nil)
 	oauthRepo.On("CreateOAuthAccount", mock.Anything, mock.Anything, mock.Anything, provider, userInfo.ProviderUserID).
 		Return(db.OauthAccount{}, errors.New("oauth account creation failed"))
+	userRepo.On("VerifyEmail", mock.Anything, mock.Anything).Return(nil)
 
 	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), provider, userInfo)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "oauth account creation failed")
+	assert.True(t, errors.Is(err, service.ErrOAuthProviderError))
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
 }

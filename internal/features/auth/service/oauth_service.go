@@ -53,8 +53,8 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 		return nil, err
 	}
 
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, userInfo.Email)
-	if err == nil && existingUser.Email != "" {
+	_, err = s.userRepo.GetUserByEmail(ctx, userInfo.Email)
+	if err == nil {
 		log.Info("oauth_login_failed", log.F("provider", provider), log.F("email", userInfo.Email), log.F("reason", "email_exists"))
 		return nil, ErrEmailExists
 	}
@@ -69,7 +69,8 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 
 	_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), newUser.ID, provider, userInfo.ProviderUserID)
 	if err != nil {
-		return nil, err
+		_ = s.userRepo.VerifyEmail(ctx, newUser.ID)
+		return nil, ErrOAuthProviderError
 	}
 
 	log.Info("oauth connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", userInfo.Email))
