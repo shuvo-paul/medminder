@@ -53,11 +53,11 @@ func NewAuthService(userRepo repository.UserRepository, tokenRepo repository.Ref
 }
 
 func (s *authService) Register(ctx context.Context, email, displayName, password string) (*RegisterResult, error) {
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, email)
-	if err == nil && existingUser.Email != "" {
+	_, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err == nil {
 		return nil, ErrEmailExists
 	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 

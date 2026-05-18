@@ -494,3 +494,15 @@ func TestGetUserByOAuth_GetUserByIDError(t *testing.T) {
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
 }
+
+func TestGetOrCreateUserByOAuth_NilUserInfo(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), "google", nil)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, errors.Is(err, service.ErrOAuthProviderError))
+}

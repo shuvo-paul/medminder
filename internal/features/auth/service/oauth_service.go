@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/common/log"
+	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 )
@@ -36,18 +38,17 @@ type OAuthUser struct {
 }
 
 func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider string, userInfo *oauth.UserInfo) (*OAuthUser, error) {
+	if userInfo == nil {
+		return nil, fmt.Errorf("userInfo is required: %w", ErrOAuthProviderError)
+	}
+
 	existingAccount, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, userInfo.ProviderUserID)
 	if err == nil {
 		user, err := s.userRepo.GetUserByID(ctx, existingAccount.UserID.String())
 		if err != nil {
 			return nil, err
 		}
-		return &OAuthUser{
-			ID:            user.ID,
-			Email:         user.Email,
-			DisplayName:   user.DisplayName,
-			EmailVerified: user.EmailVerified.Bool,
-		}, nil
+		return s.toOAuthUser(&user), nil
 	}
 	if !errors.Is(err, repository.ErrOAuthAccountNotFound) {
 		return nil, err
@@ -58,7 +59,7 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 		log.Info("oauth_login_failed", log.F("provider", provider), log.F("email", userInfo.Email), log.F("reason", "email_exists"))
 		return nil, ErrEmailExists
 	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
@@ -69,20 +70,16 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 
 	_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), newUser.ID, provider, userInfo.ProviderUserID)
 	if err != nil {
+		// Best effort cleanup: verify email to mark user as verified despite OAuth failure
 		if verifyErr := s.userRepo.VerifyEmail(ctx, newUser.ID); verifyErr != nil {
 			log.Error("oauth_user_cleanup_failed", log.F("user_id", newUser.ID.String()), log.F("error", verifyErr.Error()))
 		}
-		return nil, ErrOAuthProviderError
+		return nil, ErrOAuthProviderFailed
 	}
 
-	log.Info("oauth connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", newUser.Email))
+	log.Info("oauth_connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", newUser.Email))
 
-	return &OAuthUser{
-		ID:            newUser.ID,
-		Email:         newUser.Email,
-		DisplayName:   newUser.DisplayName,
-		EmailVerified: newUser.EmailVerified.Bool,
-	}, nil
+	return s.toCreateUserRow(&newUser), nil
 }
 
 func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUserID string) (*OAuthUser, error) {
@@ -96,10 +93,23 @@ func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUse
 		return nil, err
 	}
 
+	return s.toOAuthUser(&user), nil
+}
+
+func (s *oauthService) toOAuthUser(user *db.User) *OAuthUser {
 	return &OAuthUser{
 		ID:            user.ID,
 		Email:         user.Email,
 		DisplayName:   user.DisplayName,
 		EmailVerified: user.EmailVerified.Bool,
-	}, nil
+	}
+}
+
+func (s *oauthService) toCreateUserRow(user *db.CreateUserRow) *OAuthUser {
+	return &OAuthUser{
+		ID:            user.ID,
+		Email:         user.Email,
+		DisplayName:   user.DisplayName,
+		EmailVerified: user.EmailVerified.Bool,
+	}
 }
