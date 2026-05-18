@@ -24,7 +24,7 @@ type emailQueue struct {
 
 var (
 	globalQueue *emailQueue
-	queueOnce  sync.Once
+	queueOnce   sync.Once
 )
 
 // QueueEmail adds an email job to the queue.

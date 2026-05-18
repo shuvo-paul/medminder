@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 )
+
 // OAuthProvider represents an OAuth provider.
 type OAuthProvider string
 
@@ -23,7 +24,7 @@ const (
 	OAuthErrorInvalidCode   OAuthErrorCode = "invalid_code"
 	OAuthErrorEmailExists   OAuthErrorCode = "email_exists"
 	OAuthErrorAccountLocked OAuthErrorCode = "account_locked"
-	OAuthErrorLinkFailed   OAuthErrorCode = "link_failed"
+	OAuthErrorLinkFailed    OAuthErrorCode = "link_failed"
 )
 
 // OAuthState represents the state parameter in OAuth flows.
@@ -57,7 +58,7 @@ func DecodeOAuthState(encoded string) (*OAuthState, error) {
 // OAuthTokenRequest represents the request body for token exchange.
 type OAuthTokenRequest struct {
 	Code  string `json:"code" maxLength:"256"`   // authorization code
-	State string `json:"state" maxLength:"1024"`   // base64url-encoded JSON: {nonce, redirect, purpose}
+	State string `json:"state" maxLength:"1024"` // base64url-encoded JSON: {nonce, redirect, purpose}
 }
 
 // OAuthTokenUserInfo represents user information in token response.
@@ -70,11 +71,11 @@ type OAuthTokenUserInfo struct {
 
 // OAuthTokenResponse represents the response for token exchange.
 type OAuthTokenResponse struct {
-	AccessToken  string               `json:"access_token"`
-	RefreshToken string               `json:"refresh_token"`
-	TokenType    string               `json:"token_type"`    // "Bearer"
-	ExpiresIn    int                  `json:"expires_in"`    // 86400 (24h)
-	User         OAuthTokenUserInfo   `json:"user"`
+	AccessToken  string             `json:"access_token"`
+	RefreshToken string             `json:"refresh_token"`
+	TokenType    string             `json:"token_type"` // "Bearer"
+	ExpiresIn    int                `json:"expires_in"` // 86400 (24h)
+	User         OAuthTokenUserInfo `json:"user"`
 }
 
 // OAuthInitInput represents the input for initiating OAuth link flow.
@@ -107,11 +108,11 @@ type OAuthUnlinkResponse struct {
 
 // OAuthErrorResponse represents an OAuth error response.
 type OAuthErrorResponse struct {
-	Error       string        `json:"error"`        // "invalid_code" | "email_exists" | "account_locked" | "link_failed"
-	Description string        `json:"description"`  // human-readable
-	Provider    string        `json:"provider"`     // e.g., "google" (for email_exists)
-	Email       string        `json:"email"`        // for email_exists
-	Redirect    string        `json:"redirect"`     // original redirect URL (echoed back)
+	Error       string `json:"error"`       // "invalid_code" | "email_exists" | "account_locked" | "link_failed"
+	Description string `json:"description"` // human-readable
+	Provider    string `json:"provider"`    // e.g., "google" (for email_exists)
+	Email       string `json:"email"`       // for email_exists
+	Redirect    string `json:"redirect"`    // original redirect URL (echoed back)
 }
 
 // NewOAuthErrorResponse creates a new OAuthErrorResponse with error descriptions.
@@ -149,9 +150,9 @@ type OAuthUserInfo struct {
 
 // OAuthProviderInfo represents publicly available information about an OAuth provider.
 type OAuthProviderInfo struct {
-	ID           string `json:"id"`           // provider identifier (e.g., "google")
-	Name         string `json:"name"`        // display name (e.g., "Google")
-	IconURL      string `json:"icon_url"`    // path to provider icon
+	ID           string `json:"id"`            // provider identifier (e.g., "google")
+	Name         string `json:"name"`          // display name (e.g., "Google")
+	IconURL      string `json:"icon_url"`      // path to provider icon
 	CallbackPath string `json:"callback_path"` // OAuth callback path
 }
 
@@ -175,4 +176,3 @@ func ParseOAuthState(stateStr string) (*OAuthState, error) {
 
 	return DecodeOAuthState(stateStr)
 }
-

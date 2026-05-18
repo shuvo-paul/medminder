@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wneessen/go-mail"
 	"github.com/shuvo-paul/medminder/internal/common/config"
+	"github.com/wneessen/go-mail"
 )
 
 type EmailClient interface {
@@ -14,23 +14,23 @@ type EmailClient interface {
 }
 
 type emailClient struct {
-	host            string
-	port            int
-	username        string
-	password        string
-	fromAddr        string
-	fromName        string
-	clientTimeout   time.Duration
+	host          string
+	port          int
+	username      string
+	password      string
+	fromAddr      string
+	fromName      string
+	clientTimeout time.Duration
 }
 
 func NewEmailClient(cfg config.EmailConfig) EmailClient {
 	return &emailClient{
-		host:     cfg.SMTPHost,
-		port:     cfg.SMTPPort,
-		username: cfg.SMTPUsername,
-		password: cfg.SMTPPassword,
-		fromAddr: cfg.FromAddress,
-		fromName: cfg.FromName,
+		host:          cfg.SMTPHost,
+		port:          cfg.SMTPPort,
+		username:      cfg.SMTPUsername,
+		password:      cfg.SMTPPassword,
+		fromAddr:      cfg.FromAddress,
+		fromName:      cfg.FromName,
 		clientTimeout: 10 * time.Second,
 	}
 }

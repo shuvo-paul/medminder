@@ -37,9 +37,9 @@ func TestOAuthAccountRepository_Integration(t *testing.T) {
 		t.Helper()
 		email := uuid.New().String() + "@test.com"
 		row, err := queries.CreateUser(context.Background(), sqlc.CreateUserParams{
-			Email:        email,
-			DisplayName:  "Test User",
-			PasswordHash: sql.NullString{String: "hash", Valid: true},
+			Email:         email,
+			DisplayName:   "Test User",
+			PasswordHash:  sql.NullString{String: "hash", Valid: true},
 			EmailVerified: sql.NullBool{Bool: false, Valid: true},
 		})
 		require.NoError(t, err, "should create test user")
@@ -208,9 +208,9 @@ func TestOAuthAuthorizationCodeRepository_Integration(t *testing.T) {
 		t.Helper()
 		email := uuid.New().String() + "@test.com"
 		row, err := queries.CreateUser(context.Background(), sqlc.CreateUserParams{
-			Email:        email,
-			DisplayName:  "Test User",
-			PasswordHash: sql.NullString{String: "hash", Valid: true},
+			Email:         email,
+			DisplayName:   "Test User",
+			PasswordHash:  sql.NullString{String: "hash", Valid: true},
 			EmailVerified: sql.NullBool{Bool: false, Valid: true},
 		})
 		require.NoError(t, err, "should create test user")
