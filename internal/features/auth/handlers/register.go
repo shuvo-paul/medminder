@@ -30,15 +30,15 @@ func RegisterHandler(svc service.AuthService, emailSvc service.EmailVerification
 			return nil, err
 		}
 
-go func() {
-		if err := emailSvc.ResendVerification(context.Background(), result.User.ID, result.User.Email); err != nil {
-			log.Error("failed to send verification email",
-				log.F("user_id", result.User.ID.String()),
-				log.F("email", result.User.Email),
-				log.F("error", err.Error()),
-			)
-		}
-	}()
+		go func() {
+			if err := emailSvc.ResendVerification(context.Background(), result.User.ID, result.User.Email); err != nil {
+				log.Error("failed to send verification email",
+					log.F("user_id", result.User.ID.String()),
+					log.F("email", result.User.Email),
+					log.F("error", err.Error()),
+				)
+			}
+		}()
 
 		resp := &dto.RegisterOutput{}
 		resp.Body.User.ID = result.User.ID

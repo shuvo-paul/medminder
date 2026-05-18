@@ -93,7 +93,7 @@ func (r *oauthAccountRepository) DeleteOAuthAccountByUserIDAndProvider(ctx conte
 
 // oauthAuthorizationCodeRepository implements OAuthAuthorizationCodeRepository.
 type oauthAuthorizationCodeRepository struct {
-	db     *sql.DB
+	db      *sql.DB
 	queries *db.Queries
 }
 

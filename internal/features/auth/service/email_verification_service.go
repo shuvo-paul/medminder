@@ -18,8 +18,8 @@ import (
 
 const (
 	emailVerificationTokenExpiry = 24 * time.Hour
-	maxVerificationsPerDay      = 3
-	verificationTokenByteSize   = 32
+	maxVerificationsPerDay       = 3
+	verificationTokenByteSize    = 32
 )
 
 type VerifyResult struct {
@@ -40,10 +40,10 @@ type EmailVerificationService interface {
 
 // emailVerificationService implements EmailVerificationService.
 type emailVerificationService struct {
-	userRepo         repository.UserRepository
-	tokenRepo        repository.EmailVerificationTokenRepository
-	tokenSvc         TokenServiceInterface
-	frontendURL      string
+	userRepo    repository.UserRepository
+	tokenRepo   repository.EmailVerificationTokenRepository
+	tokenSvc    TokenServiceInterface
+	frontendURL string
 }
 
 // NewEmailVerificationService creates a new EmailVerificationService.

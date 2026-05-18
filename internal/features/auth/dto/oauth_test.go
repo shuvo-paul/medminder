@@ -99,9 +99,9 @@ func replaceChars(s string) string {
 
 func TestOAuthLinkRequest_Validate(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		provider OAuthProvider
-		wantErr bool
+		wantErr  bool
 	}{
 		{"google valid", "google", false},
 		{"invalid provider", "github", true},
@@ -124,59 +124,59 @@ func TestOAuthLinkRequest_Validate(t *testing.T) {
 
 func TestNewOAuthErrorResponse(t *testing.T) {
 	tests := []struct {
-		name        string
-		code        OAuthErrorCode
-		provider    string
-		email       string
-		redirect    string
-		wantError   string
-		wantDesc    string
-		wantEmail   string
+		name         string
+		code         OAuthErrorCode
+		provider     string
+		email        string
+		redirect     string
+		wantError    string
+		wantDesc     string
+		wantEmail    string
 		wantRedirect string
 	}{
 		{
-			name: "invalid_code",
-			code: OAuthErrorInvalidCode,
-			provider: "google",
-			email: "",
-			redirect: "/dashboard",
-			wantError: "invalid_code",
-			wantDesc: "Your sign-in session expired. Please try again.",
-			wantEmail: "",
+			name:         "invalid_code",
+			code:         OAuthErrorInvalidCode,
+			provider:     "google",
+			email:        "",
+			redirect:     "/dashboard",
+			wantError:    "invalid_code",
+			wantDesc:     "Your sign-in session expired. Please try again.",
+			wantEmail:    "",
 			wantRedirect: "/dashboard",
 		},
 		{
-			name: "email_exists",
-			code: OAuthErrorEmailExists,
-			provider: "google",
-			email: "user@example.com",
-			redirect: "/login",
-			wantError: "email_exists",
-			wantDesc: "An account with this email already exists",
-			wantEmail: "user@example.com",
+			name:         "email_exists",
+			code:         OAuthErrorEmailExists,
+			provider:     "google",
+			email:        "user@example.com",
+			redirect:     "/login",
+			wantError:    "email_exists",
+			wantDesc:     "An account with this email already exists",
+			wantEmail:    "user@example.com",
 			wantRedirect: "/login",
 		},
 		{
-			name: "account_locked",
-			code: OAuthErrorAccountLocked,
-			provider: "google",
-			email: "",
-			redirect: "/settings",
-			wantError: "account_locked",
-			wantDesc: "You must set a password before linking",
-			wantEmail: "",
+			name:         "account_locked",
+			code:         OAuthErrorAccountLocked,
+			provider:     "google",
+			email:        "",
+			redirect:     "/settings",
+			wantError:    "account_locked",
+			wantDesc:     "You must set a password before linking",
+			wantEmail:    "",
 			wantRedirect: "/settings",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		resp := NewOAuthErrorResponse(tt.code, tt.provider, tt.email, tt.redirect)
-		assert.Equal(t, tt.wantError, resp.Error)
-		assert.Contains(t, resp.Description, tt.wantDesc)
-		assert.Equal(t, tt.provider, resp.Provider)
-		assert.Equal(t, tt.wantEmail, resp.Email)
-		assert.Equal(t, tt.wantRedirect, tt.redirect)
-	})
+			resp := NewOAuthErrorResponse(tt.code, tt.provider, tt.email, tt.redirect)
+			assert.Equal(t, tt.wantError, resp.Error)
+			assert.Contains(t, resp.Description, tt.wantDesc)
+			assert.Equal(t, tt.provider, resp.Provider)
+			assert.Equal(t, tt.wantEmail, resp.Email)
+			assert.Equal(t, tt.wantRedirect, tt.redirect)
+		})
 	}
 }
