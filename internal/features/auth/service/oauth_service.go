@@ -12,8 +12,8 @@ import (
 )
 
 type OAuthService interface {
-	GetOrCreateUserByOAuth(ctx context.Context, provider string, userInfo *oauth.UserInfo) (*User, error)
-	GetUserByOAuth(ctx context.Context, provider, providerUserID string) (*User, error)
+	GetOrCreateUserByOAuth(ctx context.Context, provider string, userInfo *oauth.UserInfo) (*OAuthUser, error)
+	GetUserByOAuth(ctx context.Context, provider, providerUserID string) (*OAuthUser, error)
 }
 
 type oauthService struct {
@@ -28,21 +28,21 @@ func NewOAuthService(userRepo repository.UserRepository, oauthAccountRepo reposi
 	}
 }
 
-type User struct {
+type OAuthUser struct {
 	ID            uuid.UUID
 	Email         string
 	DisplayName   string
 	EmailVerified bool
 }
 
-func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider string, userInfo *oauth.UserInfo) (*User, error) {
+func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider string, userInfo *oauth.UserInfo) (*OAuthUser, error) {
 	existingAccount, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, userInfo.ProviderUserID)
 	if err == nil {
 		user, err := s.userRepo.GetUserByID(ctx, existingAccount.UserID.String())
 		if err != nil {
 			return nil, err
 		}
-		return &User{
+		return &OAuthUser{
 			ID:            user.ID,
 			Email:         user.Email,
 			DisplayName:   user.DisplayName,
@@ -69,13 +69,15 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 
 	_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), newUser.ID, provider, userInfo.ProviderUserID)
 	if err != nil {
-		_ = s.userRepo.VerifyEmail(ctx, newUser.ID)
+		if verifyErr := s.userRepo.VerifyEmail(ctx, newUser.ID); verifyErr != nil {
+			log.Error("oauth_user_cleanup_failed", log.F("user_id", newUser.ID.String()), log.F("error", verifyErr.Error()))
+		}
 		return nil, ErrOAuthProviderError
 	}
 
-	log.Info("oauth connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", userInfo.Email))
+	log.Info("oauth connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", newUser.Email))
 
-	return &User{
+	return &OAuthUser{
 		ID:            newUser.ID,
 		Email:         newUser.Email,
 		DisplayName:   newUser.DisplayName,
@@ -83,7 +85,7 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 	}, nil
 }
 
-func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUserID string) (*User, error) {
+func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUserID string) (*OAuthUser, error) {
 	account, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, providerUserID)
 	if err != nil {
 		return nil, err
@@ -94,7 +96,7 @@ func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUse
 		return nil, err
 	}
 
-	return &User{
+	return &OAuthUser{
 		ID:            user.ID,
 		Email:         user.Email,
 		DisplayName:   user.DisplayName,
