@@ -148,17 +148,22 @@ func (s *oauthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, p
 		if !hasPassword && providerCount <= 1 {
 			return ErrAccountWillBeLocked
 		}
-		// Delete old link since we're upserting
+		// Create new link first, then delete old one to avoid partial failure
+		// where user loses OAuth link if create succeeds but delete fails.
+		// Brief window of duplicate links is acceptable; loss of link is not.
+		_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), userID, provider, providerUserID)
+		if err != nil {
+			return err
+		}
 		_, err = s.oauthAccountRepo.DeleteOAuthAccount(ctx, existingAccount.ID)
 		if err != nil {
 			return err
 		}
-	} else {
-		// No existing link - new linking
-		// Dead-end check: if no password and no other providers, reject
-		if !hasPassword && providerCount == 0 {
-			return ErrAccountWillBeLocked
-		}
+	}
+	// No existing link - new linking
+	// Dead-end check: if no password and no other providers, reject
+	if !hasPassword && providerCount == 0 {
+		return ErrAccountWillBeLocked
 	}
 
 	// Create new OAuth account link
