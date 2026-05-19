@@ -81,4 +81,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 	// Password reset routes (already use dto types)
 	passwordResetDeps := handlers.NewPasswordResetDeps(passwordResetSvc)
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
+
+	// OAuth provider routes (unauthenticated)
+	handlers.RegisterOAuthProviderRoutes(api)
 }
