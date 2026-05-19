@@ -136,7 +136,7 @@ Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
 
 ### Naming Conventions
 - Use CamelCase for exported names, camelCase for unexported
-- Test files: `*_test.go`
+- **Test files MUST use `*_test.go` suffix** — never use other suffixes like `*_tests.go`
 - Test functions: `TestFunctionName`, `TestStruct_MethodName`
 - Interfaces with "-er" suffix (Reader, Writer) or descriptive names
 - Avoid underscores in file names except for `_test.go` and `_mock.go`
@@ -169,6 +169,10 @@ All API route handlers must use huma — not plain Chi handler functions. Handle
 - All exported types and functions must have doc comments
 - Comments start with the name being documented
 - Use complete sentences with proper punctuation
+
+### Formatting
+- Run `go fmt` after code implementation (or use goimports which includes formatting)
+- Never commit unformatted code
 
 ## Boundaries
 - **Never commit directly to `main`** — all changes must go through a feature or fix branch and a PR
