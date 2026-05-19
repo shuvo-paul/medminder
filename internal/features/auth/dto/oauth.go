@@ -173,6 +173,23 @@ type InitiateOAuthInput struct {
 // Returns a 302 redirect to the provider's authorization URL.
 type InitiateOAuthOutput struct {
 	Location string `header:"Location"` // Redirect URL
+	Status   int    `status:"302"`     // HTTP redirect status code
+}
+
+// OAuthCallbackInput represents the input for OAuth callback.
+// Path parameter: provider - the OAuth provider name (e.g., "google")
+// Query parameters: code - authorization code, state - OAuth state parameter
+type OAuthCallbackInput struct {
+	Provider string `path:"provider"` // OAuth provider identifier
+	Code     string `query:"code"`   // Authorization code from provider
+	State    string `query:"state"`  // OAuth state parameter
+	Error    string `query:"error"`  // Error from provider (if any)
+}
+
+// OAuthCallbackOutput represents the output for OAuth callback.
+type OAuthCallbackOutput struct {
+	Redirect string `header:"Location"` // Redirect URL after callback
+	Status   int    `status:"302"`     // HTTP redirect status code
 }
 
 // ParseOAuthState parses the OAuth state from a string.

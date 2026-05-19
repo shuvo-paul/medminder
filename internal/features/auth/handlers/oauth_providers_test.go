@@ -2,6 +2,8 @@ package handlers_test
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -54,6 +56,17 @@ func TestListOAuthProvidersHandler(t *testing.T) {
 	assert.True(t, found, "test-provider should be in the list")
 }
 
+// encodeOAuthState creates a properly encoded OAuthState string for testing
+func encodeOAuthState(nonce, redirect, purpose string) string {
+	state := dto.OAuthState{
+		Nonce:    nonce,
+		Redirect: redirect,
+		Purpose:  purpose,
+	}
+	data, _ := json.Marshal(state)
+	return base64.URLEncoding.EncodeToString(data)
+}
+
 func TestInitiateOAuthHandler_Success(t *testing.T) {
 	// Set required environment variables for the mock provider
 	os.Setenv("TEST_CLIENT_ID", "test-client-id")
@@ -67,16 +80,17 @@ func TestInitiateOAuthHandler_Success(t *testing.T) {
 	mockProvider := &oauth.MockProvider{
 		NameVal:            "test-provider",
 		RequiredEnvVarsVal: []string{"TEST_CLIENT_ID", "TEST_CLIENT_SECRET", "TEST_REDIRECT_URI"},
-		AuthURLVal:         "https://test-provider.example.com/auth?state=abc123",
+		AuthURLVal:         "https://test-provider.example.com/auth",
 	}
 	_ = oauth.Register(mockProvider)
 
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create input with provider and state
+	// Create input with provider and properly encoded state
+	state := encodeOAuthState("test-nonce-123", "/dashboard", "login")
 	input := &dto.InitiateOAuthInput{
 		Provider: "test-provider",
-		State:    "abc123",
+		State:    state,
 	}
 
 	// Call handler
@@ -84,7 +98,7 @@ func TestInitiateOAuthHandler_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "https://test-provider.example.com/auth?state=abc123", resp.Location)
+	assert.Equal(t, "https://test-provider.example.com/auth", resp.Location)
 }
 
 func TestInitiateOAuthHandler_MissingState(t *testing.T) {
@@ -104,13 +118,49 @@ func TestInitiateOAuthHandler_MissingState(t *testing.T) {
 	assert.Contains(t, err.Error(), "state")
 }
 
+func TestInitiateOAuthHandler_InvalidState(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	// Create input with invalid state (not base64 encoded)
+	input := &dto.InitiateOAuthInput{
+		Provider: "google",
+		State:    "not-valid-base64!!!",
+	}
+
+	// Call handler
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "invalid state")
+}
+
+func TestInitiateOAuthHandler_OpenRedirect(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	// Create state with open redirect URL
+	state := encodeOAuthState("test-nonce", "https://evil.com/steal-token", "login")
+	input := &dto.InitiateOAuthInput{
+		Provider: "google",
+		State:    state,
+	}
+
+	// Call handler
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "redirect")
+}
+
 func TestInitiateOAuthHandler_ProviderNotFound(t *testing.T) {
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create input with unknown provider
+	// Create input with unknown provider and valid state
+	state := encodeOAuthState("test-nonce", "/dashboard", "login")
 	input := &dto.InitiateOAuthInput{
 		Provider: "unknown-provider",
-		State:    "abc123",
+		State:    state,
 	}
 
 	// Call handler
@@ -119,22 +169,4 @@ func TestInitiateOAuthHandler_ProviderNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.True(t, strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "Provider not found"))
-}
-
-func TestInitiateOAuthHandler_EmptyState(t *testing.T) {
-	handler := handlers.InitiateOAuthHandler()
-
-	// Create input with empty state
-	input := &dto.InitiateOAuthInput{
-		Provider: "google",
-		State:    "",
-	}
-
-	// Call handler
-	resp, err := handler(context.Background(), input)
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	// Verify it's a 400 error
-	assert.True(t, strings.Contains(err.Error(), "400") || strings.Contains(err.Error(), "Bad Request") || strings.Contains(err.Error(), "state"))
 }
