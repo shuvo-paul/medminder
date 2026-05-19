@@ -506,3 +506,410 @@ func TestGetOrCreateUserByOAuth_NilUserInfo(t *testing.T) {
 	assert.Nil(t, result)
 	assert.True(t, errors.Is(err, service.ErrOAuthProviderError))
 }
+
+func TestLinkOAuthAccount_Success(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "somehash", Valid: true},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{}, nil)
+	oauthRepo.On("CreateOAuthAccount", mock.Anything, mock.Anything, userID, provider, providerUserID).
+		Return(db.OauthAccount{}, nil)
+
+	err := oauthSvc.LinkOAuthAccount(context.Background(), userID, provider, providerUserID)
+
+	assert.NoError(t, err)
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	oldProviderUserID := "google-old"
+	newProviderUserID := "google-new"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "somehash", Valid: true},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	existingOAuthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: oldProviderUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(existingOAuthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{existingOAuthAccount}, nil)
+	oauthRepo.On("DeleteOAuthAccount", mock.Anything, existingOAuthAccount.ID).
+		Return(existingOAuthAccount, nil)
+	oauthRepo.On("CreateOAuthAccount", mock.Anything, mock.Anything, userID, provider, newProviderUserID).
+		Return(db.OauthAccount{}, nil)
+
+	err := oauthSvc.LinkOAuthAccount(context.Background(), userID, provider, newProviderUserID)
+
+	assert.NoError(t, err)
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestLinkOAuthAccount_DeadEndPrevention_NoPasswordSingleProvider(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	existingOAuthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(existingOAuthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{existingOAuthAccount}, nil)
+
+	err := oauthSvc.LinkOAuthAccount(context.Background(), userID, provider, providerUserID)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-new"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{}, nil)
+
+	err := oauthSvc.LinkOAuthAccount(context.Background(), userID, provider, providerUserID)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
+}
+
+func TestUnlinkOAuthAccount_Success(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "somehash", Valid: true},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(oauthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{oauthAccount}, nil)
+	oauthRepo.On("DeleteOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(nil)
+
+	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
+
+	assert.NoError(t, err)
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestUnlinkOAuthAccount_AccountNotFound(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
+
+	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, repository.ErrOAuthAccountNotFound))
+	oauthRepo.AssertExpectations(t)
+}
+
+func TestUnlinkOAuthAccount_DeadEndPrevention_NoPassword(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(oauthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+
+	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestUnlinkOAuthAccount_DeadEndPrevention_OnlyProviderNoPassword(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(oauthAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	// Note: GetOAuthAccountsByUserID is NOT called because password check fails first
+
+	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+}
+
+func TestGetUserOAuthProviders_Success(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+
+	oauthAccounts := []db.OauthAccount{
+		{ID: uuid.New(), UserID: userID, Provider: "google", ProviderUserID: "google-1"},
+		{ID: uuid.New(), UserID: userID, Provider: "github", ProviderUserID: "github-1"},
+	}
+
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return(oauthAccounts, nil)
+
+	providers, err := oauthSvc.GetUserOAuthProviders(context.Background(), userID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"google", "github"}, providers)
+	oauthRepo.AssertExpectations(t)
+}
+
+func TestGetUserOAuthProviders_Empty(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{}, nil)
+
+	providers, err := oauthSvc.GetUserOAuthProviders(context.Background(), userID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, providers)
+	oauthRepo.AssertExpectations(t)
+}
+
+func TestCanUnlinkProvider_HasPassword(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "somehash", Valid: true},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+
+	canUnlink, err := oauthSvc.CanUnlinkProvider(context.Background(), userID, "google")
+
+	assert.NoError(t, err)
+	assert.True(t, canUnlink)
+	userRepo.AssertExpectations(t)
+}
+
+func TestCanUnlinkProvider_NoPasswordMultipleProviders(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthAccounts := []db.OauthAccount{
+		{ID: uuid.New(), UserID: userID, Provider: "google", ProviderUserID: "google-1"},
+		{ID: uuid.New(), UserID: userID, Provider: "github", ProviderUserID: "github-1"},
+	}
+
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return(oauthAccounts, nil)
+
+	canUnlink, err := oauthSvc.CanUnlinkProvider(context.Background(), userID, "google")
+
+	assert.NoError(t, err)
+	assert.True(t, canUnlink)
+	userRepo.AssertExpectations(t)
+	oauthRepo.AssertExpectations(t)
+}
+
+func TestCanUnlinkProvider_NoPasswordSingleProvider(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+
+	userID := uuid.New()
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	oauthAccounts := []db.OauthAccount{
+		{ID: uuid.New(), UserID: userID, Provider: "google", ProviderUserID: "google-1"},
+	}
+
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return(oauthAccounts, nil)
+
+	canUnlink, err := oauthSvc.CanUnlinkProvider(context.Background(), userID, "google")
+
+	assert.NoError(t, err)
+	assert.False(t, canUnlink)
+	userRepo.AssertExpectations(t)
+	oauthRepo.AssertExpectations(t)
+}
