@@ -4,19 +4,43 @@ import (
 	"database/sql"
 	"io/fs"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/email"
+	"github.com/shuvo-paul/medminder/internal/common/ratelimit"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth"
 )
 
+const (
+	// authRate is the per-IP per-minute request limit for auth endpoints
+	// (login, register, password reset, email verification).
+	authRate = 5
+
+	// apiRate is the per-IP per-minute request limit for general API endpoints.
+	apiRate = 100
+
+	// rateLimitWindow is the sliding window duration for all rate limiters.
+	rateLimitWindow = time.Minute
+)
+
 func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(), error) {
+	authLimiter := ratelimit.New(authRate, rateLimitWindow)
+	apiLimiter := ratelimit.New(apiRate, rateLimitWindow)
+
 	router := chi.NewRouter()
+	router.Use(chiMiddleware.RealIP)
+
+	// Selective rate limiting: auth gets strict, general API gets moderate,
+	// static assets and infrastructure endpoints are exempt.
+	router.Use(rateLimitByPath(authLimiter, apiLimiter))
 
 	api := setupHuma(router)
 
@@ -38,9 +62,47 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 
 	cleanup := func() {
 		email.StopEmailQueue()
+		authLimiter.Stop()
+		apiLimiter.Stop()
 	}
 
 	return router, cleanup, nil
+}
+
+// rateLimitByPath returns middleware that applies different rate limits based on
+// the request path:
+//
+//   - /api/auth/*   → strict limit (brute-force protection for login/register)
+//   - /api/*         → moderate limit (general API usage)
+//   - /api/healthz, /api/openapi.json, /api/docs/* → exempt (infrastructure)
+//   - all other paths (SPA, service worker) → exempt (static assets)
+func rateLimitByPath(authLimiter, apiLimiter *ratelimit.Limiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := r.URL.Path
+
+			// Exempt: non-API routes (SPA static files, service worker).
+			if !strings.HasPrefix(path, "/api/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Exempt: infrastructure endpoints (health check, OpenAPI spec, docs UI).
+			if path == "/api/healthz" || path == "/api/openapi.json" || strings.HasPrefix(path, "/api/docs") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Auth routes: strict limit.
+			if strings.HasPrefix(path, "/api/auth/") {
+				authLimiter.Middleware(next).ServeHTTP(w, r)
+				return
+			}
+
+			// General API routes: moderate limit.
+			apiLimiter.Middleware(next).ServeHTTP(w, r)
+		})
+	}
 }
 
 func setupHuma(router *chi.Mux) huma.API {
