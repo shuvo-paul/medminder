@@ -19,7 +19,7 @@ func TestLimiter_AllowsRequestsUnderLimit(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "192.168.1.1:12345"
 		rec := httptest.NewRecorder()
@@ -37,7 +37,7 @@ func TestLimiter_BlocksRequestsOverLimit(t *testing.T) {
 	}))
 
 	// Exhaust the limit.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "192.168.1.1:12345"
 		rec := httptest.NewRecorder()
@@ -64,7 +64,7 @@ func TestLimiter_ResetsAfterInterval(t *testing.T) {
 	}))
 
 	// Exhaust the limit.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "192.168.1.1:12345"
 		rec := httptest.NewRecorder()
@@ -98,7 +98,7 @@ func TestLimiter_DifferentIPsHaveIndependentCounters(t *testing.T) {
 	}))
 
 	// Exhaust limit for IP A.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "10.0.0.1:12345"
 		rec := httptest.NewRecorder()
@@ -178,7 +178,7 @@ func TestLimiter_RetryAfterTracksActualWindow(t *testing.T) {
 	}))
 
 	// Exhaust the limit quickly.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "10.0.0.1:12345"
 		rec := httptest.NewRecorder()
