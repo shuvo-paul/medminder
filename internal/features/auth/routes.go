@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -12,7 +13,7 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
+func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
 	// Repos (used to construct services)
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
@@ -29,6 +30,11 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 		emailClient,
 		frontendURL,
 	)
+
+	// OAuth
+	oauthAccountRepo := repository.NewOAuthAccountRepository(queries)
+	oauthAuthCodeRepo := repository.NewOAuthAuthorizationCodeRepository(dbConn, queries)
+	oauthSvc := service.NewOAuthService(userRepo, oauthAccountRepo)
 
 	// Register (with email verification)
 	huma.Register(api, huma.Operation{
@@ -83,5 +89,5 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string, emailCl
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 
 	// OAuth provider routes (unauthenticated)
-	handlers.RegisterOAuthProviderRoutes(api)
+	handlers.RegisterOAuthProviderRoutes(api, oauthAuthCodeRepo, oauthSvc, tokenSvc, tokenRepo)
 }

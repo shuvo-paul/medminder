@@ -49,7 +49,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	emailClient := email.NewEmailClient(cfg.Email)
 	email.StartEmailQueue(emailClient, 3, nil)
 
-	auth.RegisterRoutes(api, queries, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
+	auth.RegisterRoutes(api, dbConn, queries, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)
