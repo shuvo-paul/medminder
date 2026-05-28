@@ -192,3 +192,41 @@ func (m *MockOAuthAuthorizationCodeRepository) CleanupExpiredAuthorizationCodes(
 	args := m.Called(ctx)
 	return args.Error(0)
 }
+
+func (m *MockOAuthAuthorizationCodeRepository) GetAuthorizationCodeByNonceAndPurpose(ctx context.Context, nonce, purpose string) (db.OauthAuthorizationCode, error) {
+	args := m.Called(ctx, nonce, purpose)
+	return args.Get(0).(db.OauthAuthorizationCode), args.Error(1)
+}
+
+// -- User repository mock (needed for set-password handler) --
+
+var _ repository.UserRepository = (*MockUserRepository)(nil)
+
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
+	args := m.Called(ctx, email, displayName, passwordHash, emailVerified)
+	return args.Get(0).(db.CreateUserRow), args.Error(1)
+}
+
+func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
+	args := m.Called(ctx, email)
+	return args.Get(0).(db.User), args.Error(1)
+}
+
+func (m *MockUserRepository) GetUserByID(ctx context.Context, id string) (db.User, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(db.User), args.Error(1)
+}
+
+func (m *MockUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	args := m.Called(ctx, id, passwordHash)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
