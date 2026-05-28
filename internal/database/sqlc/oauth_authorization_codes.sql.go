@@ -16,7 +16,7 @@ import (
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :one
 INSERT INTO oauth_authorization_codes (id, code_hash, user_id, nonce, purpose, expires_at, created_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified
 `
 
 type CreateAuthorizationCodeParams struct {
@@ -49,6 +49,11 @@ func (q *Queries) CreateAuthorizationCode(ctx context.Context, arg CreateAuthori
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.ProviderEmail,
+		&i.ProviderName,
+		&i.ProviderEmailVerified,
 	)
 	return i, err
 }
@@ -56,7 +61,7 @@ func (q *Queries) CreateAuthorizationCode(ctx context.Context, arg CreateAuthori
 const deleteAuthorizationCode = `-- name: DeleteAuthorizationCode :one
 DELETE FROM oauth_authorization_codes
 WHERE id = $1
-RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified
 `
 
 func (q *Queries) DeleteAuthorizationCode(ctx context.Context, id uuid.UUID) (OauthAuthorizationCode, error) {
@@ -71,6 +76,11 @@ func (q *Queries) DeleteAuthorizationCode(ctx context.Context, id uuid.UUID) (Oa
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.ProviderEmail,
+		&i.ProviderName,
+		&i.ProviderEmailVerified,
 	)
 	return i, err
 }
@@ -78,7 +88,7 @@ func (q *Queries) DeleteAuthorizationCode(ctx context.Context, id uuid.UUID) (Oa
 const deleteExpiredAuthorizationCodes = `-- name: DeleteExpiredAuthorizationCodes :many
 DELETE FROM oauth_authorization_codes
 WHERE expires_at < $1
-RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified
 `
 
 func (q *Queries) DeleteExpiredAuthorizationCodes(ctx context.Context, expiresAt time.Time) ([]OauthAuthorizationCode, error) {
@@ -99,6 +109,11 @@ func (q *Queries) DeleteExpiredAuthorizationCodes(ctx context.Context, expiresAt
 			&i.ExpiresAt,
 			&i.UsedAt,
 			&i.CreatedAt,
+			&i.Provider,
+			&i.ProviderUserID,
+			&i.ProviderEmail,
+			&i.ProviderName,
+			&i.ProviderEmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -114,7 +129,7 @@ func (q *Queries) DeleteExpiredAuthorizationCodes(ctx context.Context, expiresAt
 }
 
 const getAuthorizationCodeByHash = `-- name: GetAuthorizationCodeByHash :one
-SELECT id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at FROM oauth_authorization_codes
+SELECT id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified FROM oauth_authorization_codes
 WHERE code_hash = $1
 `
 
@@ -130,6 +145,42 @@ func (q *Queries) GetAuthorizationCodeByHash(ctx context.Context, codeHash strin
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.ProviderEmail,
+		&i.ProviderName,
+		&i.ProviderEmailVerified,
+	)
+	return i, err
+}
+
+const getAuthorizationCodeByNonceAndPurpose = `-- name: GetAuthorizationCodeByNonceAndPurpose :one
+SELECT id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified FROM oauth_authorization_codes
+WHERE nonce = $1 AND purpose = $2
+`
+
+type GetAuthorizationCodeByNonceAndPurposeParams struct {
+	Nonce   string `json:"nonce"`
+	Purpose string `json:"purpose"`
+}
+
+func (q *Queries) GetAuthorizationCodeByNonceAndPurpose(ctx context.Context, arg GetAuthorizationCodeByNonceAndPurposeParams) (OauthAuthorizationCode, error) {
+	row := q.db.QueryRowContext(ctx, getAuthorizationCodeByNonceAndPurpose, arg.Nonce, arg.Purpose)
+	var i OauthAuthorizationCode
+	err := row.Scan(
+		&i.ID,
+		&i.CodeHash,
+		&i.UserID,
+		&i.Nonce,
+		&i.Purpose,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.ProviderEmail,
+		&i.ProviderName,
+		&i.ProviderEmailVerified,
 	)
 	return i, err
 }
@@ -138,7 +189,7 @@ const markAuthorizationCodeAsUsed = `-- name: MarkAuthorizationCodeAsUsed :one
 UPDATE oauth_authorization_codes
 SET used_at = NOW()
 WHERE code_hash = $1 AND used_at IS NULL
-RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified
 `
 
 func (q *Queries) MarkAuthorizationCodeAsUsed(ctx context.Context, codeHash string) (OauthAuthorizationCode, error) {
@@ -153,6 +204,11 @@ func (q *Queries) MarkAuthorizationCodeAsUsed(ctx context.Context, codeHash stri
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.ProviderEmail,
+		&i.ProviderName,
+		&i.ProviderEmailVerified,
 	)
 	return i, err
 }

@@ -7,7 +7,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
@@ -524,4 +526,224 @@ func TestTokenExchangeHandler_MalformedState(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+}
+
+// -- OAuth Link Init Handler Tests --
+
+func newLinkInitDeps() *handlers.OAuthHandlerDeps {
+	return &handlers.OAuthHandlerDeps{
+		AuthCodeRepo: &MockOAuthAuthorizationCodeRepository{},
+		OAuthSvc:     &MockOAuthService{},
+		TokenSvc:     &MockTokenService{},
+		TokenRepo:    &MockRefreshTokenRepository{},
+	}
+}
+
+func TestOAuthLinkInitHandler_Success(t *testing.T) {
+	// Register a mock provider for link init to verify against
+	os.Setenv("LINK_TEST_ID", "test-id")
+	os.Setenv("LINK_TEST_SECRET", "test-secret")
+	os.Setenv("LINK_TEST_REDIRECT", "http://localhost:8080/callback")
+	defer func() {
+		os.Unsetenv("LINK_TEST_ID")
+		os.Unsetenv("LINK_TEST_SECRET")
+		os.Unsetenv("LINK_TEST_REDIRECT")
+	}()
+
+	mockProvider := &oauth.MockProvider{
+		NameVal:            "http://link.test",
+		RequiredEnvVarsVal: []string{"LINK_TEST_ID", "LINK_TEST_SECRET", "LINK_TEST_REDIRECT"},
+	}
+	err := oauth.Register(mockProvider)
+	require.NoError(t, err, "failed to register mock provider")
+
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	deps := newLinkInitDeps()
+	mockTokenSvc := deps.TokenSvc.(*MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	mockCodeRepo := deps.AuthCodeRepo.(*MockOAuthAuthorizationCodeRepository)
+	mockCodeRepo.On("CreateAuthorizationCode",
+		mock.Anything,
+		mock.AnythingOfType("uuid.UUID"),     // id
+		mock.AnythingOfType("string"),        // codeHash
+		mock.AnythingOfType("uuid.NullUUID"), // userID
+		mock.AnythingOfType("string"),        // nonce
+		"link",                               // purpose
+		mock.AnythingOfType("time.Time"),     // expiresAt
+	).Return(db.OauthAuthorizationCode{}, nil)
+
+	handler := handlers.OAuthLinkInitHandler(deps)
+
+	input := &dto.OAuthLinkInitInput{
+		Authorization: "Bearer " + token,
+		Provider:      "http://link.test",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Verify state contains purpose=link
+	state, err := dto.ParseOAuthState(resp.Body.State)
+	require.NoError(t, err)
+	assert.Equal(t, "link", state.Purpose)
+	assert.NotEmpty(t, state.Nonce)
+}
+
+func TestOAuthLinkInitHandler_MissingAuth(t *testing.T) {
+	deps := newLinkInitDeps()
+	handler := handlers.OAuthLinkInitHandler(deps)
+
+	input := &dto.OAuthLinkInitInput{
+		Authorization: "",
+		Provider:      "google",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Invalid authorization header")
+}
+
+func TestOAuthLinkInitHandler_InvalidToken(t *testing.T) {
+	deps := newLinkInitDeps()
+	mockTokenSvc := deps.TokenSvc.(*MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", "bad-token").Return(nil, service.ErrInvalidToken)
+
+	handler := handlers.OAuthLinkInitHandler(deps)
+
+	input := &dto.OAuthLinkInitInput{
+		Authorization: "Bearer bad-token",
+		Provider:      "google",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Invalid or expired")
+}
+
+func TestOAuthLinkInitHandler_ProviderNotFound(t *testing.T) {
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	deps := newLinkInitDeps()
+	mockTokenSvc := deps.TokenSvc.(*MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	handler := handlers.OAuthLinkInitHandler(deps)
+
+	input := &dto.OAuthLinkInitInput{
+		Authorization: "Bearer " + token,
+		Provider:      "unknown-provider",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "provider not found")
+}
+
+// -- Set Password Handler Tests --
+
+func TestSetPasswordHandler_Success(t *testing.T) {
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	mockTokenSvc := new(MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	mockUserRepo := new(MockUserRepository)
+	// UpdatePassword is called with the user ID string and a bcrypt-hashed password
+	mockUserRepo.On("UpdatePassword", mock.Anything, userID.String(), mock.AnythingOfType("string")).Return(nil)
+
+	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+
+	input := &dto.SetPasswordInput{
+		Authorization: "Bearer " + token,
+	}
+	input.Body.Password = "SecurePass1"
+
+	resp, err := handler(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "password set successfully", resp.Body.Message)
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestSetPasswordHandler_InvalidToken(t *testing.T) {
+	mockTokenSvc := new(MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", "bad-token").Return(nil, service.ErrInvalidToken)
+
+	mockUserRepo := new(MockUserRepository)
+
+	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+
+	input := &dto.SetPasswordInput{
+		Authorization: "Bearer bad-token",
+	}
+	input.Body.Password = "SecurePass1"
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "Invalid or expired")
+}
+
+func TestSetPasswordHandler_WeakPassword(t *testing.T) {
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	mockTokenSvc := new(MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	mockUserRepo := new(MockUserRepository)
+
+	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+
+	input := &dto.SetPasswordInput{
+		Authorization: "Bearer " + token,
+	}
+	input.Body.Password = "short" // Too short, no uppercase, no digit
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "invalid password")
+	// Verify UpdatePassword was never called
+	mockUserRepo.AssertNotCalled(t, "UpdatePassword", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestSetPasswordHandler_UpdateFailed(t *testing.T) {
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	mockTokenSvc := new(MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	mockUserRepo := new(MockUserRepository)
+	mockUserRepo.On("UpdatePassword", mock.Anything, userID.String(), mock.AnythingOfType("string")).Return(assert.AnError)
+
+	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+
+	input := &dto.SetPasswordInput{
+		Authorization: "Bearer " + token,
+	}
+	input.Body.Password = "SecurePass1"
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "failed to set password")
 }

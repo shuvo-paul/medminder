@@ -36,6 +36,7 @@ type OAuthAuthorizationCodeRepository interface {
 	CreateAuthorizationCode(ctx context.Context, id uuid.UUID, codeHash string, userID uuid.NullUUID, nonce string, purpose string, expiresAt time.Time) (db.OauthAuthorizationCode, error)
 	CreateAuthorizationCodeWithUserInfo(ctx context.Context, id uuid.UUID, codeHash string, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error)
 	GetAuthorizationCodeByHash(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
+	GetAuthorizationCodeByNonceAndPurpose(ctx context.Context, nonce, purpose string) (db.OauthAuthorizationCode, error)
 	GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (*AuthorizationCodeInfo, error)
 	MarkAuthorizationCodeAsUsed(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
 	CleanupExpiredAuthorizationCodes(ctx context.Context) error
@@ -122,6 +123,7 @@ func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCode(ctx context.C
 		Nonce:     nonce,
 		Purpose:   purpose,
 		ExpiresAt: expiresAt,
+		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 }
 
@@ -147,6 +149,25 @@ func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfo(c
 
 func (r *oauthAuthorizationCodeRepository) GetAuthorizationCodeByHash(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error) {
 	code, err := r.queries.GetAuthorizationCodeByHash(ctx, codeHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+		}
+		return db.OauthAuthorizationCode{}, err
+	}
+	return code, nil
+}
+
+// GetAuthorizationCodeByNonceAndPurpose looks up an authorization code by its nonce and purpose.
+// Used by the link flow to correlate callback codes with init records.
+//
+// NOTE: This method does not check expires_at or used_at. Callers are responsible
+// for validating expiry and usage state after retrieval.
+func (r *oauthAuthorizationCodeRepository) GetAuthorizationCodeByNonceAndPurpose(ctx context.Context, nonce, purpose string) (db.OauthAuthorizationCode, error) {
+	code, err := r.queries.GetAuthorizationCodeByNonceAndPurpose(ctx, db.GetAuthorizationCodeByNonceAndPurposeParams{
+		Nonce:   nonce,
+		Purpose: purpose,
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound

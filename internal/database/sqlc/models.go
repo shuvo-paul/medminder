@@ -29,14 +29,19 @@ type OauthAccount struct {
 }
 
 type OauthAuthorizationCode struct {
-	ID        uuid.UUID     `json:"id"`
-	CodeHash  string        `json:"code_hash"`
-	UserID    uuid.NullUUID `json:"user_id"`
-	Nonce     string        `json:"nonce"`
-	Purpose   string        `json:"purpose"`
-	ExpiresAt time.Time     `json:"expires_at"`
-	UsedAt    sql.NullTime  `json:"used_at"`
-	CreatedAt sql.NullTime  `json:"created_at"`
+	ID                    uuid.UUID     `json:"id"`
+	CodeHash              string        `json:"code_hash"`
+	UserID                uuid.NullUUID `json:"user_id"`
+	Nonce                 string        `json:"nonce"`
+	Purpose               string        `json:"purpose"`
+	ExpiresAt             time.Time     `json:"expires_at"`
+	UsedAt                sql.NullTime  `json:"used_at"`
+	CreatedAt             sql.NullTime  `json:"created_at"`
+	Provider              string        `json:"provider"`
+	ProviderUserID        string        `json:"provider_user_id"`
+	ProviderEmail         string        `json:"provider_email"`
+	ProviderName          string        `json:"provider_name"`
+	ProviderEmailVerified bool          `json:"provider_email_verified"`
 }
 
 type PasswordResetToken struct {

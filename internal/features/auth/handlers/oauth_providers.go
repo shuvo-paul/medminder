@@ -15,6 +15,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
@@ -135,6 +136,18 @@ func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuth
 		Summary:     "Exchange OAuth authorization code for JWT tokens",
 		Tags:        []string{"auth"},
 	}, TokenExchangeHandler(deps))
+
+	// Initiate OAuth link - authenticated
+	huma.Register(api, huma.Operation{
+		OperationID: "oauth-link-init",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/oauth/{provider}/init",
+		Summary:     "Initiate OAuth provider linking",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, OAuthLinkInitHandler(deps))
 }
 
 // isValidRedirect checks if the redirect URL is a relative path or a trusted domain.
@@ -358,6 +371,138 @@ func handleProviderError(input *dto.OAuthCallbackInput) (*dto.OAuthCallbackOutpu
 	return &dto.OAuthCallbackOutput{
 		Redirect: redirectURL,
 	}, nil
+}
+
+// extractUserIDFromAuth extracts the authenticated user ID from the Authorization header.
+// It parses the Bearer token, validates it, and returns the user ID from the "sub" claim.
+func extractUserIDFromAuth(authHeader string, tokenSvc service.TokenServiceInterface) (uuid.UUID, error) {
+	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+		return uuid.Nil, huma.Error401Unauthorized("Invalid authorization header", nil)
+	}
+	tokenString := authHeader[7:]
+
+	claims, err := tokenSvc.ValidateAccessToken(tokenString)
+	if err != nil {
+		return uuid.Nil, huma.Error401Unauthorized("Invalid or expired access token", err)
+	}
+
+	userIDStr, ok := claims["sub"].(string)
+	if !ok {
+		return uuid.Nil, huma.Error401Unauthorized("Invalid access token", nil)
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID in token", nil)
+	}
+
+	if userID == uuid.Nil {
+		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID", nil)
+	}
+
+	return userID, nil
+}
+
+// OAuthLinkInitHandler returns a handler that initiates an OAuth account linking flow.
+// POST /api/auth/oauth/{provider}/init (authenticated)
+//
+// This stores an authorization code binding the authenticated user to a nonce with
+// purpose="link", so the OAuth callback flow can associate the provider account
+// with the correct user.
+func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthLinkInitInput) (*dto.OAuthLinkInitResponse, error) {
+	return func(ctx context.Context, input *dto.OAuthLinkInitInput) (*dto.OAuthLinkInitResponse, error) {
+		// Extract authenticated user ID from Bearer token
+		userID, err := extractUserIDFromAuth(input.Authorization, deps.TokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Verify the provider exists
+		_, err = oauth.GetProvider(input.Provider)
+		if err != nil {
+			return nil, huma.Error404NotFound("provider not found", err)
+		}
+
+		// Generate a cryptographically random nonce
+		nonceBytes := make([]byte, 16)
+		if _, err := rand.Read(nonceBytes); err != nil {
+			return nil, huma.Error500InternalServerError("failed to generate nonce", err)
+		}
+		nonce := hex.EncodeToString(nonceBytes)
+
+		// Create state with purpose="link" (no redirect needed for linking)
+		state := dto.OAuthState{
+			Nonce:    nonce,
+			Redirect: "",
+			Purpose:  "link",
+		}
+		encodedState := state.Encode()
+
+		// Store authorization code binding user_id to this nonce.
+		// The code_hash uses the encoded state hash as a placeholder since
+		// no provider auth code exists yet. The callback handler MUST use
+		// GetAuthorizationCodeByNonceAndPurpose (not GetAuthorizationCodeByHash)
+		// to find this record, since code_hash is a placeholder, not the provider code.
+		codeID := uuid.New()
+		codeHash := hashCode(encodedState)
+		expiresAt := time.Now().Add(oauthAuthCodeExpiry)
+
+		_, err = deps.AuthCodeRepo.CreateAuthorizationCode(
+			ctx,
+			codeID,
+			codeHash,
+			uuid.NullUUID{UUID: userID, Valid: true},
+			nonce,
+			"link",
+			expiresAt,
+		)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to store authorization code", err)
+		}
+
+		return &dto.OAuthLinkInitResponse{
+			Body: struct {
+				State string `json:"state" doc:"Base64-encoded state with purpose=link"`
+			}{State: encodedState},
+		}, nil
+	}
+}
+
+// SetPasswordHandler returns a handler that sets a password for an OAuth-only user.
+// POST /api/auth/password/set (authenticated)
+//
+// This allows users who registered via OAuth to add a password, enabling
+// password-based login and preventing lock-out when unlinking providers.
+func SetPasswordHandler(userRepo repository.UserRepository, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
+	return func(ctx context.Context, input *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
+		// Extract authenticated user ID from Bearer token
+		userID, err := extractUserIDFromAuth(input.Authorization, tokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Validate password strength
+		if err := ValidatePassword(input.Body.Password); err != nil {
+			return nil, huma.Error400BadRequest("invalid password", err)
+		}
+
+		// Hash the password
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Body.Password), service.BcryptCost)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to hash password", err)
+		}
+
+		// Update the user's password
+		if err := userRepo.UpdatePassword(ctx, userID.String(), string(hashedPassword)); err != nil {
+			return nil, huma.Error500InternalServerError("failed to set password", err)
+		}
+
+		return &dto.SetPasswordOutput{
+			Body: struct {
+				Message string `json:"message" doc:"Success message"`
+			}{Message: "password set successfully"},
+		}, nil
+	}
 }
 
 // generateAuthCode creates a cryptographically random authorization code and its SHA-256 hash.

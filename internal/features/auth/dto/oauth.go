@@ -161,19 +161,49 @@ type ProvidersResponse struct {
 	Providers []OAuthProviderInfo `json:"providers"`
 }
 
+// OAuthLinkInitInput represents the input for initiating an OAuth link flow.
+// This endpoint is authenticated — the Authorization header contains the Bearer token.
+type OAuthLinkInitInput struct {
+	Authorization string `header:"Authorization"`
+	Provider      string `path:"provider" doc:"OAuth provider identifier (e.g., google)"`
+}
+
+// OAuthLinkInitResponse represents the response for initiating an OAuth link flow.
+type OAuthLinkInitResponse struct {
+	Body struct {
+		State string `json:"state" doc:"Base64-encoded state with purpose=link"`
+	}
+}
+
+// SetPasswordInput represents the input for setting a password for an OAuth-only user.
+// This endpoint is authenticated — the Authorization header contains the Bearer token.
+type SetPasswordInput struct {
+	Authorization string `header:"Authorization"`
+	Body          struct {
+		Password string `json:"password" minLength:"8" doc:"New password (8+ chars, 1 uppercase, 1 lowercase, 1 number)"`
+	}
+}
+
+// SetPasswordOutput represents the output for setting a password.
+type SetPasswordOutput struct {
+	Body struct {
+		Message string `json:"message" doc:"Success message"`
+	}
+}
+
 // InitiateOAuthInput represents the input for initiating OAuth login.
 // Path parameter: provider - the OAuth provider name (e.g., "google")
 // Query parameter: state - the OAuth state parameter from the client
 type InitiateOAuthInput struct {
-	Provider string `path:"provider"` // OAuth provider identifier
-	State    string `query:"state"` // OAuth state parameter (required, non-empty)
+	Provider string `path:"provider" doc:"OAuth provider identifier (e.g., google)"` // OAuth provider identifier
+	State    string `query:"state"`                                                  // OAuth state parameter (required, non-empty)
 }
 
 // InitiateOAuthOutput represents the output for initiating OAuth login.
 // Returns a 302 redirect to the provider's authorization URL.
 type InitiateOAuthOutput struct {
 	Location string `header:"Location"` // Redirect URL
-	Status   int    `status:"302"`     // HTTP redirect status code
+	Status   int    `status:"302"`      // HTTP redirect status code
 }
 
 // OAuthCallbackInput represents the input for OAuth callback.
@@ -181,15 +211,15 @@ type InitiateOAuthOutput struct {
 // Query parameters: code - authorization code, state - OAuth state parameter
 type OAuthCallbackInput struct {
 	Provider string `path:"provider"` // OAuth provider identifier
-	Code     string `query:"code"`   // Authorization code from provider
-	State    string `query:"state"`  // OAuth state parameter
-	Error    string `query:"error"`  // Error from provider (if any)
+	Code     string `query:"code"`    // Authorization code from provider
+	State    string `query:"state"`   // OAuth state parameter
+	Error    string `query:"error"`   // Error from provider (if any)
 }
 
 // OAuthCallbackOutput represents the output for OAuth callback.
 type OAuthCallbackOutput struct {
 	Redirect string `header:"Location"` // Redirect URL after callback
-	Status   int    `status:"302"`     // HTTP redirect status code
+	Status   int    `status:"302"`      // HTTP redirect status code
 }
 
 // ParseOAuthState parses the OAuth state from a string.

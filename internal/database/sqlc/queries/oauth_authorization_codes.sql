@@ -22,3 +22,7 @@ RETURNING *;
 DELETE FROM oauth_authorization_codes
 WHERE id = $1
 RETURNING *;
+
+-- name: GetAuthorizationCodeByNonceAndPurpose :one
+SELECT * FROM oauth_authorization_codes
+WHERE nonce = $1 AND purpose = $2;
