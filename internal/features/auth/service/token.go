@@ -12,10 +12,14 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	// AccessTokenExpiry is the lifetime of access tokens.
+	AccessTokenExpiry = 24 * time.Hour
+)
+
 var (
 	ErrInvalidToken      = errors.New("invalid token")
 	ErrTokenExpired      = errors.New("token expired")
-	accessTokenExpiry    = 24 * time.Hour
 	refreshTokenByteSize = 32
 )
 
@@ -38,7 +42,7 @@ func (ts *TokenService) GenerateAccessToken(userID uuid.UUID, email string) (str
 	claims := jwt.MapClaims{
 		"sub":   userID.String(),
 		"email": email,
-		"exp":   time.Now().Add(accessTokenExpiry).Unix(),
+		"exp":   time.Now().Add(AccessTokenExpiry).Unix(),
 		"iat":   time.Now().Unix(),
 	}
 
@@ -87,7 +91,7 @@ func GenerateAccessToken(userID uuid.UUID, email, jwtSecret string) (string, err
 	claims := jwt.MapClaims{
 		"sub":   userID.String(),
 		"email": email,
-		"exp":   time.Now().Add(accessTokenExpiry).Unix(),
+		"exp":   time.Now().Add(AccessTokenExpiry).Unix(),
 		"iat":   time.Now().Unix(),
 	}
 

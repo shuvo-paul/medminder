@@ -20,11 +20,23 @@ type OAuthAccountRepository interface {
 	DeleteOAuthAccountByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) error
 }
 
+// AuthorizationCodeInfo holds the full authorization code data including provider user info.
+// This extends db.OauthAuthorizationCode with the columns added by migration 000007.
+type AuthorizationCodeInfo struct {
+	db.OauthAuthorizationCode
+	Provider              string
+	ProviderUserID        string
+	ProviderEmail         string
+	ProviderName          string
+	ProviderEmailVerified bool
+}
+
 // OAuthAuthorizationCodeRepository defines the interface for OAuth authorization code data access.
 type OAuthAuthorizationCodeRepository interface {
 	CreateAuthorizationCode(ctx context.Context, id uuid.UUID, codeHash string, userID uuid.NullUUID, nonce string, purpose string, expiresAt time.Time) (db.OauthAuthorizationCode, error)
+	CreateAuthorizationCodeWithUserInfo(ctx context.Context, id uuid.UUID, codeHash string, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error)
 	GetAuthorizationCodeByHash(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
-	GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
+	GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (*AuthorizationCodeInfo, error)
 	MarkAuthorizationCodeAsUsed(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
 	CleanupExpiredAuthorizationCodes(ctx context.Context) error
 }
@@ -113,6 +125,26 @@ func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCode(ctx context.C
 	})
 }
 
+func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfo(ctx context.Context, id uuid.UUID, codeHash string, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error) {
+	const query = `
+		INSERT INTO oauth_authorization_codes (id, code_hash, user_id, nonce, purpose, expires_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified)
+		VALUES ($1, $2, NULL, $3, $4, $5, NOW(), $6, $7, $8, $9, $10)
+		RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+	`
+	var code db.OauthAuthorizationCode
+	err := r.db.QueryRowContext(ctx, query,
+		id, codeHash, nonce, purpose, expiresAt,
+		provider, providerUserID, providerEmail, providerName, providerEmailVerified,
+	).Scan(
+		&code.ID, &code.CodeHash, &code.UserID, &code.Nonce, &code.Purpose,
+		&code.ExpiresAt, &code.UsedAt, &code.CreatedAt,
+	)
+	if err != nil {
+		return db.OauthAuthorizationCode{}, err
+	}
+	return code, nil
+}
+
 func (r *oauthAuthorizationCodeRepository) GetAuthorizationCodeByHash(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error) {
 	code, err := r.queries.GetAuthorizationCodeByHash(ctx, codeHash)
 	if err != nil {
@@ -128,35 +160,70 @@ func (r *oauthAuthorizationCodeRepository) GetAuthorizationCodeByHash(ctx contex
 // SELECT FOR UPDATE within a transaction. This prevents concurrent code redemption.
 // All error cases (not found, already used, expired) return ErrOAuthCodeNotFound
 // to avoid leaking timing information about code state.
-func (r *oauthAuthorizationCodeRepository) GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error) {
+// Returns the extended AuthorizationCodeInfo which includes provider user info
+// columns (migration 000007) needed for GetOrCreateUserByOAuth.
+func (r *oauthAuthorizationCodeRepository) GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (*AuthorizationCodeInfo, error) {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+		return nil, ErrOAuthCodeNotFound
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	code, err := r.lockAuthorizationCodeInTx(ctx, tx, codeHash)
+	info, err := r.lockAuthorizationCodeWithUserInfoInTx(ctx, tx, codeHash)
 	if err != nil {
-		return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+		return nil, ErrOAuthCodeNotFound
 	}
 
 	// Validate usage and expiry. All failures return the same error to prevent
 	// timing oracles — the caller will only see ErrOAuthCodeNotFound.
-	if code.UsedAt.Valid {
-		return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+	if info.UsedAt.Valid {
+		return nil, ErrOAuthCodeNotFound
 	}
-	if time.Now().After(code.ExpiresAt) {
-		return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+	if time.Now().After(info.ExpiresAt) {
+		return nil, ErrOAuthCodeNotFound
 	}
 
 	// Commit the transaction and return the valid code.
 	if err := tx.Commit(); err != nil {
-		return db.OauthAuthorizationCode{}, ErrOAuthCodeNotFound
+		return nil, ErrOAuthCodeNotFound
 	}
-	return code, nil
+	return info, nil
+}
+
+// lockAuthorizationCodeWithUserInfoInTx executes SELECT FOR UPDATE within the given transaction
+// and returns the extended AuthorizationCodeInfo including provider user info columns.
+func (r *oauthAuthorizationCodeRepository) lockAuthorizationCodeWithUserInfoInTx(ctx context.Context, tx *sql.Tx, codeHash string) (*AuthorizationCodeInfo, error) {
+	const query = `
+		SELECT id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at,
+		       provider, provider_user_id, provider_email, provider_name, provider_email_verified
+		FROM oauth_authorization_codes
+		WHERE code_hash = $1
+		FOR UPDATE
+	`
+	info := &AuthorizationCodeInfo{}
+	err := tx.QueryRowContext(ctx, query, codeHash).Scan(
+		&info.ID,
+		&info.CodeHash,
+		&info.UserID,
+		&info.Nonce,
+		&info.Purpose,
+		&info.ExpiresAt,
+		&info.UsedAt,
+		&info.CreatedAt,
+		&info.Provider,
+		&info.ProviderUserID,
+		&info.ProviderEmail,
+		&info.ProviderName,
+		&info.ProviderEmailVerified,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
 }
 
 // lockAuthorizationCodeInTx executes SELECT FOR UPDATE within the given transaction.
+// Deprecated: use lockAuthorizationCodeWithUserInfoInTx for extended info.
 func (r *oauthAuthorizationCodeRepository) lockAuthorizationCodeInTx(ctx context.Context, tx *sql.Tx, codeHash string) (db.OauthAuthorizationCode, error) {
 	const query = `
 		SELECT id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
