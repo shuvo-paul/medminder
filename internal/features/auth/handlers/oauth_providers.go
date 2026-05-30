@@ -17,14 +17,40 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	auditRepo "github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	"github.com/shuvo-paul/medminder/internal/middleware"
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 )
 
 // oauthAuthCodeExpiry is the lifetime of an internal authorization code.
 const oauthAuthCodeExpiry = 5 * time.Minute
+
+// logCodeRejected logs an oauth_code_rejected audit event for invalid or misused
+// authorization codes. userID is nil (anonymous) because the code hasn't been
+// associated with a user at this point.
+func logCodeRejected(ctx context.Context, auditRepo auditRepo.AuditRepository, reason, provider string) {
+	ip := middleware.IPFromContext(ctx)
+	ua := middleware.UserAgentFromContext(ctx)
+	metadata := map[string]string{"reason": reason}
+	if provider != "" {
+		metadata["provider"] = provider
+	}
+	_ = auditRepo.LogEvent(ctx, "oauth_code_rejected", uuid.NullUUID{}, ip, ua, metadata)
+}
+
+// logOAuthLoginFailed logs an oauth_login_failed audit event.
+func logOAuthLoginFailed(ctx context.Context, auditRepo auditRepo.AuditRepository, provider, email string) {
+	ip := middleware.IPFromContext(ctx)
+	ua := middleware.UserAgentFromContext(ctx)
+	_ = auditRepo.LogEvent(ctx, "oauth_login_failed", uuid.NullUUID{}, ip, ua, map[string]string{
+		"provider": provider,
+		"reason":   "email_exists",
+		"email":    email,
+	})
+}
 
 // ListOAuthProvidersHandler returns a handler that lists all configured OAuth providers.
 // GET /api/auth/oauth/providers
@@ -90,15 +116,17 @@ type OAuthHandlerDeps struct {
 	OAuthSvc     service.OAuthService
 	TokenSvc     service.TokenServiceInterface
 	TokenRepo    repository.RefreshTokenRepository
+	AuditRepo    auditRepo.AuditRepository
 }
 
 // RegisterOAuthProviderRoutes registers the OAuth provider routes.
-func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuthorizationCodeRepository, oauthSvc service.OAuthService, tokenSvc service.TokenServiceInterface, tokenRepo repository.RefreshTokenRepository) {
+func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuthorizationCodeRepository, oauthSvc service.OAuthService, tokenSvc service.TokenServiceInterface, tokenRepo repository.RefreshTokenRepository, auditRepository auditRepo.AuditRepository) {
 	deps := &OAuthHandlerDeps{
 		AuthCodeRepo: authCodeRepo,
 		OAuthSvc:     oauthSvc,
 		TokenSvc:     tokenSvc,
 		TokenRepo:    tokenRepo,
+		AuditRepo:    auditRepository,
 	}
 
 	// List providers - unauthenticated
@@ -194,7 +222,7 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		state, err := dto.ParseOAuthState(input.State)
 		if err != nil {
 			return &dto.OAuthCallbackOutput{
-				Redirect: "/login?oauth_error=invalid_state",
+				Redirect: "/auth/login?oauth_error=invalid_state",
 			}, nil
 		}
 
@@ -276,6 +304,7 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		// Look up and lock the authorization code (prevents concurrent redemption)
 		authCodeInfo, err := deps.AuthCodeRepo.GetAndLockAuthorizationCode(ctx, codeHash)
 		if err != nil {
+			logCodeRejected(ctx, deps.AuditRepo, "invalid_code", "")
 			return nil, huma.Error401Unauthorized(string(dto.OAuthErrorInvalidCode),
 				fmt.Errorf("invalid or expired authorization code"))
 		}
@@ -284,6 +313,7 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		if authCodeInfo.Nonce != state.Nonce {
 			// Mark as used to prevent replay attempts
 			_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
+			logCodeRejected(ctx, deps.AuditRepo, "nonce_mismatch", authCodeInfo.Provider)
 			return nil, huma.Error401Unauthorized(string(dto.OAuthErrorInvalidCode),
 				fmt.Errorf("state nonce mismatch"))
 		}
@@ -300,6 +330,7 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 			_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
 
 			if errors.Is(err, service.ErrEmailExists) {
+				logOAuthLoginFailed(ctx, deps.AuditRepo, authCodeInfo.Provider, authCodeInfo.ProviderEmail)
 				return nil, huma.Error409Conflict(string(dto.OAuthErrorEmailExists),
 					fmt.Errorf("email already exists"))
 			}

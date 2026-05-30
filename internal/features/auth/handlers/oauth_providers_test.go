@@ -74,6 +74,13 @@ func encodeOAuthState(nonce, redirect, purpose string) string {
 	return base64.URLEncoding.EncodeToString(data)
 }
 
+// newMockAuditRepo creates a MockAuditRepository pre-configured to accept any LogEvent call.
+func newMockAuditRepo() *MockAuditRepository {
+	m := new(MockAuditRepository)
+	m.On("LogEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	return m
+}
+
 func TestInitiateOAuthHandler_Success(t *testing.T) {
 	// Set required environment variables for the mock provider
 	os.Setenv("TEST_CLIENT_ID", "test-client-id")
@@ -187,6 +194,7 @@ func newCallbackDeps() *handlers.OAuthHandlerDeps {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 }
 
@@ -309,6 +317,7 @@ func TestOAuthCallbackHandler_Success(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.OAuthCallbackHandler(deps)
 
@@ -408,6 +417,7 @@ func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -448,6 +458,7 @@ func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -491,6 +502,7 @@ func TestTokenExchangeHandler_EmailExists(t *testing.T) {
 		OAuthSvc:     mockOAuthSvc,
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -514,6 +526,7 @@ func TestTokenExchangeHandler_MalformedState(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -536,6 +549,7 @@ func newLinkInitDeps() *handlers.OAuthHandlerDeps {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 }
 

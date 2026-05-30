@@ -9,7 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/common/log"
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
+	auditRepo "github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
+	"github.com/shuvo-paul/medminder/internal/middleware"
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 )
 
@@ -25,12 +27,14 @@ type OAuthService interface {
 type oauthService struct {
 	userRepo         repository.UserRepository
 	oauthAccountRepo repository.OAuthAccountRepository
+	auditRepo        auditRepo.AuditRepository
 }
 
-func NewOAuthService(userRepo repository.UserRepository, oauthAccountRepo repository.OAuthAccountRepository) OAuthService {
+func NewOAuthService(userRepo repository.UserRepository, oauthAccountRepo repository.OAuthAccountRepository, auditRepository auditRepo.AuditRepository) OAuthService {
 	return &oauthService{
 		userRepo:         userRepo,
 		oauthAccountRepo: oauthAccountRepo,
+		auditRepo:        auditRepository,
 	}
 }
 
@@ -48,10 +52,14 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 
 	existingAccount, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, userInfo.ProviderUserID)
 	if err == nil {
+		// Existing OAuth account — this is a login.
 		user, err := s.userRepo.GetUserByID(ctx, existingAccount.UserID.String())
 		if err != nil {
 			return nil, err
 		}
+		s.logAudit(ctx, "oauth_login", existingAccount.UserID, map[string]string{
+			"provider": provider,
+		})
 		return s.toOAuthUser(&user), nil
 	}
 	if !errors.Is(err, repository.ErrOAuthAccountNotFound) {
@@ -81,7 +89,9 @@ func (s *oauthService) GetOrCreateUserByOAuth(ctx context.Context, provider stri
 		return nil, ErrOAuthProviderFailed
 	}
 
-	log.Info("oauth_connected", log.F("provider", provider), log.F("user_id", newUser.ID.String()), log.F("email", newUser.Email))
+	s.logAudit(ctx, "oauth_connected", newUser.ID, map[string]string{
+		"provider": provider,
+	})
 
 	return s.toCreateUserRow(&newUser), nil
 }
@@ -116,6 +126,13 @@ func (s *oauthService) toCreateUserRow(user *db.CreateUserRow) *OAuthUser {
 		DisplayName:   user.DisplayName,
 		EmailVerified: user.EmailVerified.Bool,
 	}
+}
+
+// logAudit records an OAuth audit event with IP and User-Agent from the request context.
+func (s *oauthService) logAudit(ctx context.Context, eventType string, userID uuid.UUID, metadata map[string]string) {
+	ip := middleware.IPFromContext(ctx)
+	ua := middleware.UserAgentFromContext(ctx)
+	_ = s.auditRepo.LogEvent(ctx, eventType, uuid.NullUUID{UUID: userID, Valid: true}, ip, ua, metadata)
 }
 
 // LinkOAuthAccount links an OAuth account to an existing user.
@@ -172,7 +189,9 @@ func (s *oauthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, p
 		return err
 	}
 
-	log.Info("oauth_connected", log.F("provider", provider), log.F("user_id", userID.String()))
+	s.logAudit(ctx, "oauth_linked", userID, map[string]string{
+		"provider": provider,
+	})
 
 	return nil
 }
@@ -220,7 +239,9 @@ func (s *oauthService) UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID,
 		return err
 	}
 
-	log.Info("oauth_unlinked", log.F("provider", provider), log.F("user_id", userID.String()))
+	s.logAudit(ctx, "oauth_unlinked", userID, map[string]string{
+		"provider": provider,
+	})
 
 	return nil
 }

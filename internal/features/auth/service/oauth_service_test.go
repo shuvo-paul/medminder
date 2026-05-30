@@ -102,10 +102,27 @@ func (m *MockOAuthUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID)
 	return args.Error(0)
 }
 
+// MockAuditRepository is a mock for the audit log repository.
+type MockAuditRepository struct {
+	mock.Mock
+}
+
+func (m *MockAuditRepository) LogEvent(ctx context.Context, eventType string, userID uuid.NullUUID, ipAddress, userAgent string, metadata map[string]string) error {
+	args := m.Called(ctx, eventType, userID, ipAddress, userAgent, metadata)
+	return args.Error(0)
+}
+
+// newMockAuditRepo creates a MockAuditRepository pre-configured to accept any LogEvent call.
+func newMockAuditRepo() *MockAuditRepository {
+	m := new(MockAuditRepository)
+	m.On("LogEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	return m
+}
+
 func TestGetOrCreateUserByOAuth_NewUserRegistration(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -144,7 +161,7 @@ func TestGetOrCreateUserByOAuth_NewUserRegistration(t *testing.T) {
 func TestGetOrCreateUserByOAuth_ExistingUserLogin(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	existingUserID := uuid.New()
@@ -187,7 +204,7 @@ func TestGetOrCreateUserByOAuth_ExistingUserLogin(t *testing.T) {
 func TestGetOrCreateUserByOAuth_EmailCollision(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -222,7 +239,7 @@ func TestGetOrCreateUserByOAuth_EmailCollision(t *testing.T) {
 func TestGetUserByOAuth(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	existingUserID := uuid.New()
@@ -260,7 +277,7 @@ func TestGetUserByOAuth(t *testing.T) {
 func TestGetUserByOAuth_AccountNotFound(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	providerUserID := "unknown-user"
@@ -279,7 +296,7 @@ func TestGetUserByOAuth_AccountNotFound(t *testing.T) {
 func TestGetOrCreateUserByOAuth_OAuthAccountRepoError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -303,7 +320,7 @@ func TestGetOrCreateUserByOAuth_OAuthAccountRepoError(t *testing.T) {
 func TestGetOrCreateUserByOAuth_UserRepoGetByEmailError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -330,7 +347,7 @@ func TestGetOrCreateUserByOAuth_UserRepoGetByEmailError(t *testing.T) {
 func TestGetOrCreateUserByOAuth_CreateUserError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -359,7 +376,7 @@ func TestGetOrCreateUserByOAuth_CreateUserError(t *testing.T) {
 func TestGetOrCreateUserByOAuth_CreateOAuthAccountError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -396,7 +413,7 @@ func TestGetOrCreateUserByOAuth_CreateOAuthAccountError(t *testing.T) {
 func TestGetOrCreateUserByOAuth_CreateOAuthAccountError_VerifyEmailFails(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -433,7 +450,7 @@ func TestGetOrCreateUserByOAuth_CreateOAuthAccountError_VerifyEmailFails(t *test
 func TestGetOrCreateUserByOAuth_GetUserByIDError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	existingUserID := uuid.New()
@@ -468,7 +485,7 @@ func TestGetOrCreateUserByOAuth_GetUserByIDError(t *testing.T) {
 func TestGetUserByOAuth_GetUserByIDError(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	provider := "google"
 	existingUserID := uuid.New()
@@ -498,7 +515,7 @@ func TestGetUserByOAuth_GetUserByIDError(t *testing.T) {
 func TestGetOrCreateUserByOAuth_NilUserInfo(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	result, err := oauthSvc.GetOrCreateUserByOAuth(context.Background(), "google", nil)
 
@@ -510,7 +527,7 @@ func TestGetOrCreateUserByOAuth_NilUserInfo(t *testing.T) {
 func TestLinkOAuthAccount_Success(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -543,7 +560,7 @@ func TestLinkOAuthAccount_Success(t *testing.T) {
 func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -586,7 +603,7 @@ func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
 func TestLinkOAuthAccount_DeadEndPrevention_NoPasswordSingleProvider(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -625,7 +642,7 @@ func TestLinkOAuthAccount_DeadEndPrevention_NoPasswordSingleProvider(t *testing.
 func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -655,7 +672,7 @@ func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testi
 func TestUnlinkOAuthAccount_Success(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -695,7 +712,7 @@ func TestUnlinkOAuthAccount_Success(t *testing.T) {
 func TestUnlinkOAuthAccount_AccountNotFound(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -713,7 +730,7 @@ func TestUnlinkOAuthAccount_AccountNotFound(t *testing.T) {
 func TestUnlinkOAuthAccount_DeadEndPrevention_NoPassword(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -750,7 +767,7 @@ func TestUnlinkOAuthAccount_DeadEndPrevention_NoPassword(t *testing.T) {
 func TestUnlinkOAuthAccount_DeadEndPrevention_OnlyProviderNoPassword(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 	provider := "google"
@@ -788,7 +805,7 @@ func TestUnlinkOAuthAccount_DeadEndPrevention_OnlyProviderNoPassword(t *testing.
 func TestGetUserOAuthProviders_Success(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 
@@ -810,7 +827,7 @@ func TestGetUserOAuthProviders_Success(t *testing.T) {
 func TestGetUserOAuthProviders_Empty(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 
@@ -827,7 +844,7 @@ func TestGetUserOAuthProviders_Empty(t *testing.T) {
 func TestCanUnlinkProvider_HasPassword(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 
@@ -852,7 +869,7 @@ func TestCanUnlinkProvider_HasPassword(t *testing.T) {
 func TestCanUnlinkProvider_NoPasswordMultipleProviders(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 
@@ -885,7 +902,7 @@ func TestCanUnlinkProvider_NoPasswordMultipleProviders(t *testing.T) {
 func TestCanUnlinkProvider_NoPasswordSingleProvider(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
 
 	userID := uuid.New()
 
