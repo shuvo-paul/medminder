@@ -230,3 +230,13 @@ func (m *MockUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) erro
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+
+// MockAuditRepository is a mock for the audit log repository.
+type MockAuditRepository struct {
+	mock.Mock
+}
+
+func (m *MockAuditRepository) LogEvent(ctx context.Context, eventType string, userID uuid.NullUUID, ipAddress, userAgent string, metadata map[string]string) error {
+	args := m.Called(ctx, eventType, userID, ipAddress, userAgent, metadata)
+	return args.Error(0)
+}

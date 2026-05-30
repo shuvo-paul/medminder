@@ -74,6 +74,13 @@ func encodeOAuthState(nonce, redirect, purpose string) string {
 	return base64.URLEncoding.EncodeToString(data)
 }
 
+// newMockAuditRepo creates a MockAuditRepository pre-configured to accept any LogEvent call.
+func newMockAuditRepo() *MockAuditRepository {
+	m := new(MockAuditRepository)
+	m.On("LogEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	return m
+}
+
 func TestInitiateOAuthHandler_Success(t *testing.T) {
 	// Set required environment variables for the mock provider
 	os.Setenv("TEST_CLIENT_ID", "test-client-id")
@@ -187,6 +194,7 @@ func newCallbackDeps() *handlers.OAuthHandlerDeps {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 }
 
@@ -222,7 +230,7 @@ func TestOAuthCallbackHandler_ProviderError_EmptyState(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "/login?oauth_error=cancelled", resp.Redirect)
+	assert.Equal(t, "/auth/login?oauth_error=cancelled", resp.Redirect)
 }
 
 func TestOAuthCallbackHandler_ProviderError_MalformedState(t *testing.T) {
@@ -239,7 +247,7 @@ func TestOAuthCallbackHandler_ProviderError_MalformedState(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "/login?oauth_error=cancelled", resp.Redirect)
+	assert.Equal(t, "/auth/login?oauth_error=cancelled", resp.Redirect)
 }
 
 func TestOAuthCallbackHandler_MissingCode(t *testing.T) {
@@ -309,6 +317,7 @@ func TestOAuthCallbackHandler_Success(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.OAuthCallbackHandler(deps)
 
@@ -408,6 +417,7 @@ func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -422,6 +432,8 @@ func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), string(dto.OAuthErrorInvalidCode))
+	auditRepo := deps.AuditRepo.(*MockAuditRepository)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_code_rejected", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
@@ -448,6 +460,7 @@ func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -463,6 +476,8 @@ func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), string(dto.OAuthErrorInvalidCode))
 	mockCodeRepo.AssertCalled(t, "MarkAuthorizationCodeAsUsed", mock.Anything, mock.Anything)
+	auditRepo := deps.AuditRepo.(*MockAuditRepository)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_code_rejected", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestTokenExchangeHandler_EmailExists(t *testing.T) {
@@ -491,6 +506,7 @@ func TestTokenExchangeHandler_EmailExists(t *testing.T) {
 		OAuthSvc:     mockOAuthSvc,
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -506,6 +522,8 @@ func TestTokenExchangeHandler_EmailExists(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), string(dto.OAuthErrorEmailExists))
 	mockCodeRepo.AssertCalled(t, "MarkAuthorizationCodeAsUsed", mock.Anything, mock.Anything)
+	auditRepo := deps.AuditRepo.(*MockAuditRepository)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_login_failed", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestTokenExchangeHandler_MalformedState(t *testing.T) {
@@ -514,6 +532,7 @@ func TestTokenExchangeHandler_MalformedState(t *testing.T) {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 	handler := handlers.TokenExchangeHandler(deps)
 
@@ -536,6 +555,7 @@ func newLinkInitDeps() *handlers.OAuthHandlerDeps {
 		OAuthSvc:     &MockOAuthService{},
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
 	}
 }
 

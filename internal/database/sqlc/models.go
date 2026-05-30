@@ -9,7 +9,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+type AuditLog struct {
+	ID        uuid.UUID             `json:"id"`
+	EventType string                `json:"event_type"`
+	UserID    uuid.NullUUID         `json:"user_id"`
+	IpAddress sql.NullString        `json:"ip_address"`
+	UserAgent sql.NullString        `json:"user_agent"`
+	Metadata  pqtype.NullRawMessage `json:"metadata"`
+	CreatedAt sql.NullTime          `json:"created_at"`
+}
 
 type EmailVerificationToken struct {
 	ID        uuid.UUID    `json:"id"`

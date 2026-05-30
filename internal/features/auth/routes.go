@@ -8,12 +8,13 @@ import (
 
 	"github.com/shuvo-paul/medminder/internal/common/email"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
+	auditRepo "github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
+func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepository auditRepo.AuditRepository, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
 	// Repos (used to construct services)
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
@@ -34,7 +35,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, jwtSecret
 	// OAuth
 	oauthAccountRepo := repository.NewOAuthAccountRepository(queries)
 	oauthAuthCodeRepo := repository.NewOAuthAuthorizationCodeRepository(dbConn, queries)
-	oauthSvc := service.NewOAuthService(userRepo, oauthAccountRepo)
+	oauthSvc := service.NewOAuthService(userRepo, oauthAccountRepo, auditRepository)
 
 	// Register (with email verification)
 	huma.Register(api, huma.Operation{
@@ -89,7 +90,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, jwtSecret
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 
 	// OAuth provider routes (unauthenticated)
-	handlers.RegisterOAuthProviderRoutes(api, oauthAuthCodeRepo, oauthSvc, tokenSvc, tokenRepo)
+	handlers.RegisterOAuthProviderRoutes(api, oauthAuthCodeRepo, oauthSvc, tokenSvc, tokenRepo, auditRepository)
 
 	// Set password (authenticated) — for OAuth-only users to add a password
 	huma.Register(api, huma.Operation{
