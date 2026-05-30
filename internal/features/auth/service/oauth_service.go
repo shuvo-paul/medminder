@@ -132,7 +132,9 @@ func (s *oauthService) toCreateUserRow(user *db.CreateUserRow) *OAuthUser {
 func (s *oauthService) logAudit(ctx context.Context, eventType string, userID uuid.UUID, metadata map[string]string) {
 	ip := middleware.IPFromContext(ctx)
 	ua := middleware.UserAgentFromContext(ctx)
-	_ = s.auditRepo.LogEvent(ctx, eventType, uuid.NullUUID{UUID: userID, Valid: true}, ip, ua, metadata)
+	if err := s.auditRepo.LogEvent(ctx, eventType, uuid.NullUUID{UUID: userID, Valid: true}, ip, ua, metadata); err != nil {
+		log.Warn("audit_log_failed", log.F("event", eventType), log.F("error", err.Error()))
+	}
 }
 
 // LinkOAuthAccount links an OAuth account to an existing user.
@@ -176,17 +178,18 @@ func (s *oauthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, p
 		if err != nil {
 			return err
 		}
-	}
-	// No existing link - new linking
-	// Dead-end check: if no password and no other providers, reject
-	if !hasPassword && providerCount == 0 {
-		return ErrAccountWillBeLocked
-	}
+	} else {
+		// New linking
+		// Dead-end check: if no password and no other providers, reject
+		if !hasPassword && providerCount == 0 {
+			return ErrAccountWillBeLocked
+		}
 
-	// Create new OAuth account link
-	_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), userID, provider, providerUserID)
-	if err != nil {
-		return err
+		// Create new OAuth account link
+		_, err = s.oauthAccountRepo.CreateOAuthAccount(ctx, uuid.New(), userID, provider, providerUserID)
+		if err != nil {
+			return err
+		}
 	}
 
 	s.logAudit(ctx, "oauth_linked", userID, map[string]string{

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/shuvo-paul/medminder/internal/common/log"
 	auditRepo "github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
@@ -38,18 +39,22 @@ func logCodeRejected(ctx context.Context, auditRepo auditRepo.AuditRepository, r
 	if provider != "" {
 		metadata["provider"] = provider
 	}
-	_ = auditRepo.LogEvent(ctx, "oauth_code_rejected", uuid.NullUUID{}, ip, ua, metadata)
+	if err := auditRepo.LogEvent(ctx, "oauth_code_rejected", uuid.NullUUID{}, ip, ua, metadata); err != nil {
+		log.Warn("audit_log_failed", log.F("event", "oauth_code_rejected"), log.F("error", err.Error()))
+	}
 }
 
 // logOAuthLoginFailed logs an oauth_login_failed audit event.
 func logOAuthLoginFailed(ctx context.Context, auditRepo auditRepo.AuditRepository, provider, email string) {
 	ip := middleware.IPFromContext(ctx)
 	ua := middleware.UserAgentFromContext(ctx)
-	_ = auditRepo.LogEvent(ctx, "oauth_login_failed", uuid.NullUUID{}, ip, ua, map[string]string{
+	if err := auditRepo.LogEvent(ctx, "oauth_login_failed", uuid.NullUUID{}, ip, ua, map[string]string{
 		"provider": provider,
 		"reason":   "email_exists",
 		"email":    email,
-	})
+	}); err != nil {
+		log.Warn("audit_log_failed", log.F("event", "oauth_login_failed"), log.F("error", err.Error()))
+	}
 }
 
 // ListOAuthProvidersHandler returns a handler that lists all configured OAuth providers.
@@ -383,14 +388,14 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 func handleProviderError(input *dto.OAuthCallbackInput) (*dto.OAuthCallbackOutput, error) {
 	if input.State == "" {
 		return &dto.OAuthCallbackOutput{
-			Redirect: "/login?oauth_error=cancelled",
+			Redirect: "/auth/login?oauth_error=cancelled",
 		}, nil
 	}
 
 	state, err := dto.ParseOAuthState(input.State)
 	if err != nil || state.Redirect == "" {
 		return &dto.OAuthCallbackOutput{
-			Redirect: "/login?oauth_error=cancelled",
+			Redirect: "/auth/login?oauth_error=cancelled",
 		}, nil
 	}
 

@@ -19,6 +19,8 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("X-XSS-Protection", "0")
+		w.Header().Set("Permissions-Policy", "interest-cohort=()")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -50,8 +52,8 @@ func CORSMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
 			}
 
-			// Handle preflight
-			if r.Method == http.MethodOptions {
+			// Handle preflight (only for allowed origins)
+			if allowed && r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

@@ -122,7 +122,8 @@ func newMockAuditRepo() *MockAuditRepository {
 func TestGetOrCreateUserByOAuth_NewUserRegistration(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
 
 	provider := "google"
 	userInfo := &oauth.UserInfo{
@@ -156,12 +157,14 @@ func TestGetOrCreateUserByOAuth_NewUserRegistration(t *testing.T) {
 	assert.IsType(t, &service.OAuthUser{}, result)
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_connected", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestGetOrCreateUserByOAuth_ExistingUserLogin(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
 
 	provider := "google"
 	existingUserID := uuid.New()
@@ -199,6 +202,7 @@ func TestGetOrCreateUserByOAuth_ExistingUserLogin(t *testing.T) {
 	assert.IsType(t, &service.OAuthUser{}, result)
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_login", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestGetOrCreateUserByOAuth_EmailCollision(t *testing.T) {
@@ -527,7 +531,8 @@ func TestGetOrCreateUserByOAuth_NilUserInfo(t *testing.T) {
 func TestLinkOAuthAccount_Success(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
 
 	userID := uuid.New()
 	provider := "google"
@@ -555,12 +560,14 @@ func TestLinkOAuthAccount_Success(t *testing.T) {
 	assert.NoError(t, err)
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_linked", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
 
 	userID := uuid.New()
 	provider := "google"
@@ -598,6 +605,7 @@ func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
 	assert.NoError(t, err)
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_linked", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestLinkOAuthAccount_DeadEndPrevention_NoPasswordSingleProvider(t *testing.T) {
@@ -672,7 +680,8 @@ func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testi
 func TestUnlinkOAuthAccount_Success(t *testing.T) {
 	userRepo := new(MockOAuthUserRepository)
 	oauthRepo := new(MockOAuthAccountRepository)
-	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
 
 	userID := uuid.New()
 	provider := "google"
@@ -707,6 +716,7 @@ func TestUnlinkOAuthAccount_Success(t *testing.T) {
 	assert.NoError(t, err)
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_unlinked", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestUnlinkOAuthAccount_AccountNotFound(t *testing.T) {
