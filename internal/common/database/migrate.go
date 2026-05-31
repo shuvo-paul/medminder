@@ -14,9 +14,17 @@ type Migrator struct {
 	m *migrate.Migrate
 }
 
+func buildDSN(host string, port int, user, password, dbname string, sslmode bool) string {
+	sslModeStr := "disable"
+	if sslmode {
+		sslModeStr = "require"
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		user, password, host, port, dbname, sslModeStr)
+}
+
 func NewMigratorFromConfig(sourceURL, host string, port int, user, password, dbname string, sslmode bool) (*Migrator, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		user, password, host, port, dbname, map[bool]string{true: "require", false: "disable"}[sslmode])
+	dsn := buildDSN(host, port, user, password, dbname, sslmode)
 
 	m, err := migrate.New(sourceURL, dsn)
 	if err != nil {
@@ -27,8 +35,7 @@ func NewMigratorFromConfig(sourceURL, host string, port int, user, password, dbn
 }
 
 func NewMigratorWithFS(fsys fs.FS, host string, port int, user, password, dbname string, sslmode bool) (*Migrator, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		user, password, host, port, dbname, map[bool]string{true: "require", false: "disable"}[sslmode])
+	dsn := buildDSN(host, port, user, password, dbname, sslmode)
 
 	source, err := iofs.New(fsys, ".")
 	if err != nil {
