@@ -30,6 +30,8 @@ type oauthService struct {
 	auditRepo        auditRepo.AuditRepository
 }
 
+var _ OAuthService = (*oauthService)(nil)
+
 func NewOAuthService(userRepo repository.UserRepository, oauthAccountRepo repository.OAuthAccountRepository, auditRepository auditRepo.AuditRepository) OAuthService {
 	return &oauthService{
 		userRepo:         userRepo,

@@ -46,6 +46,8 @@ type emailVerificationService struct {
 	frontendURL string
 }
 
+var _ EmailVerificationService = (*emailVerificationService)(nil)
+
 // NewEmailVerificationService creates a new EmailVerificationService.
 func NewEmailVerificationService(
 	userRepo repository.UserRepository,

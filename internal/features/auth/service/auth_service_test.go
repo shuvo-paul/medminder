@@ -74,11 +74,6 @@ func (m *MockRefreshTokenRepository) DeleteUserRefreshTokens(ctx context.Context
 	return args.Error(0)
 }
 
-func (m *MockRefreshTokenRepository) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
-	args := m.Called(ctx, userID)
-	return args.Error(0)
-}
-
 // MockTokenService mocks service.TokenServiceInterface
 type MockTokenService struct {
 	mock.Mock

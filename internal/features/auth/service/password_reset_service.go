@@ -8,12 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	emailclient "github.com/shuvo-paul/medminder/internal/common/email"
+	"github.com/shuvo-paul/medminder/internal/common/log"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 )
 
@@ -35,6 +35,8 @@ type passwordResetService struct {
 	emailClient      emailclient.EmailClient
 	frontendURL      string
 }
+
+var _ PasswordResetService = (*passwordResetService)(nil)
 
 // NewPasswordResetService creates a new PasswordResetService.
 func NewPasswordResetService(
@@ -91,9 +93,9 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", s.frontendURL, token)
 	emailBody := fmt.Sprintf("<p>Click <a href=\"%s\">here</a> to reset your password. This link expires in 1 hour.</p>", resetLink)
 	if err := s.emailClient.SendEmail(ctx, user.Email, "MedMinder Password Reset", emailBody); err != nil {
-		log.Printf("failed to send password reset email, cleaning up token: %v", err)
+		log.Warn("failed to send password reset email, cleaning up token", log.F("error", err.Error()))
 		if cleanupErr := s.tokenRepo.DeleteAllForUser(ctx, user.ID); cleanupErr != nil {
-			log.Printf("failed to cleanup token after email failure: %v", cleanupErr)
+			log.Warn("failed to cleanup token after email failure", log.F("error", cleanupErr.Error()))
 		}
 		// Return nil to prevent email enumeration - user sees success message anyway
 		return nil
@@ -138,8 +140,8 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, token, newPassw
 		return fmt.Errorf("updating password: %w", err)
 	}
 
-	if err := s.refreshTokenRepo.DeleteAllForUser(ctx, user.ID); err != nil {
-		log.Printf("failed to delete refresh tokens: %v", err)
+	if err := s.refreshTokenRepo.DeleteUserRefreshTokens(ctx, user.ID); err != nil {
+		log.Warn("failed to delete refresh tokens", log.F("error", err.Error()))
 	}
 
 	return nil
