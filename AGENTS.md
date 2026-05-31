@@ -47,7 +47,11 @@ For detailed code conventions, see [`docs/code-conventions.md`](docs/code-conven
 
 ## Architecture Decision Records
 
-Before proposing architectural changes, check `docs/adr/` for relevant decision records. Existing ADRs document why current patterns exist and what alternatives were rejected. Creating a new ADR is required when adopting a significant new dependency, framework, deployment model, or architectural pattern.
+Before proposing architectural changes, check `docs/adr/`:
+- **ADR-001**: Chi + huma API routing
+- **ADR-002**: SvelteKit SPA embed
+
+Existing ADRs document why current patterns exist and what alternatives were rejected. Creating a new ADR is required when adopting a significant new dependency, framework, deployment model, or architectural pattern.
 
 ## Project Structure
 
