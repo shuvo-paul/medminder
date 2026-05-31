@@ -41,6 +41,7 @@ Always use Makefile targets instead of raw `go` commands:
 2. **Never push without approval** — get explicit human approval before `git push`. "Open a PR" is intent, not permission.
 3. **TDD required** — write tests before implementation. Run `make test` before committing.
 4. **Branch before work** — always create a feature or fix branch; never commit to `main`.
+5. **Lazy-load docs/** — read files from `docs/` only when relevant to the current task, not upfront in every session.
 
 For detailed code conventions, see [`docs/code-conventions.md`](docs/code-conventions.md).
 
