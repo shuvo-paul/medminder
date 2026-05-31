@@ -38,6 +38,11 @@ func (m *MockAuthService) Logout(ctx context.Context, userID uuid.UUID) error {
 	return args.Error(0)
 }
 
+func (m *MockAuthService) SetPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	args := m.Called(ctx, userID, password)
+	return args.Error(0)
+}
+
 type MockTokenService struct {
 	mock.Mock
 }
@@ -147,11 +152,6 @@ func (m *MockRefreshTokenRepository) DeleteRefreshToken(ctx context.Context, id 
 }
 
 func (m *MockRefreshTokenRepository) DeleteUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
-	args := m.Called(ctx, userID)
-	return args.Error(0)
-}
-
-func (m *MockRefreshTokenRepository) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)
 }
