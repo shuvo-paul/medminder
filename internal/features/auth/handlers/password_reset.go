@@ -44,14 +44,14 @@ func RegisterPasswordResetRoutes(api huma.API, deps PasswordResetDeps) {
 		Tags:        []string{"auth"},
 	}, func(ctx context.Context, input *dto.PasswordResetConfirmInput) (*dto.PasswordResetConfirmOutput, error) {
 		if err := ValidatePassword(input.Body.NewPassword); err != nil {
-			return nil, huma.NewError(http.StatusBadRequest, err.Error())
+			return nil, huma.Error400BadRequest("invalid password", err)
 		}
 
 		if err := deps.Svc.ConfirmReset(ctx, input.Body.Token, input.Body.NewPassword); err != nil {
 			if errors.Is(err, repository.ErrTokenNotFound) ||
 				errors.Is(err, repository.ErrTokenExpired) ||
 				errors.Is(err, repository.ErrTokenUsed) {
-				return nil, huma.NewError(http.StatusBadRequest, "Invalid or expired token")
+				return nil, huma.Error400BadRequest("Invalid or expired token", err)
 			}
 			return nil, err
 		}

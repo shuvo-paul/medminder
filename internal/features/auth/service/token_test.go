@@ -71,31 +71,35 @@ func TestAccessTokenExpiry(t *testing.T) {
 }
 
 func TestGenerateRefreshToken(t *testing.T) {
-	token, err := service.GenerateRefreshToken()
+	tokenSvc := service.NewTokenService(testJWTSecret)
+	token, err := tokenSvc.GenerateRefreshToken()
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
 	assert.Len(t, token, 64, "refresh token should be 64 characters (32 bytes hex)")
 }
 
 func TestHashRefreshToken(t *testing.T) {
+	tokenSvc := service.NewTokenService(testJWTSecret)
 	token := "abc123"
-	hash := service.HashRefreshToken(token)
+	hash := tokenSvc.HashRefreshToken(token)
 	assert.NotEqual(t, token, hash)
 	assert.Len(t, hash, 64)
 }
 
 func TestVerifyRefreshToken(t *testing.T) {
+	tokenSvc := service.NewTokenService(testJWTSecret)
 	token := "abc123"
-	hash := service.HashRefreshToken(token)
+	hash := tokenSvc.HashRefreshToken(token)
 
-	err := service.VerifyRefreshToken(token, hash)
+	err := tokenSvc.VerifyRefreshToken(token, hash)
 	assert.NoError(t, err)
 }
 
 func TestVerifyRefreshToken_Invalid(t *testing.T) {
+	tokenSvc := service.NewTokenService(testJWTSecret)
 	token := "abc123"
-	hash := service.HashRefreshToken(token)
+	hash := tokenSvc.HashRefreshToken(token)
 
-	err := service.VerifyRefreshToken("wrongtoken", hash)
+	err := tokenSvc.VerifyRefreshToken("wrongtoken", hash)
 	assert.Error(t, err)
 }

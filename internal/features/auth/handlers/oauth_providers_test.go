@@ -680,11 +680,10 @@ func TestSetPasswordHandler_Success(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
 
-	mockUserRepo := new(MockUserRepository)
-	// UpdatePassword is called with the user ID string and a bcrypt-hashed password
-	mockUserRepo.On("UpdatePassword", mock.Anything, userID.String(), mock.AnythingOfType("string")).Return(nil)
+	mockAuthSvc := new(MockAuthService)
+	mockAuthSvc.On("SetPassword", mock.Anything, userID, mock.AnythingOfType("string")).Return(nil)
 
-	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+	handler := handlers.SetPasswordHandler(mockAuthSvc, mockTokenSvc)
 
 	input := &dto.SetPasswordInput{
 		Authorization: "Bearer " + token,
@@ -696,16 +695,16 @@ func TestSetPasswordHandler_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, "password set successfully", resp.Body.Message)
-	mockUserRepo.AssertExpectations(t)
+	mockAuthSvc.AssertExpectations(t)
 }
 
 func TestSetPasswordHandler_InvalidToken(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	mockTokenSvc.On("ValidateAccessToken", "bad-token").Return(nil, service.ErrInvalidToken)
 
-	mockUserRepo := new(MockUserRepository)
+	mockAuthSvc := new(MockAuthService)
 
-	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+	handler := handlers.SetPasswordHandler(mockAuthSvc, mockTokenSvc)
 
 	input := &dto.SetPasswordInput{
 		Authorization: "Bearer bad-token",
@@ -726,9 +725,9 @@ func TestSetPasswordHandler_WeakPassword(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
 
-	mockUserRepo := new(MockUserRepository)
+	mockAuthSvc := new(MockAuthService)
 
-	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+	handler := handlers.SetPasswordHandler(mockAuthSvc, mockTokenSvc)
 
 	input := &dto.SetPasswordInput{
 		Authorization: "Bearer " + token,
@@ -740,8 +739,8 @@ func TestSetPasswordHandler_WeakPassword(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "invalid password")
-	// Verify UpdatePassword was never called
-	mockUserRepo.AssertNotCalled(t, "UpdatePassword", mock.Anything, mock.Anything, mock.Anything)
+	// Verify SetPassword was never called
+	mockAuthSvc.AssertNotCalled(t, "SetPassword", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestSetPasswordHandler_UpdateFailed(t *testing.T) {
@@ -751,10 +750,10 @@ func TestSetPasswordHandler_UpdateFailed(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
 
-	mockUserRepo := new(MockUserRepository)
-	mockUserRepo.On("UpdatePassword", mock.Anything, userID.String(), mock.AnythingOfType("string")).Return(assert.AnError)
+	mockAuthSvc := new(MockAuthService)
+	mockAuthSvc.On("SetPassword", mock.Anything, userID, mock.AnythingOfType("string")).Return(assert.AnError)
 
-	handler := handlers.SetPasswordHandler(mockUserRepo, mockTokenSvc)
+	handler := handlers.SetPasswordHandler(mockAuthSvc, mockTokenSvc)
 
 	input := &dto.SetPasswordInput{
 		Authorization: "Bearer " + token,

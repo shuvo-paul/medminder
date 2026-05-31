@@ -102,5 +102,5 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.SetPasswordHandler(userRepo, tokenSvc))
+	}, handlers.SetPasswordHandler(authSvc, tokenSvc))
 }

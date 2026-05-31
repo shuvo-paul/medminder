@@ -3,6 +3,7 @@ package router
 import (
 	"database/sql"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	auditRepo := repository.NewAuditRepository(queries)
 
 	emailClient := email.NewEmailClient(cfg.Email)
-	email.StartEmailQueue(emailClient, 3, nil)
+	email.StartEmailQueue(emailClient, 3, slog.Default())
 
 	auth.RegisterRoutes(api, dbConn, queries, auditRepo, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
 

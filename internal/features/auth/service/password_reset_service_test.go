@@ -99,12 +99,12 @@ func (m *MockPRPasswordResetTokenRepository) DeleteAllForUser(ctx context.Contex
 // MockPRRefreshTokenRepository
 
 type MockPRRefreshTokenRepository struct {
-	DeleteAllForUserFn func(ctx context.Context, userID uuid.UUID) error
+	DeleteUserRefreshTokensFn func(ctx context.Context, userID uuid.UUID) error
 }
 
-func (m *MockPRRefreshTokenRepository) DeleteAllForUser(ctx context.Context, userID uuid.UUID) error {
-	if m.DeleteAllForUserFn != nil {
-		return m.DeleteAllForUserFn(ctx, userID)
+func (m *MockPRRefreshTokenRepository) DeleteUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
+	if m.DeleteUserRefreshTokensFn != nil {
+		return m.DeleteUserRefreshTokensFn(ctx, userID)
 	}
 	return nil
 }
@@ -117,9 +117,6 @@ func (m *MockPRRefreshTokenRepository) GetRefreshTokenByHash(ctx context.Context
 	return db.RefreshToken{}, nil
 }
 func (m *MockPRRefreshTokenRepository) DeleteRefreshToken(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-func (m *MockPRRefreshTokenRepository) DeleteUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
@@ -300,7 +297,7 @@ func TestPasswordResetService_ConfirmReset(t *testing.T) {
 				userRepo.UpdatePasswordFn = func(ctx context.Context, id, passwordHash string) error {
 					return nil
 				}
-				refreshTokenRepo.DeleteAllForUserFn = func(ctx context.Context, userID uuid.UUID) error {
+				refreshTokenRepo.DeleteUserRefreshTokensFn = func(ctx context.Context, userID uuid.UUID) error {
 					return nil
 				}
 			},

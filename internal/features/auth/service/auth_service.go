@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ type AuthService interface {
 	Register(ctx context.Context, email, displayName, password string) (*RegisterResult, error)
 	Login(ctx context.Context, email, password string) (*LoginResult, error)
 	Logout(ctx context.Context, userID uuid.UUID) error
+	SetPassword(ctx context.Context, userID uuid.UUID, password string) error
 }
 
 type authService struct {
@@ -43,6 +45,8 @@ type authService struct {
 	tokenRepo repository.RefreshTokenRepository
 	tokenSvc  TokenServiceInterface
 }
+
+var _ AuthService = (*authService)(nil)
 
 func NewAuthService(userRepo repository.UserRepository, tokenRepo repository.RefreshTokenRepository, tokenSvc TokenServiceInterface) *authService {
 	return &authService{
@@ -131,6 +135,19 @@ func (s *authService) Logout(ctx context.Context, userID uuid.UUID) error {
 
 	if err := s.tokenRepo.DeleteUserRefreshTokens(ctx, userID); err != nil {
 		return errors.Join(ErrLogoutFailed, err)
+	}
+
+	return nil
+}
+
+func (s *authService) SetPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
+	if err != nil {
+		return fmt.Errorf("hashing password: %w", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, userID.String(), string(hashedPassword)); err != nil {
+		return fmt.Errorf("updating password: %w", err)
 	}
 
 	return nil
