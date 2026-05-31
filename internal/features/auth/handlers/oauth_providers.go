@@ -15,7 +15,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/shuvo-paul/medminder/internal/common/log"
 	auditRepo "github.com/shuvo-paul/medminder/internal/features/audit/repository"
@@ -409,9 +408,9 @@ func handleProviderError(input *dto.OAuthCallbackInput) (*dto.OAuthCallbackOutpu
 	}, nil
 }
 
-// extractUserIDFromAuth extracts the authenticated user ID from the Authorization header.
+// ExtractUserIDFromAuth extracts the authenticated user ID from the Authorization header.
 // It parses the Bearer token, validates it, and returns the user ID from the "sub" claim.
-func extractUserIDFromAuth(authHeader string, tokenSvc service.TokenServiceInterface) (uuid.UUID, error) {
+func ExtractUserIDFromAuth(authHeader string, tokenSvc service.TokenServiceInterface) (uuid.UUID, error) {
 	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 		return uuid.Nil, huma.Error401Unauthorized("Invalid authorization header", nil)
 	}
@@ -448,7 +447,7 @@ func extractUserIDFromAuth(authHeader string, tokenSvc service.TokenServiceInter
 func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthLinkInitInput) (*dto.OAuthLinkInitResponse, error) {
 	return func(ctx context.Context, input *dto.OAuthLinkInitInput) (*dto.OAuthLinkInitResponse, error) {
 		// Extract authenticated user ID from Bearer token
-		userID, err := extractUserIDFromAuth(input.Authorization, deps.TokenSvc)
+		userID, err := ExtractUserIDFromAuth(input.Authorization, deps.TokenSvc)
 		if err != nil {
 			return nil, err
 		}
@@ -509,27 +508,18 @@ func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 //
 // This allows users who registered via OAuth to add a password, enabling
 // password-based login and preventing lock-out when unlinking providers.
-func SetPasswordHandler(userRepo repository.UserRepository, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
+func SetPasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
 	return func(ctx context.Context, input *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
-		// Extract authenticated user ID from Bearer token
-		userID, err := extractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
 		if err != nil {
 			return nil, err
 		}
 
-		// Validate password strength
 		if err := ValidatePassword(input.Body.Password); err != nil {
 			return nil, huma.Error400BadRequest("invalid password", err)
 		}
 
-		// Hash the password
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Body.Password), service.BcryptCost)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to hash password", err)
-		}
-
-		// Update the user's password
-		if err := userRepo.UpdatePassword(ctx, userID.String(), string(hashedPassword)); err != nil {
+		if err := authSvc.SetPassword(ctx, userID, input.Body.Password); err != nil {
 			return nil, huma.Error500InternalServerError("failed to set password", err)
 		}
 
