@@ -44,6 +44,10 @@ Always use Makefile targets instead of raw `go` commands:
 
 For detailed code conventions, see [`docs/code-conventions.md`](docs/code-conventions.md).
 
+## Architecture Decision Records
+
+Before proposing architectural changes, check `docs/adr/` for relevant decision records. Existing ADRs document why current patterns exist and what alternatives were rejected. Creating a new ADR is required when adopting a significant new dependency, framework, deployment model, or architectural pattern.
+
 ## Project Structure
 
 ```
