@@ -5,11 +5,12 @@ import (
 
 	"github.com/shuvo-paul/medminder/internal/common/database"
 	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
+	"github.com/shuvo-paul/medminder/internal/common/database/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewMigrator(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	m := tc.NewMigrator(t)
@@ -23,7 +24,7 @@ func TestNewMigrator_InvalidDSN(t *testing.T) {
 }
 
 func TestMigrator_Up(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	m := tc.NewMigrator(t)
@@ -32,7 +33,7 @@ func TestMigrator_Up(t *testing.T) {
 }
 
 func TestMigrator_Down(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	m := tc.NewMigrator(t)
@@ -44,7 +45,7 @@ func TestMigrator_Down(t *testing.T) {
 }
 
 func TestMigrator_Steps(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	m := tc.NewMigrator(t)
@@ -53,7 +54,7 @@ func TestMigrator_Steps(t *testing.T) {
 }
 
 func TestMigrator_Force(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	m := tc.NewMigrator(t)

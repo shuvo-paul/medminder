@@ -5,11 +5,12 @@ import (
 
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
+	"github.com/shuvo-paul/medminder/internal/common/database/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestConnect(t *testing.T) {
-	tc := SetupPostgresContainer(t)
+	tc := testutil.SetupPostgresContainer(t)
 	defer tc.Teardown(t)
 
 	db := tc.Connect(t)
