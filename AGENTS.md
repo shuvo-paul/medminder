@@ -8,49 +8,41 @@ Module: `github.com/shuvo-paul/medminder`
 
 **Backend**
 - HTTP router: Chi (wrapped by huma for API routes)
-- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/openapi.json`, Scalar Docs at `/docs`
+- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/api/openapi.json`, Swagger UI at `/api/docs`
 - Database migrations: golang-migrate
 - Query generation: sqlc
 - Testing/assertions: testify
 - Live reload: Air
 
-**Frontend** — see `web/AGENTS.md` for full stack details.
+**Frontend** — SvelteKit (SPA mode) + Tailwind CSS v4 + shadcn-svelte. See [`docs/frontend.md`](docs/frontend.md).
 
-## Build/Run/Test Commands
+## Commands
 
-Prefer the Makefile targets so every environment uses the same workflow:
+Always use Makefile targets instead of raw `go` commands:
 
-```bash
-# Development
-make start         # Go (Air :8080) + Vite (:5173) together — Ctrl+C stops both
-make dev           # Go API only with Air hot-reload (:8080)
-make web-dev       # Frontend only with Vite HMR (:5173)
+| Task | Command |
+|---|---|
+| Dev (Go + Vite) | `make start` |
+| Go API only | `make dev` |
+| Frontend only | `make web-dev` |
+| Run tests | `make test` |
+| Test with coverage | `make test-cover` |
+| Build | `make build` |
+| Tidy modules | `make tidy` |
+| Regenerate sqlc code | `make sqlc-generate` |
+| Create migration | `make db-migrate-create NAME=<name>` |
+| Apply migrations | `make db-migrate-up` |
+| Production build | `make embed-frontend` |
+| Start Postgres | `docker compose up -d` |
 
-# Go
-make tidy
-make build
-make run           # requires prior embed-frontend
-make test
-make test-cover
-make clean
+## Critical Rules
 
-# Frontend
-make web-install   # first time only
-make web-build
-make web-preview
+1. **Use Makefile for Go builds** — never run `go build` or `go mod tidy` directly.
+2. **Never push without approval** — get explicit human approval before `git push`. "Open a PR" is intent, not permission.
+3. **TDD required** — write tests before implementation. Run `make test` before committing.
+4. **Branch before work** — always create a feature or fix branch; never commit to `main`.
 
-# Production
-make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
-
-# Docker (Postgres only)
-docker compose up -d
-```
-
-**Always use Makefile targets for Go builds — never run `go` commands directly.**
-
-## Browser Automation
-
-Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots, and web scraping.
+For detailed code conventions, see [`docs/code-conventions.md`](docs/code-conventions.md).
 
 ## Project Structure
 
@@ -75,8 +67,9 @@ Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots
 │   ├── integration/  # Integration tests
 │   └── testutil/     # Test helpers
 ├── migrations/        # Database migrations
-├── web/              # SvelteKit frontend (see web/AGENTS.md)
-└── configs/          # Configuration files
+├── web/              # SvelteKit frontend (see docs/frontend.md)
+├── docs/             # Documentation & ADRs
+├── configs/          # Configuration files
 ```
 
 ## Feature-Owned Route Registration
@@ -109,72 +102,18 @@ r, err := router.New(distFS, dbConn, cfg)
 
 Never create DB connections inside `router.New` — this causes lifecycle bugs.
 
-## Git Conventions
-- Feature branches: `feature/description`
-- Bug branches: `fix/description`
-- Always checkout to a new branch before implementing a new feature or bug fix
-- Commit messages: present tense, imperative mood
-- Run `go test ./...` before committing
+## Browser Automation
 
-### Handling GitHub Issues
-When mentioned in a GitHub issue to implement:
-1. Create branch: `feature/issue-{number}-description` or `fix/issue-{number}-description`
-2. Implement following TDD, run tests before committing
-3. Push and create PR with `gh pr create`
+Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots, and web scraping.
 
 ## Environment
+
 - Use `.env` files for local configuration (gitignored)
 - Configuration loaded from `configs/` directory
-
-## Go Code Style
-
-Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
-
-### Imports
-- Use goimports for formatting (handles grouping automatically)
-- Alias imports only when necessary for clarity
-
-### Naming Conventions
-- Use CamelCase for exported names, camelCase for unexported
-- **Test files MUST use `*_test.go` suffix** — never use other suffixes like `*_tests.go`
-- Test functions: `TestFunctionName`, `TestStruct_MethodName`
-- Interfaces with "-er" suffix (Reader, Writer) or descriptive names
-- Avoid underscores in file names except for `_test.go` and `_mock.go`
-- Repository files: `*_repository.go` (e.g., `user_repository.go`, `medication_repository.go`)
-- Repository constructors: `NewUserRepository`, `NewMedicationRepository` (exported), implementation types private (e.g., `userRepository`)
-
-### Types
-- Define structs close to their usage
-- Use interfaces to define behavior contracts
-- Prefer composition over inheritance
-- Return concrete types, accept interfaces
-
-### Error Handling
-- Use `fmt.Errorf` with context: `fmt.Errorf("doing X: %w", err)`
-- Create sentinel errors for common cases: `var ErrNotFound = errors.New("not found")`
-- Check errors immediately after function calls
-- Never ignore errors with `_` without comment explaining why
-
-### Testing (TDD Required)
-- All features must follow Test Driven Development
-- Table-driven tests preferred
-- Use testify/assert for assertions
-- Mock external dependencies
-- Tests should be in same package with `_test.go` suffix
-
-### API Handlers
-All API route handlers must use huma — not plain Chi handler functions. Handler functions take the signature `func(context.Context, *Input) (*Output, error)` where `Input` and `Output` are typed structs registered via `huma.Register`. Struct field tags (`doc`, `minLength`, `required`, etc.) drive both OpenAPI schema and request validation. Non-API routes (static files, SPA) remain as plain Chi handlers.
-
-### Documentation
-- All exported types and functions must have doc comments
-- Comments start with the name being documented
-- Use complete sentences with proper punctuation
-
-### Formatting
-- Run `go fmt` after code implementation (or use goimports which includes formatting)
-- Never commit unformatted code
+- Reference `.env.example` for dev credentials and required variables
 
 ## Boundaries
-- **Never commit directly to `main`** — all changes must go through a feature or fix branch and a PR
+
+- Never commit directly to `main` — all changes go through a feature or fix branch and a PR
 - Never commit secrets, credentials, or `.env` files
 - Never force-push to `main`
