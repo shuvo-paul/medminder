@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // OAuthProvider represents an OAuth provider.
@@ -40,11 +39,19 @@ func (s *OAuthState) Encode() string {
 	return base64.URLEncoding.EncodeToString(data)
 }
 
-// DecodeOAuthState decodes a base64url-encoded OAuthState string.
+// DecodeOAuthState decodes a base64-encoded OAuthState string.
+// Accepts both standard base64 and base64url encodings.
 func DecodeOAuthState(encoded string) (*OAuthState, error) {
-	data, err := base64.URLEncoding.DecodeString(encoded)
+	if encoded == "" {
+		return nil, errors.New("invalid state: empty state parameter")
+	}
+
+	data, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("invalid state encoding: %w", err)
+		data, err = base64.URLEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("invalid state encoding: %w", err)
+		}
 	}
 
 	var state OAuthState
@@ -57,8 +64,10 @@ func DecodeOAuthState(encoded string) (*OAuthState, error) {
 
 // OAuthTokenRequest represents the request body for token exchange.
 type OAuthTokenRequest struct {
-	Code  string `json:"code" maxLength:"256"`   // authorization code
-	State string `json:"state" maxLength:"1024"` // base64url-encoded JSON: {nonce, redirect, purpose}
+	Body struct {
+		Code  string `json:"code" maxLength:"256"`   // authorization code
+		State string `json:"state" maxLength:"1024"` // base64url-encoded JSON: {nonce, redirect, purpose}
+	}
 }
 
 // OAuthTokenUserInfo represents user information in token response.
@@ -71,11 +80,13 @@ type OAuthTokenUserInfo struct {
 
 // OAuthTokenResponse represents the response for token exchange.
 type OAuthTokenResponse struct {
-	AccessToken  string             `json:"access_token"`
-	RefreshToken string             `json:"refresh_token"`
-	TokenType    string             `json:"token_type"` // "Bearer"
-	ExpiresIn    int                `json:"expires_in"` // 86400 (24h)
-	User         OAuthTokenUserInfo `json:"user"`
+	Body struct {
+		AccessToken  string             `json:"access_token"`
+		RefreshToken string             `json:"refresh_token"`
+		TokenType    string             `json:"token_type"` // "Bearer"
+		ExpiresIn    int                `json:"expires_in"` // 86400 (24h)
+		User         OAuthTokenUserInfo `json:"user"`
+	}
 }
 
 // OAuthInitInput represents the input for initiating OAuth link flow.
@@ -223,17 +234,6 @@ type OAuthCallbackOutput struct {
 }
 
 // ParseOAuthState parses the OAuth state from a string.
-// This is a convenience function that wraps DecodeOAuthState.
 func ParseOAuthState(stateStr string) (*OAuthState, error) {
-	// Handle URL encoding (replace - with + and _ with /)
-	stateStr = strings.ReplaceAll(stateStr, "-", "+")
-	stateStr = strings.ReplaceAll(stateStr, "_", "/")
-
-	// Add padding if needed
-	padding := 4 - len(stateStr)%4
-	if padding < 4 {
-		stateStr += strings.Repeat("=", padding)
-	}
-
 	return DecodeOAuthState(stateStr)
 }

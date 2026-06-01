@@ -177,11 +177,19 @@ func (s *OAuthState) Encode() string {
 	return base64.URLEncoding.EncodeToString(data)
 }
 
-// DecodeOAuthState decodes a base64url-encoded OAuthState string.
+// DecodeOAuthState decodes a base64-encoded OAuthState string.
+// Accepts both standard base64 and base64url encodings.
 func DecodeOAuthState(encoded string) (*OAuthState, error) {
-	data, err := base64.URLEncoding.DecodeString(encoded)
+	if encoded == "" {
+		return nil, errors.New("oauth: invalid state: empty state parameter")
+	}
+
+	data, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("oauth: invalid state encoding: %w", err)
+		data, err = base64.URLEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("oauth: invalid state encoding: %w", err)
+		}
 	}
 
 	var state OAuthState

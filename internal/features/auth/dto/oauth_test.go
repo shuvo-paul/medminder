@@ -35,6 +35,12 @@ func TestDecodeOAuthState(t *testing.T) {
 	assert.Equal(t, state.Purpose, decoded.Purpose)
 }
 
+func TestDecodeOAuthState_EmptyState(t *testing.T) {
+	_, err := DecodeOAuthState("")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "empty state")
+}
+
 func TestDecodeOAuthState_InvalidEncoding(t *testing.T) {
 	_, err := DecodeOAuthState("not-valid-base64!!!")
 	assert.Error(t, err)
