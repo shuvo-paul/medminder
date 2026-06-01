@@ -8,49 +8,50 @@ Module: `github.com/shuvo-paul/medminder`
 
 **Backend**
 - HTTP router: Chi (wrapped by huma for API routes)
-- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/openapi.json`, Scalar Docs at `/docs`
+- API framework: huma v2 — typed handlers, auto-generated OpenAPI 3.1 spec at `/api/openapi.json`, Swagger UI at `/api/docs`
 - Database migrations: golang-migrate
 - Query generation: sqlc
 - Testing/assertions: testify
 - Live reload: Air
 
-**Frontend** — see `web/AGENTS.md` for full stack details.
+**Frontend** — SvelteKit (SPA mode) + Tailwind CSS v4 + shadcn-svelte. See [`docs/frontend.md`](docs/frontend.md).
 
-## Build/Run/Test Commands
+## Commands
 
-Prefer the Makefile targets so every environment uses the same workflow:
+| Task | Command |
+|---|---|
+| Dev (Go + Vite) | `make start` |
+| Go API only | `make dev` |
+| Frontend only | `make web-dev` |
+| Run tests | `make test` |
+| Test with coverage | `make test-cover` |
+| Build | `make build` |
+| Tidy modules | `make tidy` |
+| Regenerate sqlc code | `make sqlc-generate` |
+| Create migration | `make db-migrate-create NAME=<name>` |
+| Apply migrations | `make db-migrate-up` |
+| Production build | `make embed-frontend` |
+| Start Postgres | `docker compose up -d` |
 
-```bash
-# Development
-make start         # Go (Air :8080) + Vite (:5173) together — Ctrl+C stops both
-make dev           # Go API only with Air hot-reload (:8080)
-make web-dev       # Frontend only with Vite HMR (:5173)
+## Critical Rules
 
-# Go
-make tidy
-make build
-make run           # requires prior embed-frontend
-make test
-make test-cover
-make clean
+1. **Use Makefile for Go builds** — never run `go build` or `go mod tidy` directly.
+2. **Never push without approval** — get explicit human approval before `git push`. "Open a PR" is intent, not permission.
+3. **TDD required** — write tests before implementation. Run `make test` before committing.
+4. **Branch before work** — always create a feature or fix branch; never commit to `main`.
+5. **Lazy-load docs/** — read files from `docs/` only when relevant to the current task, not upfront in every session.
+6. **Never commit secrets** — no credentials, `.env` files, or sensitive keys.
+7. **Never force-push** — rebase safely or merge instead.
 
-# Frontend
-make web-install   # first time only
-make web-build
-make web-preview
+For detailed code conventions, see [`docs/code-conventions.md`](docs/code-conventions.md).
 
-# Production
-make embed-frontend  # pnpm build + go build → bin/medminder (single binary)
+## Architecture Decision Records
 
-# Docker (Postgres only)
-docker compose up -d
-```
+Before proposing architectural changes, check `docs/adr/`:
+- **ADR-001**: Chi + huma API routing
+- **ADR-002**: SvelteKit SPA embed
 
-**Always use Makefile targets for Go builds — never run `go` commands directly.**
-
-## Browser Automation
-
-Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots, and web scraping.
+Existing ADRs document why current patterns exist and what alternatives were rejected. Creating a new ADR is required when adopting a significant new dependency, framework, deployment model, or architectural pattern.
 
 ## Project Structure
 
@@ -75,8 +76,9 @@ Use the `agent-browser` CLI for end-to-end testing, form automation, screenshots
 │   ├── integration/  # Integration tests
 │   └── testutil/     # Test helpers
 ├── migrations/        # Database migrations
-├── web/              # SvelteKit frontend (see web/AGENTS.md)
-└── configs/          # Configuration files
+├── web/              # SvelteKit frontend (see docs/frontend.md)
+├── docs/             # Documentation & ADRs
+├── configs/          # Configuration files
 ```
 
 ## Feature-Owned Route Registration
@@ -90,91 +92,8 @@ func RegisterRoutes(api huma.API, queries *db.Queries, jwtSecret string)
 
 The router orchestrates by calling feature `RegisterRoutes` functions. This keeps feature wiring inside the feature package.
 
-### Router Pattern
-
-- `internal/router/router.go` — Thin orchestrator that wires features together
-- `internal/router/infra.go` — Infrastructure routes (health check, OpenAPI JSON)
-- `internal/router/spa.go` — SPA file server and service worker handlers
-
-### Dependency Injection
-
-DB connections are passed via DI from `main.go` to `router.New`:
-
-```go
-// cmd/server/main.go
-dbConn, err := database.Connect(cfg.Database)
-defer dbConn.Close()
-r, err := router.New(distFS, dbConn, cfg)
-```
-
-Never create DB connections inside `router.New` — this causes lifecycle bugs.
-
-## Git Conventions
-- Feature branches: `feature/description`
-- Bug branches: `fix/description`
-- Always checkout to a new branch before implementing a new feature or bug fix
-- Commit messages: present tense, imperative mood
-- Run `go test ./...` before committing
-
-### Handling GitHub Issues
-When mentioned in a GitHub issue to implement:
-1. Create branch: `feature/issue-{number}-description` or `fix/issue-{number}-description`
-2. Implement following TDD, run tests before committing
-3. Push and create PR with `gh pr create`
-
 ## Environment
+
 - Use `.env` files for local configuration (gitignored)
 - Configuration loaded from `configs/` directory
-
-## Go Code Style
-
-Applies to all Go code under `internal/`, `pkg/`, and `cmd/`.
-
-### Imports
-- Use goimports for formatting (handles grouping automatically)
-- Alias imports only when necessary for clarity
-
-### Naming Conventions
-- Use CamelCase for exported names, camelCase for unexported
-- **Test files MUST use `*_test.go` suffix** — never use other suffixes like `*_tests.go`
-- Test functions: `TestFunctionName`, `TestStruct_MethodName`
-- Interfaces with "-er" suffix (Reader, Writer) or descriptive names
-- Avoid underscores in file names except for `_test.go` and `_mock.go`
-- Repository files: `*_repository.go` (e.g., `user_repository.go`, `medication_repository.go`)
-- Repository constructors: `NewUserRepository`, `NewMedicationRepository` (exported), implementation types private (e.g., `userRepository`)
-
-### Types
-- Define structs close to their usage
-- Use interfaces to define behavior contracts
-- Prefer composition over inheritance
-- Return concrete types, accept interfaces
-
-### Error Handling
-- Use `fmt.Errorf` with context: `fmt.Errorf("doing X: %w", err)`
-- Create sentinel errors for common cases: `var ErrNotFound = errors.New("not found")`
-- Check errors immediately after function calls
-- Never ignore errors with `_` without comment explaining why
-
-### Testing (TDD Required)
-- All features must follow Test Driven Development
-- Table-driven tests preferred
-- Use testify/assert for assertions
-- Mock external dependencies
-- Tests should be in same package with `_test.go` suffix
-
-### API Handlers
-All API route handlers must use huma — not plain Chi handler functions. Handler functions take the signature `func(context.Context, *Input) (*Output, error)` where `Input` and `Output` are typed structs registered via `huma.Register`. Struct field tags (`doc`, `minLength`, `required`, etc.) drive both OpenAPI schema and request validation. Non-API routes (static files, SPA) remain as plain Chi handlers.
-
-### Documentation
-- All exported types and functions must have doc comments
-- Comments start with the name being documented
-- Use complete sentences with proper punctuation
-
-### Formatting
-- Run `go fmt` after code implementation (or use goimports which includes formatting)
-- Never commit unformatted code
-
-## Boundaries
-- **Never commit directly to `main`** — all changes must go through a feature or fix branch and a PR
-- Never commit secrets, credentials, or `.env` files
-- Never force-push to `main`
+- Reference `.env.example` for dev credentials and required variables

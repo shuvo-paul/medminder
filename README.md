@@ -44,7 +44,7 @@ Runs Postgres only. The Go API and Vite dev server run natively via `make start`
 | URL | Description |
 |---|---|
 | `http://localhost:8080/api/openapi.json` | Live OpenAPI 3.1 spec (always in sync with code) |
-| `http://localhost:8080/api/docs` | Scalar Docs UI |
+| `http://localhost:8080/api/docs` | Swagger UI |
 
 ### Running Tests
 
