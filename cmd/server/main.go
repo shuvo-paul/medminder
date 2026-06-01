@@ -15,6 +15,8 @@ import (
 	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
 	"github.com/shuvo-paul/medminder/internal/common/log"
 	"github.com/shuvo-paul/medminder/internal/router"
+	"github.com/shuvo-paul/medminder/pkg/oauth"
+	"github.com/shuvo-paul/medminder/pkg/oauth/google"
 )
 
 //go:embed all:web/dist
@@ -28,6 +30,13 @@ func main() {
 	if err != nil {
 		log.Error("failed to load config", log.F("error", err.Error()))
 		return
+	}
+
+	// Register OAuth providers (env vars must be available — loaded by godotenv above)
+	if googleProvider, err := google.New(); err == nil {
+		if err := oauth.Register(googleProvider); err != nil {
+			log.Warn("google OAuth provider not available", log.F("reason", err.Error()))
+		}
 	}
 
 	configureLogger(cfg.AppEnv)
