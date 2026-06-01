@@ -1,6 +1,6 @@
 -- name: CreateOAuthAccount :one
-INSERT INTO oauth_accounts (id, user_id, provider, provider_user_id, connected_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO oauth_accounts (id, user_id, provider, provider_user_id, created_at)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetOAuthAccountByProviderAndUserID :one

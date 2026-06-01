@@ -35,7 +35,6 @@ type OauthAccount struct {
 	UserID         uuid.UUID    `json:"user_id"`
 	Provider       string       `json:"provider"`
 	ProviderUserID string       `json:"provider_user_id"`
-	ConnectedAt    sql.NullTime `json:"connected_at"`
 	CreatedAt      sql.NullTime `json:"created_at"`
 }
 
