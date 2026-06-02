@@ -370,6 +370,7 @@ func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), string(dto.OAuthErrorInvalidCode))
 	auditRepo := deps.AuditRepo.(*MockAuditRepository)
 	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_code_rejected", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
@@ -417,6 +418,7 @@ func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), string(dto.OAuthErrorInvalidCode))
 	mockCodeRepo.AssertCalled(t, "MarkAuthorizationCodeAsUsed", mock.Anything, mock.Anything)
 	auditRepo := deps.AuditRepo.(*MockAuditRepository)
 	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_code_rejected", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
@@ -467,6 +469,7 @@ func TestTokenExchangeHandler_EmailExists(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), string(dto.OAuthErrorEmailExists))
 	mockCodeRepo.AssertCalled(t, "MarkAuthorizationCodeAsUsed", mock.Anything, mock.Anything)
 	auditRepo := deps.AuditRepo.(*MockAuditRepository)
 	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_login_failed", mock.Anything, mock.Anything, mock.Anything, mock.Anything)

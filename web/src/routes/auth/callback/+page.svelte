@@ -53,7 +53,7 @@
 				} catch (e) {
 					console.log('[OAuth callback] state parse failed', e);
 				}
-				const errCode = data.error || 'unknown_error';
+				const errCode = data.title || data.detail || 'unknown_error';
 				console.log('[OAuth callback] redirecting to error', `${redirect}?oauth_error=${errCode}&provider=google`);
 				goto(`${redirect}?oauth_error=${errCode}&provider=google`);
 				return;

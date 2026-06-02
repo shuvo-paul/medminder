@@ -32,14 +32,14 @@ func main() {
 		return
 	}
 
+	configureLogger(cfg.AppEnv)
+
 	// Register OAuth providers (env vars must be available — loaded by godotenv above)
 	if googleProvider, err := google.New(); err == nil {
 		if err := oauth.Register(googleProvider); err != nil {
 			log.Warn("google OAuth provider not available", log.F("reason", err.Error()))
 		}
 	}
-
-	configureLogger(cfg.AppEnv)
 
 	migrator, err := database.NewMigratorWithFS(migrations.FS,
 		cfg.Database.Host,

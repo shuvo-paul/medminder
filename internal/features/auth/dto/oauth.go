@@ -46,9 +46,9 @@ func DecodeOAuthState(encoded string) (*OAuthState, error) {
 		return nil, errors.New("invalid state: empty state parameter")
 	}
 
-	data, err := base64.StdEncoding.DecodeString(encoded)
+	data, err := base64.URLEncoding.DecodeString(encoded)
 	if err != nil {
-		data, err = base64.URLEncoding.DecodeString(encoded)
+		data, err = base64.StdEncoding.DecodeString(encoded)
 		if err != nil {
 			return nil, fmt.Errorf("invalid state encoding: %w", err)
 		}
