@@ -46,15 +46,18 @@
 				} catch (e) {
 					// State unreadable — fall back to /login.
 				}
-				const errCode = data.title || data.detail || 'unknown_error';
+				const errCode = data.detail || data.title || 'unknown_error';
 
-				// Try to extract email from error detail for email_exists
-				if (errCode === 'email_exists' && data.detail) {
+				// Try to extract email from errors for email_exists
+				if (errCode === 'email_exists') {
 					try {
-						const detail = JSON.parse(data.detail);
-						email = detail.email || '';
+						const msg = data.errors?.[0]?.message;
+						if (msg) {
+							const parsed = JSON.parse(msg);
+							email = parsed.email || '';
+						}
 					} catch {
-						// detail is just a string, not JSON
+						// Could not extract email from error
 					}
 				}
 
