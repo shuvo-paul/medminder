@@ -186,7 +186,7 @@
 			} else if (oauthError === 'invalid_state') {
 				toast.error('Session expired. Please try again.');
 			} else if (oauthError === 'link_failed') {
-				toast.error('Failed to link account');
+				toast.error(urlParams.get('oauth_message') || 'Failed to link account');
 			} else if (oauthError === 'account_locked') {
 				toast.error('Cannot link — set a password first to avoid losing access');
 			}
@@ -194,6 +194,7 @@
 			const url = new URL(window.location.href);
 			url.searchParams.delete('oauth_error');
 			url.searchParams.delete('provider');
+			url.searchParams.delete('oauth_message');
 			window.history.replaceState({}, '', url.toString());
 		}
 	});

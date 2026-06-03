@@ -63,6 +63,11 @@
 
 				const params = new URLSearchParams({ oauth_error: errCode, provider: 'google' });
 				if (email) params.set('email', email);
+
+				if (errCode === 'link_failed') {
+					const errorMsg = data.errors?.[0]?.message;
+					if (errorMsg) params.set('oauth_message', errorMsg);
+				}
 				goto(`${redirect}?${params.toString()}`);
 				return;
 			}
