@@ -126,6 +126,69 @@ func TestInitiateOAuthHandler_Success(t *testing.T) {
 	assert.Equal(t, "https://test-provider.example.com/auth", resp.Location)
 }
 
+func TestInitiateOAuthHandler_MissingState(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	input := &dto.InitiateOAuthInput{
+		Provider: "google",
+		State:    "",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "state parameter is required")
+}
+
+func TestInitiateOAuthHandler_InvalidState(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	input := &dto.InitiateOAuthInput{
+		Provider: "google",
+		State:    "not-valid-base64!!!",
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "invalid state parameter")
+}
+
+func TestInitiateOAuthHandler_OpenRedirect(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	// Absolute URL with scheme — must be rejected as open redirect.
+	state := encodeOAuthState("test-nonce", "https://evil.example.com/steal", "login")
+	input := &dto.InitiateOAuthInput{
+		Provider: "google",
+		State:    state,
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "invalid redirect URL")
+}
+
+func TestInitiateOAuthHandler_ProviderNotFound(t *testing.T) {
+	handler := handlers.InitiateOAuthHandler()
+
+	state := encodeOAuthState("test-nonce", "/dashboard", "login")
+	input := &dto.InitiateOAuthInput{
+		Provider: "unknown-provider",
+		State:    state,
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "provider not found")
+}
+
 func TestOAuthCallbackHandler_ProviderError_WithState(t *testing.T) {
 	deps := newCallbackDeps()
 	handler := handlers.OAuthCallbackHandler(deps)

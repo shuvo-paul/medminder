@@ -18,8 +18,6 @@
 		const code = params.get('code');
 		const state = params.get('state');
 
-		console.log('[OAuth callback] page loaded', { code: !!code, state: !!state, stateLen: state?.length, search: window.location.search });
-
 		if (!code || !state) {
 			error = 'Invalid callback parameters.';
 			isLoading = false;
@@ -31,56 +29,43 @@
 	async function exchangeToken(code: string, state: string) {
 		try {
 			const body = JSON.stringify({ code, state });
-			console.log('[OAuth callback] POST /api/auth/oauth/token', { codeLen: code.length, stateLen: state.length });
 			const res = await fetch('/api/auth/oauth/token', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body,
 			});
 
-			console.log('[OAuth callback] POST response', { status: res.status, ok: res.ok });
-
 			if (!res.ok) {
 				const data = await res.json();
-				console.log('[OAuth callback] POST error body', data);
 				let redirect = '/login';
 				try {
 					const decoded = base64UrlToStandard(state);
-					console.log('[OAuth callback] decoding state', { decoded: decoded.slice(0, 40) + '...' });
 					const parsed = JSON.parse(atob(decoded));
-					console.log('[OAuth callback] state parsed', parsed);
 					redirect = parsed.redirect || '/login';
 				} catch (e) {
-					console.log('[OAuth callback] state parse failed', e);
+					// State unreadable — fall back to /login.
 				}
 				const errCode = data.title || data.detail || 'unknown_error';
-				console.log('[OAuth callback] redirecting to error', `${redirect}?oauth_error=${errCode}&provider=google`);
 				goto(`${redirect}?oauth_error=${errCode}&provider=google`);
 				return;
 			}
 
 			const data = await res.json();
-			console.log('[OAuth callback] token exchange success', { hasAccessToken: !!data.access_token, user: data.user });
 
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.setItem('refresh_token', data.refresh_token);
 			localStorage.setItem('email_verified', String(data.user.email_verified));
 
-			console.log('[OAuth callback] tokens stored, verifying...', { storedToken: localStorage.getItem('access_token')?.slice(0, 20) + '...' });
-
 			let redirect = '/dashboard';
 			try {
 				const decoded = base64UrlToStandard(state);
 				const parsed = JSON.parse(atob(decoded));
-				console.log('[OAuth callback] state parsed for redirect', parsed);
 				redirect = parsed.redirect || '/dashboard';
 			} catch (e) {
-				console.log('[OAuth callback] state parse failed on success path', e);
+				// State unreadable — fall back to /dashboard.
 			}
-			console.log('[OAuth callback] navigating to', redirect);
 			goto(redirect);
 		} catch (e) {
-			console.log('[OAuth callback] network error', e);
 			goto('/login?oauth_error=network_error');
 		}
 	}

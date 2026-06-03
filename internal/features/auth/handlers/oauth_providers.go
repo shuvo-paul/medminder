@@ -391,13 +391,7 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		}
 
 		return &dto.OAuthTokenResponse{
-			Body: struct {
-				AccessToken  string                 `json:"access_token"`
-				RefreshToken string                 `json:"refresh_token"`
-				TokenType    string                 `json:"token_type"`
-				ExpiresIn    int                    `json:"expires_in"`
-				User         dto.OAuthTokenUserInfo `json:"user"`
-			}{
+			Body: dto.OAuthTokenResponseBody{
 				AccessToken:  accessToken,
 				RefreshToken: refreshToken,
 				TokenType:    "Bearer",
