@@ -344,12 +344,16 @@
 			</p>
 		</div>
 
-		{#if !hasPassword}
+		{#if !hasPassword && accounts.length <= 1}
+			<p class="text-sm text-destructive">
+				You don't have a password set. Add a password before unlinking your only login method.
+			</p>
+		{:else if !hasPassword}
 			<Alert variant="destructive">
 				<TriangleAlert class="h-4 w-4" />
 				<AlertTitle>Warning</AlertTitle>
 				<AlertDescription>
-					You don't have a password set. If you unlink this account and it's your only login method, you may lose access.
+					You don't have a password set. If you unlink this account, you'll have one login method remaining.
 				</AlertDescription>
 			</Alert>
 		{/if}
@@ -363,15 +367,17 @@
 				variant="outline"
 				onclick={() => { unlinkProvider = null; unlinkError = ''; }}
 			>
-				Cancel
+				{!hasPassword && accounts.length <= 1 ? 'Close' : 'Cancel'}
 			</Button>
-			<Button
-				variant="destructive"
-				onclick={handleUnlink}
-				disabled={isUnlinking}
-			>
-				{isUnlinking ? 'Unlinking...' : 'Unlink'}
-			</Button>
+			{#if !(!hasPassword && accounts.length <= 1)}
+				<Button
+					variant="destructive"
+					onclick={handleUnlink}
+					disabled={isUnlinking}
+				>
+					{isUnlinking ? 'Unlinking...' : 'Unlink'}
+				</Button>
+			{/if}
 		</div>
 	</div>
 </Dialog>
