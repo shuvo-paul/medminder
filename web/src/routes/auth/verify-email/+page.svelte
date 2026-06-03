@@ -61,6 +61,7 @@
 				return;
 			}
 			localStorage.setItem('access_token', data.access_token);
+			localStorage.setItem('email_verified', 'true');
 			localStorage.removeItem('refresh_token');
 			status = 'success';
 

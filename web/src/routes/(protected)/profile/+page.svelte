@@ -16,6 +16,7 @@
 		}
 		localStorage.removeItem('access_token');
 		localStorage.removeItem('refresh_token');
+		localStorage.removeItem('email_verified');
 		localStorage.removeItem('remember_me');
 		goto('/login');
 	}
