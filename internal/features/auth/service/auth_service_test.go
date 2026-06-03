@@ -469,7 +469,7 @@ func TestChangePassword(t *testing.T) {
 			},
 			expect: func(t *testing.T, err error) {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "getting user")
+				assert.True(t, errors.Is(err, service.ErrUserNotFound))
 			},
 		},
 		{
@@ -508,6 +508,25 @@ func TestChangePassword(t *testing.T) {
 			expect: func(t *testing.T, err error) {
 				assert.Error(t, err)
 				assert.True(t, errors.Is(err, service.ErrWrongPassword))
+			},
+		},
+		{
+			name: "ChangePassword_SamePassword",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     currentPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{String: string(hashedCurrent), Valid: true},
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.True(t, errors.Is(err, service.ErrSamePassword))
 			},
 		},
 		{

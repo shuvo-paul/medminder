@@ -157,6 +157,9 @@ func (s *authService) SetPassword(ctx context.Context, userID uuid.UUID, passwor
 func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID.String())
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("getting user: %w", ErrUserNotFound)
+		}
 		return fmt.Errorf("getting user: %w", err)
 	}
 
@@ -166,6 +169,10 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(currentPassword)); err != nil {
 		return ErrWrongPassword
+	}
+
+	if currentPassword == newPassword {
+		return ErrSamePassword
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), BcryptCost)

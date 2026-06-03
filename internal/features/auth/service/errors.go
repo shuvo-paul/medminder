@@ -19,4 +19,6 @@ var (
 	ErrNoPasswordSet         = fmt.Errorf("%w: %w", errors.New("user has no password set"), commonerrors.ErrBadRequest)
 	ErrAccountWillBeLocked   = fmt.Errorf("%w: %w", errors.New("account will be locked out"), commonerrors.ErrForbidden)
 	ErrProviderAlreadyLinked = fmt.Errorf("%w: %w", errors.New("provider already linked"), commonerrors.ErrConflict)
+	ErrUserNotFound          = fmt.Errorf("%w: %w", errors.New("user not found"), commonerrors.ErrNotFound)
+	ErrSamePassword          = fmt.Errorf("%w: %w", errors.New("new password must differ from current password"), commonerrors.ErrBadRequest)
 )

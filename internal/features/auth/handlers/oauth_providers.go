@@ -812,6 +812,12 @@ func ChangePasswordHandler(authSvc service.AuthService, tokenSvc service.TokenSe
 			if errors.Is(err, service.ErrWrongPassword) {
 				return nil, huma.Error403Forbidden("current password is incorrect", err)
 			}
+			if errors.Is(err, service.ErrUserNotFound) {
+				return nil, huma.Error404NotFound("user not found", err)
+			}
+			if errors.Is(err, service.ErrSamePassword) {
+				return nil, huma.Error400BadRequest("new password must differ from current password", err)
+			}
 			return nil, huma.Error500InternalServerError("failed to change password", err)
 		}
 
