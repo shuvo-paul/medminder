@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/shuvo-paul/medminder/internal/common/config"
 	"github.com/shuvo-paul/medminder/internal/common/database"
 	"github.com/shuvo-paul/medminder/internal/common/database/migrations"
@@ -22,6 +23,9 @@ func main() {
 	name := flag.String("name", "", "name for migration (required for create)")
 	migrationDir := flag.String("dir", "internal/common/database/migrations", "directory for migration files")
 	flag.Parse()
+
+	// Silently ignore missing .env — exported env vars take precedence.
+	_ = godotenv.Load()
 
 	if *direction == "create" {
 		if *name == "" {
