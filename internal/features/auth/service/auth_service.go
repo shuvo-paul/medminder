@@ -38,6 +38,7 @@ type AuthService interface {
 	Login(ctx context.Context, email, password string) (*LoginResult, error)
 	Logout(ctx context.Context, userID uuid.UUID) error
 	SetPassword(ctx context.Context, userID uuid.UUID, password string) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
 }
 
 type authService struct {
@@ -142,6 +143,39 @@ func (s *authService) Logout(ctx context.Context, userID uuid.UUID) error {
 
 func (s *authService) SetPassword(ctx context.Context, userID uuid.UUID, password string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
+	if err != nil {
+		return fmt.Errorf("hashing password: %w", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, userID.String(), string(hashedPassword)); err != nil {
+		return fmt.Errorf("updating password: %w", err)
+	}
+
+	return nil
+}
+
+func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	user, err := s.userRepo.GetUserByID(ctx, userID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("getting user: %w", ErrUserNotFound)
+		}
+		return fmt.Errorf("getting user: %w", err)
+	}
+
+	if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
+		return ErrNoPasswordSet
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(currentPassword)); err != nil {
+		return ErrWrongPassword
+	}
+
+	if currentPassword == newPassword {
+		return ErrSamePassword
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), BcryptCost)
 	if err != nil {
 		return fmt.Errorf("hashing password: %w", err)
 	}

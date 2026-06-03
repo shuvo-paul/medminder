@@ -43,6 +43,11 @@ func (m *MockAuthService) SetPassword(ctx context.Context, userID uuid.UUID, pas
 	return args.Error(0)
 }
 
+func (m *MockAuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	args := m.Called(ctx, userID, currentPassword, newPassword)
+	return args.Error(0)
+}
+
 type MockTokenService struct {
 	mock.Mock
 }

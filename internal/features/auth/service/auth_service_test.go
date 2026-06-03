@@ -418,3 +418,153 @@ func TestLogout(t *testing.T) {
 		})
 	}
 }
+
+func TestChangePassword(t *testing.T) {
+	currentPwd := "CurrentPwd1"
+	hashedCurrent, _ := bcrypt.GenerateFromPassword([]byte(currentPwd), service.BcryptCost)
+	newPwd := "NewPwd123"
+
+	type changePwdInput struct {
+		userID          uuid.UUID
+		currentPassword string
+		newPassword     string
+	}
+
+	tests := []struct {
+		name   string
+		input  changePwdInput
+		setup  func(*MockUserRepository, changePwdInput)
+		expect func(*testing.T, error)
+	}{
+		{
+			name: "ChangePassword_Success",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     newPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{String: string(hashedCurrent), Valid: true},
+					}, nil)
+				userRepo.On("UpdatePassword", mock.Anything, input.userID.String(), mock.AnythingOfType("string")).
+					Return(nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "ChangePassword_UserNotFound",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     newPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{}, sql.ErrNoRows)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.True(t, errors.Is(err, service.ErrUserNotFound))
+			},
+		},
+		{
+			name: "ChangePassword_NoPasswordSet",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     newPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{Valid: false},
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.True(t, errors.Is(err, service.ErrNoPasswordSet))
+			},
+		},
+		{
+			name: "ChangePassword_WrongCurrentPassword",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: "WrongPwd1",
+				newPassword:     newPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{String: string(hashedCurrent), Valid: true},
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.True(t, errors.Is(err, service.ErrWrongPassword))
+			},
+		},
+		{
+			name: "ChangePassword_SamePassword",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     currentPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{String: string(hashedCurrent), Valid: true},
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.True(t, errors.Is(err, service.ErrSamePassword))
+			},
+		},
+		{
+			name: "ChangePassword_UpdateFails",
+			input: changePwdInput{
+				userID:          uuid.New(),
+				currentPassword: currentPwd,
+				newPassword:     newPwd,
+			},
+			setup: func(userRepo *MockUserRepository, input changePwdInput) {
+				userRepo.On("GetUserByID", mock.Anything, input.userID.String()).
+					Return(db.User{
+						ID:           input.userID,
+						PasswordHash: sql.NullString{String: string(hashedCurrent), Valid: true},
+					}, nil)
+				userRepo.On("UpdatePassword", mock.Anything, input.userID.String(), mock.AnythingOfType("string")).
+					Return(errors.New("database error"))
+			},
+			expect: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "updating password")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			userRepo := new(MockUserRepository)
+			tokenRepo := new(MockRefreshTokenRepository)
+			tokenSvc := new(MockTokenService)
+			authSvc := service.NewAuthService(userRepo, tokenRepo, tokenSvc)
+
+			tt.setup(userRepo, tt.input)
+
+			err := authSvc.ChangePassword(context.Background(), tt.input.userID, tt.input.currentPassword, tt.input.newPassword)
+
+			tt.expect(t, err)
+			userRepo.AssertExpectations(t)
+		})
+	}
+}
