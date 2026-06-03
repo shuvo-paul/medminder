@@ -801,6 +801,8 @@ func TestUnlinkOAuthAccount_DeadEndPrevention_NoPassword(t *testing.T) {
 		Return(oauthAccount, nil)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
 		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{oauthAccount}, nil)
 
 	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
 
@@ -838,7 +840,8 @@ func TestUnlinkOAuthAccount_DeadEndPrevention_OnlyProviderNoPassword(t *testing.
 		Return(oauthAccount, nil)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
 		Return(existingUser, nil)
-	// Note: GetOAuthAccountsByUserID is NOT called because password check fails first
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{oauthAccount}, nil)
 
 	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
 
@@ -846,6 +849,53 @@ func TestUnlinkOAuthAccount_DeadEndPrevention_OnlyProviderNoPassword(t *testing.
 	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
 	oauthRepo.AssertExpectations(t)
 	userRepo.AssertExpectations(t)
+}
+
+func TestUnlinkOAuthAccount_MultiProviderNoPassword(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	auditRepo := newMockAuditRepo()
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, auditRepo)
+
+	userID := uuid.New()
+	provider := "google"
+
+	existingUser := db.User{
+		ID:            userID,
+		Email:         "user@example.com",
+		DisplayName:   "Test User",
+		PasswordHash:  sql.NullString{String: "", Valid: false},
+		EmailVerified: sql.NullBool{Bool: true, Valid: true},
+	}
+
+	googleAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       "google",
+		ProviderUserID: "google-123",
+	}
+	githubAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         userID,
+		Provider:       "github",
+		ProviderUserID: "github-456",
+	}
+
+	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(googleAccount, nil)
+	userRepo.On("GetUserByID", mock.Anything, userID.String()).
+		Return(existingUser, nil)
+	oauthRepo.On("GetOAuthAccountsByUserID", mock.Anything, userID).
+		Return([]db.OauthAccount{googleAccount, githubAccount}, nil)
+	oauthRepo.On("DeleteOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
+		Return(nil)
+
+	err := oauthSvc.UnlinkOAuthAccount(context.Background(), userID, provider)
+
+	assert.NoError(t, err)
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
+	auditRepo.AssertCalled(t, "LogEvent", mock.Anything, "oauth_unlinked", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestGetUserOAuthProviders_Success(t *testing.T) {

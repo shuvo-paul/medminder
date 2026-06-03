@@ -238,18 +238,12 @@ func (s *oauthService) UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID,
 		return err
 	}
 
-	// Dead-end prevention: if password_hash is NULL, reject
-	if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
-		return ErrAccountWillBeLocked
-	}
-
-	// Check: if this is the user's ONLY login method (no other OAuth providers), reject
+	// Dead-end prevention: reject if unlinking the only login method
 	oauthAccounts, err := s.oauthAccountRepo.GetOAuthAccountsByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// If only one provider and we're removing it, check if user has password
 	if len(oauthAccounts) == 1 && oauthAccounts[0].Provider == provider {
 		if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
 			return ErrAccountWillBeLocked
