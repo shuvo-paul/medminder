@@ -15,7 +15,7 @@ A medication reminder application built with Go and SvelteKit (shadcn-svelte, Ta
 
 ```bash
 go mod download
-make web-install
+make web-deps
 make start        # Go API on :8080, Vite on :5173
 ```
 
