@@ -404,6 +404,10 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 					return nil, huma.Error403Forbidden(string(dto.OAuthErrorAccountLocked),
 						fmt.Errorf("account will be locked out"))
 				}
+				if errors.Is(err, service.ErrProviderAlreadyLinked) {
+					return nil, huma.Error409Conflict(string(dto.OAuthErrorLinkFailed),
+						fmt.Errorf("already linked to another account"))
+				}
 				log.Error("oauth_token_exchange_link_account_failed",
 					log.F("error", err.Error()),
 					log.F("provider", authCodeInfo.Provider),

@@ -152,6 +152,15 @@ func (s *oauthService) logAudit(ctx context.Context, eventType string, userID uu
 // If the user already has this provider linked with a different account, it replaces the link.
 // Returns ErrAccountWillBeLocked if linking would leave the user with no login method.
 func (s *oauthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error {
+	// Check if any other user already has this provider_user_id linked
+	ownerAccount, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, providerUserID)
+	if err == nil && ownerAccount.UserID != userID {
+		return ErrProviderAlreadyLinked
+	}
+	if err != nil && !errors.Is(err, repository.ErrOAuthAccountNotFound) {
+		return err
+	}
+
 	// Check if user already has this provider linked
 	existingAccount, err := s.oauthAccountRepo.GetOAuthAccountByUserIDAndProvider(ctx, userID, provider)
 	accountExists := !errors.Is(err, repository.ErrOAuthAccountNotFound)

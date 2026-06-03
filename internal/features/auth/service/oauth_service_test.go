@@ -546,6 +546,8 @@ func TestLinkOAuthAccount_Success(t *testing.T) {
 		EmailVerified: sql.NullBool{Bool: true, Valid: true},
 	}
 
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
 	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
 		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
@@ -589,6 +591,8 @@ func TestLinkOAuthAccount_UpsertReplacesOldLink(t *testing.T) {
 		ProviderUserID: oldProviderUserID,
 	}
 
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, newProviderUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
 	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
 		Return(existingOAuthAccount, nil)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
@@ -632,6 +636,8 @@ func TestLinkOAuthAccount_DeadEndPrevention_NoPasswordSingleProvider(t *testing.
 		ProviderUserID: providerUserID,
 	}
 
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(existingOAuthAccount, nil)
 	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
 		Return(existingOAuthAccount, nil)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
@@ -664,6 +670,8 @@ func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testi
 		EmailVerified: sql.NullBool{Bool: true, Valid: true},
 	}
 
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
 	oauthRepo.On("GetOAuthAccountByUserIDAndProvider", mock.Anything, userID, provider).
 		Return(db.OauthAccount{}, repository.ErrOAuthAccountNotFound)
 	userRepo.On("GetUserByID", mock.Anything, userID.String()).
@@ -675,6 +683,34 @@ func TestLinkOAuthAccount_DeadEndPrevention_NewLinkWouldLeaveNoPassword(t *testi
 
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, service.ErrAccountWillBeLocked))
+}
+
+func TestLinkOAuthAccount_ProviderAlreadyLinkedToOtherUser(t *testing.T) {
+	userRepo := new(MockOAuthUserRepository)
+	oauthRepo := new(MockOAuthAccountRepository)
+	oauthSvc := service.NewOAuthService(userRepo, oauthRepo, newMockAuditRepo())
+
+	userID := uuid.New()
+	differentUserID := uuid.New()
+	provider := "google"
+	providerUserID := "google-123"
+
+	ownedAccount := db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         differentUserID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
+
+	oauthRepo.On("GetOAuthAccountByProviderAndUserID", mock.Anything, provider, providerUserID).
+		Return(ownedAccount, nil)
+
+	err := oauthSvc.LinkOAuthAccount(context.Background(), userID, provider, providerUserID)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, service.ErrProviderAlreadyLinked))
+	oauthRepo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
 }
 
 func TestUnlinkOAuthAccount_Success(t *testing.T) {
