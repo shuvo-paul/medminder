@@ -2,6 +2,7 @@ package dto
 
 import (
 	"errors"
+	"time"
 
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 )
@@ -148,6 +149,9 @@ type ProvidersResponse struct {
 type OAuthLinkInitInput struct {
 	Authorization string `header:"Authorization"`
 	Provider      string `path:"provider" doc:"OAuth provider identifier (e.g., google)"`
+	Body          struct {
+		Redirect string `json:"redirect" doc:"Where to return after linking (e.g., /profile)"`
+	}
 }
 
 // OAuthLinkInitResponse represents the response for initiating an OAuth link flow.
@@ -202,6 +206,57 @@ type OAuthCallbackInput struct {
 type OAuthCallbackOutput struct {
 	Redirect string `header:"Location"` // Redirect URL after callback
 	Status   int    `status:"302"`      // HTTP redirect status code
+}
+
+// OAuthAccountsInput represents the input for listing linked OAuth accounts.
+// This endpoint is authenticated via Bearer token in Authorization header.
+type OAuthAccountsInput struct {
+	Authorization string `header:"Authorization"`
+}
+
+// OAuthLinkedAccount represents a single linked OAuth provider account.
+type OAuthLinkedAccount struct {
+	ID             string    `json:"id"`
+	Provider       string    `json:"provider"`
+	ProviderUserID string    `json:"provider_user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	ProviderName   string    `json:"provider_name"`
+}
+
+// OAuthAccountsResponse represents the response for listing linked OAuth accounts.
+type OAuthAccountsResponse struct {
+	Body struct {
+		Accounts    []OAuthLinkedAccount `json:"accounts"`
+		HasPassword bool                 `json:"has_password"`
+	}
+}
+
+// OAuthUnlinkInput represents the input for unlinking an OAuth provider.
+type OAuthUnlinkInput struct {
+	Authorization string `header:"Authorization"`
+	Provider      string `path:"provider" doc:"OAuth provider identifier (e.g., google)"`
+}
+
+// OAuthUnlinkOutput represents the output for unlinking an OAuth provider.
+type OAuthUnlinkOutput struct {
+	Body struct {
+		Message string `json:"message" doc:"Success message"`
+	}
+}
+
+// OAuthLinkStatusInput represents the input for checking OAuth link status.
+type OAuthLinkStatusInput struct {
+	Authorization string `header:"Authorization"`
+	Provider      string `path:"provider" doc:"OAuth provider identifier (e.g., google)"`
+}
+
+// OAuthLinkStatusResponse represents the response for checking OAuth link status.
+type OAuthLinkStatusResponse struct {
+	Body struct {
+		Linked      bool `json:"linked"`
+		CanUnlink   bool `json:"can_unlink"`
+		HasPassword bool `json:"has_password"`
+	}
 }
 
 // ParseOAuthState parses the OAuth state from a string.

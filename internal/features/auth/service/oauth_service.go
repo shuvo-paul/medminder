@@ -21,6 +21,7 @@ type OAuthService interface {
 	LinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error
 	UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider string) error
 	GetUserOAuthProviders(ctx context.Context, userID uuid.UUID) ([]string, error)
+	HasPassword(ctx context.Context, userID uuid.UUID) (bool, error)
 	CanUnlinkProvider(ctx context.Context, userID uuid.UUID, provider string) (bool, error)
 }
 
@@ -112,6 +113,14 @@ func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUse
 	return s.toOAuthUser(&user), nil
 }
 
+func (s *oauthService) HasPassword(ctx context.Context, userID uuid.UUID) (bool, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID.String())
+	if err != nil {
+		return false, err
+	}
+	return user.PasswordHash.Valid && user.PasswordHash.String != "", nil
+}
+
 func (s *oauthService) toOAuthUser(user *db.User) *OAuthUser {
 	return &OAuthUser{
 		ID:            user.ID,
@@ -143,6 +152,15 @@ func (s *oauthService) logAudit(ctx context.Context, eventType string, userID uu
 // If the user already has this provider linked with a different account, it replaces the link.
 // Returns ErrAccountWillBeLocked if linking would leave the user with no login method.
 func (s *oauthService) LinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error {
+	// Check if any other user already has this provider_user_id linked
+	ownerAccount, err := s.oauthAccountRepo.GetOAuthAccountByProviderAndUserID(ctx, provider, providerUserID)
+	if err == nil && ownerAccount.UserID != userID {
+		return ErrProviderAlreadyLinked
+	}
+	if err != nil && !errors.Is(err, repository.ErrOAuthAccountNotFound) {
+		return err
+	}
+
 	// Check if user already has this provider linked
 	existingAccount, err := s.oauthAccountRepo.GetOAuthAccountByUserIDAndProvider(ctx, userID, provider)
 	accountExists := !errors.Is(err, repository.ErrOAuthAccountNotFound)
@@ -220,18 +238,12 @@ func (s *oauthService) UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID,
 		return err
 	}
 
-	// Dead-end prevention: if password_hash is NULL, reject
-	if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
-		return ErrAccountWillBeLocked
-	}
-
-	// Check: if this is the user's ONLY login method (no other OAuth providers), reject
+	// Dead-end prevention: reject if unlinking the only login method
 	oauthAccounts, err := s.oauthAccountRepo.GetOAuthAccountsByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// If only one provider and we're removing it, check if user has password
 	if len(oauthAccounts) == 1 && oauthAccounts[0].Provider == provider {
 		if !user.PasswordHash.Valid || user.PasswordHash.String == "" {
 			return ErrAccountWillBeLocked

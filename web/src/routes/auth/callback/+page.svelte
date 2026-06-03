@@ -38,6 +38,7 @@
 			if (!res.ok) {
 				const data = await res.json();
 				let redirect = '/login';
+				let email = '';
 				try {
 					const decoded = base64UrlToStandard(state);
 					const parsed = JSON.parse(atob(decoded));
@@ -45,8 +46,29 @@
 				} catch (e) {
 					// State unreadable — fall back to /login.
 				}
-				const errCode = data.title || data.detail || 'unknown_error';
-				goto(`${redirect}?oauth_error=${errCode}&provider=google`);
+				const errCode = data.detail || data.title || 'unknown_error';
+
+				// Try to extract email from errors for email_exists
+				if (errCode === 'email_exists') {
+					try {
+						const msg = data.errors?.[0]?.message;
+						if (msg) {
+							const parsed = JSON.parse(msg);
+							email = parsed.email || '';
+						}
+					} catch {
+						// Could not extract email from error
+					}
+				}
+
+				const params = new URLSearchParams({ oauth_error: errCode, provider: 'google' });
+				if (email) params.set('email', email);
+
+				if (errCode === 'link_failed') {
+					const errorMsg = data.errors?.[0]?.message;
+					if (errorMsg) params.set('oauth_message', errorMsg);
+				}
+				goto(`${redirect}?${params.toString()}`);
 				return;
 			}
 
