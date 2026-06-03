@@ -132,6 +132,11 @@ func (m *MockOAuthService) CanUnlinkProvider(ctx context.Context, userID uuid.UU
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockOAuthService) HasPassword(ctx context.Context, userID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, userID)
+	return args.Bool(0), args.Error(1)
+}
+
 type MockRefreshTokenRepository struct {
 	mock.Mock
 }
@@ -167,6 +172,11 @@ func (m *MockOAuthAuthorizationCodeRepository) CreateAuthorizationCode(ctx conte
 
 func (m *MockOAuthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfo(ctx context.Context, id uuid.UUID, codeHash string, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error) {
 	args := m.Called(ctx, id, codeHash, nonce, purpose, expiresAt, provider, providerUserID, providerEmail, providerName, providerEmailVerified)
+	return args.Get(0).(db.OauthAuthorizationCode), args.Error(1)
+}
+
+func (m *MockOAuthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfoForLink(ctx context.Context, id uuid.UUID, codeHash string, userID uuid.UUID, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error) {
+	args := m.Called(ctx, id, codeHash, userID, nonce, purpose, expiresAt, provider, providerUserID, providerEmail, providerName, providerEmailVerified)
 	return args.Get(0).(db.OauthAuthorizationCode), args.Error(1)
 }
 

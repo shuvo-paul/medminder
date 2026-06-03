@@ -35,6 +35,7 @@ type AuthorizationCodeInfo struct {
 type OAuthAuthorizationCodeRepository interface {
 	CreateAuthorizationCode(ctx context.Context, id uuid.UUID, codeHash string, userID uuid.NullUUID, nonce string, purpose string, expiresAt time.Time) (db.OauthAuthorizationCode, error)
 	CreateAuthorizationCodeWithUserInfo(ctx context.Context, id uuid.UUID, codeHash string, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error)
+	CreateAuthorizationCodeWithUserInfoForLink(ctx context.Context, id uuid.UUID, codeHash string, userID uuid.UUID, nonce string, purpose string, expiresAt time.Time, provider string, providerUserID string, providerEmail string, providerName string, providerEmailVerified bool) (db.OauthAuthorizationCode, error)
 	GetAuthorizationCodeByHash(ctx context.Context, codeHash string) (db.OauthAuthorizationCode, error)
 	GetAuthorizationCodeByNonceAndPurpose(ctx context.Context, nonce, purpose string) (db.OauthAuthorizationCode, error)
 	GetAndLockAuthorizationCode(ctx context.Context, codeHash string) (*AuthorizationCodeInfo, error)
@@ -58,6 +59,7 @@ func (r *oauthAccountRepository) CreateOAuthAccount(ctx context.Context, id uuid
 		UserID:         userID,
 		Provider:       provider,
 		ProviderUserID: providerUserID,
+		CreatedAt:      sql.NullTime{Time: time.Now(), Valid: true},
 	})
 }
 
@@ -136,6 +138,39 @@ func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfo(c
 	var code db.OauthAuthorizationCode
 	err := r.db.QueryRowContext(ctx, query,
 		id, codeHash, nonce, purpose, expiresAt,
+		provider, providerUserID, providerEmail, providerName, providerEmailVerified,
+	).Scan(
+		&code.ID, &code.CodeHash, &code.UserID, &code.Nonce, &code.Purpose,
+		&code.ExpiresAt, &code.UsedAt, &code.CreatedAt,
+	)
+	if err != nil {
+		return db.OauthAuthorizationCode{}, err
+	}
+	return code, nil
+}
+
+func (r *oauthAuthorizationCodeRepository) CreateAuthorizationCodeWithUserInfoForLink(
+	ctx context.Context,
+	id uuid.UUID,
+	codeHash string,
+	userID uuid.UUID,
+	nonce string,
+	purpose string,
+	expiresAt time.Time,
+	provider string,
+	providerUserID string,
+	providerEmail string,
+	providerName string,
+	providerEmailVerified bool,
+) (db.OauthAuthorizationCode, error) {
+	const query = `
+		INSERT INTO oauth_authorization_codes (id, code_hash, user_id, nonce, purpose, expires_at, created_at, provider, provider_user_id, provider_email, provider_name, provider_email_verified)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11)
+		RETURNING id, code_hash, user_id, nonce, purpose, expires_at, used_at, created_at
+	`
+	var code db.OauthAuthorizationCode
+	err := r.db.QueryRowContext(ctx, query,
+		id, codeHash, userID, nonce, purpose, expiresAt,
 		provider, providerUserID, providerEmail, providerName, providerEmailVerified,
 	).Scan(
 		&code.ID, &code.CodeHash, &code.UserID, &code.Nonce, &code.Purpose,

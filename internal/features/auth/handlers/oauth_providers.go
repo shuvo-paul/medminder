@@ -182,6 +182,42 @@ func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuth
 			{"bearer": {}},
 		},
 	}, OAuthLinkInitHandler(deps))
+
+	// List linked OAuth accounts - authenticated
+	huma.Register(api, huma.Operation{
+		OperationID: "list-oauth-accounts",
+		Method:      http.MethodGet,
+		Path:        "/api/auth/oauth/accounts",
+		Summary:     "List linked OAuth accounts",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, OAuthAccountsHandler(deps))
+
+	// Unlink OAuth account - authenticated
+	huma.Register(api, huma.Operation{
+		OperationID: "unlink-oauth-account",
+		Method:      http.MethodDelete,
+		Path:        "/api/auth/oauth/accounts/{provider}",
+		Summary:     "Unlink an OAuth provider",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, OAuthUnlinkHandler(deps))
+
+	// OAuth link status - authenticated
+	huma.Register(api, huma.Operation{
+		OperationID: "oauth-link-status",
+		Method:      http.MethodGet,
+		Path:        "/api/auth/oauth/accounts/{provider}/status",
+		Summary:     "Check OAuth link status for a provider",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, OAuthLinkStatusHandler(deps))
 }
 
 // isValidRedirect checks if the redirect URL is a relative path or a trusted domain.
@@ -259,21 +295,49 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 
 		// Store in database (5-minute expiry, SHA-256 hashed)
 		expiresAt := time.Now().Add(oauthAuthCodeExpiry)
-		_, err = deps.AuthCodeRepo.CreateAuthorizationCodeWithUserInfo(
-			ctx,
-			uuid.New(),
-			codeHash,
-			state.Nonce,
-			state.Purpose,
-			expiresAt,
-			input.Provider,
-			userInfo.ProviderUserID,
-			userInfo.Email,
-			userInfo.Name,
-			userInfo.EmailVerified,
-		)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to store authorization code", err)
+
+		if state.Purpose == "link" {
+			// Link flow: find the original code (created by OAuthLinkInitHandler)
+			// to associate the provider account with the authenticated user.
+			originalCode, err := deps.AuthCodeRepo.GetAuthorizationCodeByNonceAndPurpose(ctx, state.Nonce, "link")
+			if err != nil || !originalCode.UserID.Valid {
+				return nil, huma.Error500InternalServerError("failed to find original authorization code for linking", err)
+			}
+
+			_, err = deps.AuthCodeRepo.CreateAuthorizationCodeWithUserInfoForLink(
+				ctx,
+				uuid.New(),
+				codeHash,
+				originalCode.UserID.UUID,
+				state.Nonce,
+				state.Purpose,
+				expiresAt,
+				input.Provider,
+				userInfo.ProviderUserID,
+				userInfo.Email,
+				userInfo.Name,
+				userInfo.EmailVerified,
+			)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to store authorization code for linking", err)
+			}
+		} else {
+			_, err = deps.AuthCodeRepo.CreateAuthorizationCodeWithUserInfo(
+				ctx,
+				uuid.New(),
+				codeHash,
+				state.Nonce,
+				state.Purpose,
+				expiresAt,
+				input.Provider,
+				userInfo.ProviderUserID,
+				userInfo.Email,
+				userInfo.Name,
+				userInfo.EmailVerified,
+			)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to store authorization code", err)
+			}
 		}
 
 		// Encode original state base64url to pass back to frontend
@@ -324,29 +388,61 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 				fmt.Errorf("state nonce mismatch"))
 		}
 
-		// Get or create user by OAuth
-		oauthUser, err := deps.OAuthSvc.GetOrCreateUserByOAuth(ctx, authCodeInfo.Provider, &oauth.UserInfo{
-			ProviderUserID: authCodeInfo.ProviderUserID,
-			Email:          authCodeInfo.ProviderEmail,
-			EmailVerified:  authCodeInfo.ProviderEmailVerified,
-			Name:           authCodeInfo.ProviderName,
-		})
-		if err != nil {
-			// Mark code as used even on error to prevent further attempts
-			_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
+		var oauthUser *service.OAuthUser
 
-			if errors.Is(err, service.ErrEmailExists) {
-				logOAuthLoginFailed(ctx, deps.AuditRepo, authCodeInfo.Provider, authCodeInfo.ProviderEmail)
-				return nil, huma.Error409Conflict(string(dto.OAuthErrorEmailExists),
-					fmt.Errorf("email already exists"))
+		if authCodeInfo.Purpose == "link" {
+			// Link flow: associate the provider account with the existing user.
+			if !authCodeInfo.UserID.Valid {
+				_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
+				return nil, huma.Error500InternalServerError("invalid authorization code", errors.New("missing user binding"))
 			}
-			log.Error("oauth_token_exchange_get_or_create_user_failed",
-				log.F("error", err.Error()),
-				log.F("provider", authCodeInfo.Provider),
-				log.F("provider_user_id", authCodeInfo.ProviderUserID),
-				log.F("provider_email", authCodeInfo.ProviderEmail),
-			)
-			return nil, huma.Error500InternalServerError("authentication failed", err)
+
+			if err := deps.OAuthSvc.LinkOAuthAccount(ctx, authCodeInfo.UserID.UUID, authCodeInfo.Provider, authCodeInfo.ProviderUserID); err != nil {
+				_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
+
+				if errors.Is(err, service.ErrAccountWillBeLocked) {
+					return nil, huma.Error403Forbidden(string(dto.OAuthErrorAccountLocked),
+						fmt.Errorf("account will be locked out"))
+				}
+				log.Error("oauth_token_exchange_link_account_failed",
+					log.F("error", err.Error()),
+					log.F("provider", authCodeInfo.Provider),
+					log.F("provider_user_id", authCodeInfo.ProviderUserID),
+				)
+				return nil, huma.Error500InternalServerError("failed to link account", err)
+			}
+
+			// Fetch the user to generate tokens
+			user, err := deps.OAuthSvc.GetUserByOAuth(ctx, authCodeInfo.Provider, authCodeInfo.ProviderUserID)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to get user", err)
+			}
+			oauthUser = user
+		} else {
+			// Login/register flow: get or create user by OAuth
+			oauthUser, err = deps.OAuthSvc.GetOrCreateUserByOAuth(ctx, authCodeInfo.Provider, &oauth.UserInfo{
+				ProviderUserID: authCodeInfo.ProviderUserID,
+				Email:          authCodeInfo.ProviderEmail,
+				EmailVerified:  authCodeInfo.ProviderEmailVerified,
+				Name:           authCodeInfo.ProviderName,
+			})
+			if err != nil {
+				// Mark code as used even on error to prevent further attempts
+				_, _ = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
+
+				if errors.Is(err, service.ErrEmailExists) {
+					logOAuthLoginFailed(ctx, deps.AuditRepo, authCodeInfo.Provider, authCodeInfo.ProviderEmail)
+					return nil, huma.Error409Conflict(string(dto.OAuthErrorEmailExists),
+						fmt.Errorf(`{"email":"%s","provider":"%s"}`, authCodeInfo.ProviderEmail, authCodeInfo.Provider))
+				}
+				log.Error("oauth_token_exchange_get_or_create_user_failed",
+					log.F("error", err.Error()),
+					log.F("provider", authCodeInfo.Provider),
+					log.F("provider_user_id", authCodeInfo.ProviderUserID),
+					log.F("provider_email", authCodeInfo.ProviderEmail),
+				)
+				return nil, huma.Error500InternalServerError("authentication failed", err)
+			}
 		}
 
 		// Mark authorization code as used (one-time use)
@@ -495,10 +591,18 @@ func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		}
 		nonce := hex.EncodeToString(nonceBytes)
 
-		// Create state with purpose="link" (no redirect needed for linking)
+		// Validate redirect if provided
+		redirect := input.Body.Redirect
+		if redirect != "" && !isValidRedirect(redirect) {
+			return nil, huma.Error400BadRequest("invalid redirect URL", errors.New("redirect must be a relative path"))
+		}
+		if redirect == "" {
+			redirect = "/profile"
+		}
+
 		state := dto.OAuthState{
 			Nonce:    nonce,
-			Redirect: "",
+			Redirect: redirect,
 			Purpose:  "link",
 		}
 		encodedState := state.Encode()
@@ -557,6 +661,129 @@ func SetPasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServi
 			Body: struct {
 				Message string `json:"message" doc:"Success message"`
 			}{Message: "password set successfully"},
+		}, nil
+	}
+}
+
+// OAuthAccountsHandler returns a handler that lists all OAuth accounts linked to the user.
+// GET /api/auth/oauth/accounts (authenticated)
+func OAuthAccountsHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthAccountsInput) (*dto.OAuthAccountsResponse, error) {
+	return func(ctx context.Context, input *dto.OAuthAccountsInput) (*dto.OAuthAccountsResponse, error) {
+		userID, err := ExtractUserIDFromAuth(input.Authorization, deps.TokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		providers, err := deps.OAuthSvc.GetUserOAuthProviders(ctx, userID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get linked accounts", err)
+		}
+
+		hasPassword, err := deps.OAuthSvc.HasPassword(ctx, userID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get user info", err)
+		}
+
+		allProviders := oauth.GetProviders()
+		providerNames := make(map[string]string)
+		for _, p := range allProviders {
+			providerNames[p.ID] = p.Name
+		}
+
+		accounts := make([]dto.OAuthLinkedAccount, len(providers))
+		for i, p := range providers {
+			providerName := providerNames[p]
+			if providerName == "" {
+				providerName = p
+			}
+			accounts[i] = dto.OAuthLinkedAccount{
+				ID:           "",
+				Provider:     p,
+				ProviderName: providerName,
+			}
+		}
+
+		return &dto.OAuthAccountsResponse{
+			Body: struct {
+				Accounts    []dto.OAuthLinkedAccount `json:"accounts"`
+				HasPassword bool                     `json:"has_password"`
+			}{Accounts: accounts, HasPassword: hasPassword},
+		}, nil
+	}
+}
+
+// OAuthUnlinkHandler returns a handler that unlinks an OAuth provider from the user.
+// DELETE /api/auth/oauth/accounts/{provider} (authenticated)
+func OAuthUnlinkHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthUnlinkInput) (*dto.OAuthUnlinkOutput, error) {
+	return func(ctx context.Context, input *dto.OAuthUnlinkInput) (*dto.OAuthUnlinkOutput, error) {
+		userID, err := ExtractUserIDFromAuth(input.Authorization, deps.TokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := deps.OAuthSvc.UnlinkOAuthAccount(ctx, userID, input.Provider); err != nil {
+			if errors.Is(err, repository.ErrOAuthAccountNotFound) {
+				return nil, huma.Error404NotFound("account not linked", err)
+			}
+			if errors.Is(err, service.ErrAccountWillBeLocked) {
+				return nil, huma.Error403Forbidden("cannot unlink last login method", err)
+			}
+			return nil, huma.Error500InternalServerError("failed to unlink account", err)
+		}
+
+		return &dto.OAuthUnlinkOutput{
+			Body: struct {
+				Message string `json:"message" doc:"Success message"`
+			}{Message: "provider unlinked successfully"},
+		}, nil
+	}
+}
+
+// OAuthLinkStatusHandler returns a handler that checks the OAuth link status for a provider.
+// GET /api/auth/oauth/accounts/{provider}/status (authenticated)
+func OAuthLinkStatusHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthLinkStatusInput) (*dto.OAuthLinkStatusResponse, error) {
+	return func(ctx context.Context, input *dto.OAuthLinkStatusInput) (*dto.OAuthLinkStatusResponse, error) {
+		userID, err := ExtractUserIDFromAuth(input.Authorization, deps.TokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		providers, err := deps.OAuthSvc.GetUserOAuthProviders(ctx, userID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get linked accounts", err)
+		}
+
+		linked := false
+		for _, p := range providers {
+			if p == input.Provider {
+				linked = true
+				break
+			}
+		}
+
+		canUnlink := false
+		if linked {
+			canUnlink, err = deps.OAuthSvc.CanUnlinkProvider(ctx, userID, input.Provider)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to check unlink status", err)
+			}
+		}
+
+		hasPassword, err := deps.OAuthSvc.HasPassword(ctx, userID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get user info", err)
+		}
+
+		return &dto.OAuthLinkStatusResponse{
+			Body: struct {
+				Linked      bool `json:"linked"`
+				CanUnlink   bool `json:"can_unlink"`
+				HasPassword bool `json:"has_password"`
+			}{
+				Linked:      linked,
+				CanUnlink:   canUnlink,
+				HasPassword: hasPassword,
+			},
 		}, nil
 	}
 }

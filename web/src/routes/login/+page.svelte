@@ -3,8 +3,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Eye, EyeOff } from '@lucide/svelte';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import { goto } from '$app/navigation';
+
+	const urlParams = $derived($page.url.searchParams);
+	const oauthError = $derived(urlParams.get('oauth_error'));
+	const oauthProvider = $derived(urlParams.get('provider') || 'google');
 
 	let email = $state('');
 	let password = $state('');
@@ -14,10 +20,19 @@
 	let isLoading = $state(false);
 	let generalError = $state('');
 
-	const showResetSuccess = $derived($page.url.searchParams.get('reset') === 'success');
+	const showResetSuccess = $derived(urlParams.get('reset') === 'success');
+	const showOAuthExistsError = $derived(oauthError === 'email_exists');
+	const showOAuthCancelled = $derived(oauthError === 'cancelled');
+	const providerLabel = $derived(oauthProvider === 'google' ? 'Google' : oauthProvider);
 
-	if (typeof window !== 'undefined' && localStorage.getItem('access_token')) {
-		goto('/');
+	if (typeof window !== 'undefined') {
+		if (localStorage.getItem('access_token')) {
+			goto('/');
+		}
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('oauth_error') === 'email_exists') {
+			email = params.get('email') || '';
+		}
 	}
 
 	function validateForm(): boolean {
@@ -97,6 +112,24 @@
 			<div class="mb-4 rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
 				Password reset successful. You can now sign in with your new password.
 			</div>
+		{/if}
+
+		{#if showOAuthCancelled}
+			<Alert class="mb-4">
+				<TriangleAlert class="h-4 w-4" />
+				<AlertTitle>Sign in cancelled</AlertTitle>
+				<AlertDescription>You cancelled signing in with {providerLabel}. Please try again or use a different method.</AlertDescription>
+			</Alert>
+		{/if}
+
+		{#if showOAuthExistsError}
+			<Alert variant="destructive" class="mb-4">
+				<TriangleAlert class="h-4 w-4" />
+				<AlertTitle>Account already exists</AlertTitle>
+				<AlertDescription>
+					An account with this email already exists. Sign in with your password to link your {providerLabel} account.
+				</AlertDescription>
+			</Alert>
 		{/if}
 
 		<form onsubmit={handleSubmit} class="space-y-5">

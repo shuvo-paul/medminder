@@ -38,6 +38,7 @@
 			if (!res.ok) {
 				const data = await res.json();
 				let redirect = '/login';
+				let email = '';
 				try {
 					const decoded = base64UrlToStandard(state);
 					const parsed = JSON.parse(atob(decoded));
@@ -46,7 +47,20 @@
 					// State unreadable — fall back to /login.
 				}
 				const errCode = data.title || data.detail || 'unknown_error';
-				goto(`${redirect}?oauth_error=${errCode}&provider=google`);
+
+				// Try to extract email from error detail for email_exists
+				if (errCode === 'email_exists' && data.detail) {
+					try {
+						const detail = JSON.parse(data.detail);
+						email = detail.email || '';
+					} catch {
+						// detail is just a string, not JSON
+					}
+				}
+
+				const params = new URLSearchParams({ oauth_error: errCode, provider: 'google' });
+				if (email) params.set('email', email);
+				goto(`${redirect}?${params.toString()}`);
 				return;
 			}
 

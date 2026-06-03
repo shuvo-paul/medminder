@@ -21,6 +21,7 @@ type OAuthService interface {
 	LinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error
 	UnlinkOAuthAccount(ctx context.Context, userID uuid.UUID, provider string) error
 	GetUserOAuthProviders(ctx context.Context, userID uuid.UUID) ([]string, error)
+	HasPassword(ctx context.Context, userID uuid.UUID) (bool, error)
 	CanUnlinkProvider(ctx context.Context, userID uuid.UUID, provider string) (bool, error)
 }
 
@@ -110,6 +111,14 @@ func (s *oauthService) GetUserByOAuth(ctx context.Context, provider, providerUse
 	}
 
 	return s.toOAuthUser(&user), nil
+}
+
+func (s *oauthService) HasPassword(ctx context.Context, userID uuid.UUID) (bool, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID.String())
+	if err != nil {
+		return false, err
+	}
+	return user.PasswordHash.Valid && user.PasswordHash.String != "", nil
 }
 
 func (s *oauthService) toOAuthUser(user *db.User) *OAuthUser {

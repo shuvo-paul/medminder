@@ -1,17 +1,157 @@
 <script lang="ts">
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { toast } from 'svelte-sonner';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Dialog } from '$lib/components/ui/dialog';
 	import UserRound from '@lucide/svelte/icons/user-round';
-	import { goto } from '$app/navigation';
+	import Globe from '@lucide/svelte/icons/globe';
+	import Unlink from '@lucide/svelte/icons/unlink';
+	import Link from '@lucide/svelte/icons/link';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
 
-	async function handleLogout() {
-		const token = localStorage.getItem('access_token');
-		if (token) {
-			await fetch('/api/auth/logout', {
+	const urlParams = $derived($page.url.searchParams);
+	const linkedProvider = $derived(urlParams.get('linked'));
+	const oauthError = $derived(urlParams.get('oauth_error'));
+
+	let accounts = $state<string[]>([]);
+	let hasPassword = $state(false);
+	let isLoading = $state(true);
+	let unlinkProvider = $state<string | null>(null);
+	let isUnlinking = $state(false);
+	let unlinkError = $state('');
+
+	let showSetPassword = $state(false);
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let showPassword = $state(false);
+	let isSettingPassword = $state(false);
+	let passwordError = $state('');
+
+	function getToken() {
+		return localStorage.getItem('access_token') || '';
+	}
+
+	async function fetchAccounts() {
+		isLoading = true;
+		try {
+			const res = await fetch('/api/auth/oauth/accounts', {
+				headers: { Authorization: `Bearer ${getToken()}` },
+			});
+			if (res.ok) {
+				const data = await res.json();
+				accounts = data.accounts?.map((a: { provider: string }) => a.provider) || [];
+				hasPassword = data.has_password || false;
+			}
+		} catch (e) {
+			console.error('Failed to fetch accounts', e);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function handleLinkOAuth(provider: string) {
+		try {
+			const res = await fetch(`/api/auth/oauth/${provider}/init`, {
 				method: 'POST',
 				headers: {
-					Authorization: `Bearer ${token}`,
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${getToken()}`,
 				},
+				body: JSON.stringify({ redirect: '/profile' }),
+			});
+			if (!res.ok) {
+				toast.error('Failed to initiate link');
+				return;
+			}
+			const data = await res.json();
+			const state = data.state;
+			window.location.href = `/api/auth/oauth/${provider}?state=${encodeURIComponent(state)}`;
+		} catch {
+			toast.error('Network error');
+		}
+	}
+
+	async function handleUnlink() {
+		if (!unlinkProvider) return;
+		isUnlinking = true;
+		unlinkError = '';
+		try {
+			const res = await fetch(`/api/auth/oauth/accounts/${unlinkProvider}`, {
+				method: 'DELETE',
+				headers: { Authorization: `Bearer ${getToken()}` },
+			});
+			if (res.ok) {
+				toast.success(`${unlinkProvider.charAt(0).toUpperCase() + unlinkProvider.slice(1)} account unlinked`);
+				unlinkProvider = null;
+				await fetchAccounts();
+			} else if (res.status === 403) {
+				unlinkError = 'Cannot unlink your last login method. Set a password first.';
+			} else {
+				const data = await res.json();
+				unlinkError = data.detail || 'Failed to unlink';
+			}
+		} catch {
+			unlinkError = 'Network error';
+		} finally {
+			isUnlinking = false;
+		}
+	}
+
+	async function handleSetPassword() {
+		passwordError = '';
+		if (newPassword.length < 8) {
+			passwordError = 'Password must be at least 8 characters';
+			return;
+		}
+		if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+			passwordError = 'Password must contain uppercase, lowercase, and number';
+			return;
+		}
+		if (newPassword !== confirmPassword) {
+			passwordError = 'Passwords do not match';
+			return;
+		}
+
+		isSettingPassword = true;
+		try {
+			const res = await fetch('/api/auth/password/set', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${getToken()}`,
+				},
+				body: JSON.stringify({ password: newPassword }),
+			});
+			if (res.ok) {
+				toast.success('Password set successfully');
+				hasPassword = true;
+				showSetPassword = false;
+				newPassword = '';
+				confirmPassword = '';
+			} else {
+				const data = await res.json();
+				passwordError = data.detail || 'Failed to set password';
+			}
+		} catch {
+			passwordError = 'Network error';
+		} finally {
+			isSettingPassword = false;
+		}
+	}
+
+	function handleLogout() {
+		const token = getToken();
+		if (token) {
+			fetch('/api/auth/logout', {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` },
 			});
 		}
 		localStorage.removeItem('access_token');
@@ -20,30 +160,217 @@
 		localStorage.removeItem('remember_me');
 		goto('/login');
 	}
+
+	// Fetch accounts on load
+	$effect(() => {
+		fetchAccounts();
+	});
+
+	// Show toast for successful link
+	$effect(() => {
+		if (linkedProvider) {
+			toast.success(`${linkedProvider.charAt(0).toUpperCase() + linkedProvider.slice(1)} account linked successfully`);
+			// Clean URL
+			const url = new URL(window.location.href);
+			url.searchParams.delete('linked');
+			window.history.replaceState({}, '', url.toString());
+		}
+	});
+
+	// Show error toast for OAuth errors
+	$effect(() => {
+		if (oauthError) {
+			const provider = urlParams.get('provider') || '';
+			if (oauthError === 'cancelled') {
+				toast.error('Linking cancelled');
+			} else if (oauthError === 'invalid_state') {
+				toast.error('Session expired. Please try again.');
+			} else if (oauthError === 'link_failed') {
+				toast.error('Failed to link account');
+			} else if (oauthError === 'account_locked') {
+				toast.error('Cannot link — set a password first to avoid losing access');
+			}
+			// Clean URL
+			const url = new URL(window.location.href);
+			url.searchParams.delete('oauth_error');
+			url.searchParams.delete('provider');
+			window.history.replaceState({}, '', url.toString());
+		}
+	});
+
+	const linkedAccounts = $derived(accounts);
+	const isGoogleLinked = $derived(linkedAccounts.includes('google'));
 </script>
 
 <div class="px-4 py-6">
 	<header class="mb-6">
-		<h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
-		<p class="text-sm text-muted-foreground">Account &amp; settings</p>
+		<h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+		<p class="text-sm text-muted-foreground">Account &amp; security</p>
 	</header>
 
-	<Card>
-		<CardContent class="flex flex-col items-center gap-4 py-12 text-center">
-			<div class="rounded-full bg-muted p-4">
-				<UserRound class="size-8 text-muted-foreground" />
+	<!-- OAuth Accounts -->
+	<Card class="mb-4">
+		<CardHeader>
+			<CardTitle class="text-base">Connected Accounts</CardTitle>
+			<CardDescription>Link your Google account for quick sign-in</CardDescription>
+		</CardHeader>
+		<CardContent class="space-y-3">
+			<div class="flex items-center justify-between rounded-lg border p-3">
+				<div class="flex items-center gap-3">
+					<Globe class="size-5 text-muted-foreground" />
+					<div>
+						<p class="text-sm font-medium">Google</p>
+						<p class="text-xs text-muted-foreground">
+							{isGoogleLinked ? 'Connected' : 'Not connected'}
+						</p>
+					</div>
+				</div>
+				<div class="flex gap-2">
+					{#if isGoogleLinked}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => (unlinkProvider = 'google')}
+						>
+							<Unlink class="mr-1 size-3" />
+							Unlink
+						</Button>
+					{:else}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => handleLinkOAuth('google')}
+							disabled={isLoading}
+						>
+							<Link class="mr-1 size-3" />
+							Link
+						</Button>
+					{/if}
+				</div>
 			</div>
-			<div>
-				<CardTitle class="text-base">Set up your profile</CardTitle>
-				<CardDescription class="mt-1">Personalize your MedMinder experience.</CardDescription>
-			</div>
-			<Button variant="outline">Edit Profile</Button>
+
+			{#if isLoading}
+				<p class="text-center text-xs text-muted-foreground">Loading...</p>
+			{/if}
 		</CardContent>
 	</Card>
 
-	<div class="mt-6">
-		<Button variant="ghost" class="w-full text-destructive" onclick={handleLogout}>
-			Sign Out
-		</Button>
-	</div>
+	<!-- Password Section -->
+	<Card class="mb-4">
+		<CardHeader>
+			<CardTitle class="text-base">Password</CardTitle>
+			<CardDescription>
+				{hasPassword ? 'Password is set' : 'Set a password for email sign-in'}
+			</CardDescription>
+		</CardHeader>
+		<CardContent>
+			{#if hasPassword}
+				<p class="text-sm text-muted-foreground">Your account has a password. You can sign in with email and password.</p>
+			{:else if showSetPassword}
+				<form onsubmit={(e) => { e.preventDefault(); handleSetPassword(); }} class="space-y-3">
+					<div class="space-y-1">
+						<Label for="new-password">New Password</Label>
+						<div class="relative">
+							<Input
+								id="new-password"
+								type={showPassword ? 'text' : 'password'}
+								bind:value={newPassword}
+								class="pr-10"
+								placeholder="8+ chars, upper+lower+number"
+							/>
+							<button
+								type="button"
+								onclick={() => (showPassword = !showPassword)}
+								class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+							>
+								{#if showPassword}
+									<EyeOff class="h-4 w-4" />
+								{:else}
+									<Eye class="h-4 w-4" />
+								{/if}
+							</button>
+						</div>
+					</div>
+					<div class="space-y-1">
+						<Label for="confirm-password">Confirm Password</Label>
+						<Input
+							id="confirm-password"
+							type="password"
+							bind:value={confirmPassword}
+							placeholder="Repeat your password"
+						/>
+					</div>
+					{#if passwordError}
+						<p class="text-sm text-destructive">{passwordError}</p>
+					{/if}
+					<div class="flex gap-2">
+						<Button type="submit" disabled={isSettingPassword}>
+							{isSettingPassword ? 'Setting...' : 'Set Password'}
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							onclick={() => { showSetPassword = false; passwordError = ''; }}
+						>
+							Cancel
+						</Button>
+					</div>
+				</form>
+			{:else}
+				<Button variant="outline" onclick={() => (showSetPassword = true)}>
+					Set Password
+				</Button>
+			{/if}
+		</CardContent>
+	</Card>
+
+	<!-- Sign Out -->
+	<Button variant="ghost" class="w-full text-destructive" onclick={handleLogout}>
+		Sign Out
+	</Button>
 </div>
+
+<!-- Unlink Confirmation Dialog -->
+<Dialog
+	open={unlinkProvider !== null}
+	onclose={() => { unlinkProvider = null; unlinkError = ''; }}
+>
+	<div class="space-y-4">
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold">Unlink {unlinkProvider} Account</h2>
+			<p class="text-sm text-muted-foreground">
+				Are you sure you want to unlink your {unlinkProvider} account?
+			</p>
+		</div>
+
+		{#if !hasPassword}
+			<Alert variant="destructive">
+				<TriangleAlert class="h-4 w-4" />
+				<AlertTitle>Warning</AlertTitle>
+				<AlertDescription>
+					You don't have a password set. If you unlink this account and it's your only login method, you may lose access.
+				</AlertDescription>
+			</Alert>
+		{/if}
+
+		{#if unlinkError}
+			<p class="text-sm text-destructive">{unlinkError}</p>
+		{/if}
+
+		<div class="flex justify-end gap-2">
+			<Button
+				variant="outline"
+				onclick={() => { unlinkProvider = null; unlinkError = ''; }}
+			>
+				Cancel
+			</Button>
+			<Button
+				variant="destructive"
+				onclick={handleUnlink}
+				disabled={isUnlinking}
+			>
+				{isUnlinking ? 'Unlinking...' : 'Unlink'}
+			</Button>
+		</div>
+	</div>
+</Dialog>
