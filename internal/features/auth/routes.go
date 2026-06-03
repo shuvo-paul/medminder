@@ -103,4 +103,16 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 			{"bearer": {}},
 		},
 	}, handlers.SetPasswordHandler(authSvc, tokenSvc))
+
+	// Change password (authenticated) — requires current password
+	huma.Register(api, huma.Operation{
+		OperationID: "change-password",
+		Method:      http.MethodPut,
+		Path:        "/api/auth/password",
+		Summary:     "Change password",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.ChangePasswordHandler(authSvc, tokenSvc))
 }

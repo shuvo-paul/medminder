@@ -792,6 +792,37 @@ func OAuthLinkStatusHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.O
 	}
 }
 
+// ChangePasswordHandler returns a handler that changes the authenticated user's password.
+// PUT /api/auth/password (authenticated)
+func ChangePasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
+	return func(ctx context.Context, input *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
+		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := ValidatePassword(input.Body.NewPassword); err != nil {
+			return nil, huma.Error400BadRequest("invalid new password", err)
+		}
+
+		if err := authSvc.ChangePassword(ctx, userID, input.Body.CurrentPassword, input.Body.NewPassword); err != nil {
+			if errors.Is(err, service.ErrNoPasswordSet) {
+				return nil, huma.Error400BadRequest("no password set", err)
+			}
+			if errors.Is(err, service.ErrWrongPassword) {
+				return nil, huma.Error403Forbidden("current password is incorrect", err)
+			}
+			return nil, huma.Error500InternalServerError("failed to change password", err)
+		}
+
+		return &dto.ChangePasswordOutput{
+			Body: struct {
+				Message string `json:"message"`
+			}{Message: "password changed successfully"},
+		}, nil
+	}
+}
+
 // generateAuthCode creates a cryptographically random authorization code and its SHA-256 hash.
 // Returns the raw code (for the frontend) and the hash (for database storage).
 func generateAuthCode() (rawCode, hash string, err error) {

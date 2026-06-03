@@ -15,6 +15,8 @@ var (
 	ErrEmailNotFound         = fmt.Errorf("%w: %w", errors.New("email not found"), commonerrors.ErrNotFound)
 	ErrOAuthProviderError    = errors.New("oauth provider error")
 	ErrOAuthProviderFailed   = fmt.Errorf("%w: %w", ErrOAuthProviderError, commonerrors.ErrInternal)
+	ErrWrongPassword         = fmt.Errorf("%w: %w", errors.New("current password is incorrect"), commonerrors.ErrForbidden)
+	ErrNoPasswordSet         = fmt.Errorf("%w: %w", errors.New("user has no password set"), commonerrors.ErrBadRequest)
 	ErrAccountWillBeLocked   = fmt.Errorf("%w: %w", errors.New("account will be locked out"), commonerrors.ErrForbidden)
 	ErrProviderAlreadyLinked = fmt.Errorf("%w: %w", errors.New("provider already linked"), commonerrors.ErrConflict)
 )

@@ -48,3 +48,17 @@ type LogoutOutput struct {
 		Message string `json:"message"`
 	}
 }
+
+type ChangePasswordInput struct {
+	Authorization string `header:"Authorization"`
+	Body          struct {
+		CurrentPassword string `json:"current_password" minLength:"1"`
+		NewPassword     string `json:"new_password" minLength:"8"`
+	}
+}
+
+type ChangePasswordOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}
