@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -81,6 +80,18 @@ func newMockAuditRepo() *MockAuditRepository {
 	return m
 }
 
+// newCallbackDeps creates dependencies for testing the callback handler.
+func newCallbackDeps() *handlers.OAuthHandlerDeps {
+	return &handlers.OAuthHandlerDeps{
+		AuthCodeRepo: &MockOAuthAuthorizationCodeRepository{},
+		OAuthSvc:     &MockOAuthService{},
+		TokenSvc:     &MockTokenService{},
+		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
+		FrontendURL:  "http://localhost:5173",
+	}
+}
+
 func TestInitiateOAuthHandler_Success(t *testing.T) {
 	// Set required environment variables for the mock provider
 	os.Setenv("TEST_CLIENT_ID", "test-client-id")
@@ -118,84 +129,64 @@ func TestInitiateOAuthHandler_Success(t *testing.T) {
 func TestInitiateOAuthHandler_MissingState(t *testing.T) {
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create input without state
 	input := &dto.InitiateOAuthInput{
 		Provider: "google",
 		State:    "",
 	}
 
-	// Call handler
 	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "state")
+	assert.Contains(t, err.Error(), "state parameter is required")
 }
 
 func TestInitiateOAuthHandler_InvalidState(t *testing.T) {
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create input with invalid state (not base64 encoded)
 	input := &dto.InitiateOAuthInput{
 		Provider: "google",
 		State:    "not-valid-base64!!!",
 	}
 
-	// Call handler
 	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "invalid state")
+	assert.Contains(t, err.Error(), "invalid state parameter")
 }
 
 func TestInitiateOAuthHandler_OpenRedirect(t *testing.T) {
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create state with open redirect URL
-	state := encodeOAuthState("test-nonce", "https://evil.com/steal-token", "login")
+	// Absolute URL with scheme — must be rejected as open redirect.
+	state := encodeOAuthState("test-nonce", "https://evil.example.com/steal", "login")
 	input := &dto.InitiateOAuthInput{
 		Provider: "google",
 		State:    state,
 	}
 
-	// Call handler
 	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "redirect")
+	assert.Contains(t, err.Error(), "invalid redirect URL")
 }
 
 func TestInitiateOAuthHandler_ProviderNotFound(t *testing.T) {
 	handler := handlers.InitiateOAuthHandler()
 
-	// Create input with unknown provider and valid state
 	state := encodeOAuthState("test-nonce", "/dashboard", "login")
 	input := &dto.InitiateOAuthInput{
 		Provider: "unknown-provider",
 		State:    state,
 	}
 
-	// Call handler
 	resp, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.True(t, strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "Provider not found"))
-}
-
-// -- OAuth Callback Handler Tests --
-
-// newCallbackDeps creates dependencies for testing the callback handler.
-func newCallbackDeps() *handlers.OAuthHandlerDeps {
-	return &handlers.OAuthHandlerDeps{
-		AuthCodeRepo: &MockOAuthAuthorizationCodeRepository{},
-		OAuthSvc:     &MockOAuthService{},
-		TokenSvc:     &MockTokenService{},
-		TokenRepo:    &MockRefreshTokenRepository{},
-		AuditRepo:    newMockAuditRepo(),
-	}
+	assert.Contains(t, err.Error(), "provider not found")
 }
 
 func TestOAuthCallbackHandler_ProviderError_WithState(t *testing.T) {
@@ -213,7 +204,7 @@ func TestOAuthCallbackHandler_ProviderError_WithState(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "/dashboard?oauth_error=cancelled&provider=google", resp.Redirect)
+	assert.Equal(t, "http://localhost:5173/dashboard?oauth_error=cancelled&provider=google", resp.Redirect)
 }
 
 func TestOAuthCallbackHandler_ProviderError_EmptyState(t *testing.T) {
@@ -230,7 +221,7 @@ func TestOAuthCallbackHandler_ProviderError_EmptyState(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "/auth/login?oauth_error=cancelled", resp.Redirect)
+	assert.Equal(t, "http://localhost:5173/login?oauth_error=cancelled", resp.Redirect)
 }
 
 func TestOAuthCallbackHandler_ProviderError_MalformedState(t *testing.T) {
@@ -247,7 +238,7 @@ func TestOAuthCallbackHandler_ProviderError_MalformedState(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "/auth/login?oauth_error=cancelled", resp.Redirect)
+	assert.Equal(t, "http://localhost:5173/login?oauth_error=cancelled", resp.Redirect)
 }
 
 func TestOAuthCallbackHandler_MissingCode(t *testing.T) {
@@ -318,6 +309,7 @@ func TestOAuthCallbackHandler_Success(t *testing.T) {
 		TokenSvc:     &MockTokenService{},
 		TokenRepo:    &MockRefreshTokenRepository{},
 		AuditRepo:    newMockAuditRepo(),
+		FrontendURL:  "http://localhost:5173",
 	}
 	handler := handlers.OAuthCallbackHandler(deps)
 
@@ -332,7 +324,7 @@ func TestOAuthCallbackHandler_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Redirect, "/auth/callback?code=")
+	assert.Contains(t, resp.Redirect, "http://localhost:5173/auth/callback?code=")
 	assert.Contains(t, resp.Redirect, "&state=")
 	// No JWT tokens in the redirect URL
 	assert.NotContains(t, resp.Redirect, "access_token")
@@ -392,20 +384,25 @@ func TestTokenExchangeHandler_Success(t *testing.T) {
 
 	state := encodeOAuthState("test-nonce-123", "/dashboard", "login")
 	input := &dto.OAuthTokenRequest{
-		Code:  rawCode,
-		State: state,
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  rawCode,
+			State: state,
+		},
 	}
 
 	resp, err := handler(context.Background(), input)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "access-token-xyz", resp.AccessToken)
-	assert.Equal(t, "refresh-token-xyz", resp.RefreshToken)
-	assert.Equal(t, "Bearer", resp.TokenType)
-	assert.Equal(t, int(service.AccessTokenExpiry.Seconds()), resp.ExpiresIn)
-	assert.Equal(t, userID.String(), resp.User.ID)
-	assert.Equal(t, "test@example.com", resp.User.Email)
+	assert.Equal(t, "access-token-xyz", resp.Body.AccessToken)
+	assert.Equal(t, "refresh-token-xyz", resp.Body.RefreshToken)
+	assert.Equal(t, "Bearer", resp.Body.TokenType)
+	assert.Equal(t, int(service.AccessTokenExpiry.Seconds()), resp.Body.ExpiresIn)
+	assert.Equal(t, userID.String(), resp.Body.User.ID)
+	assert.Equal(t, "test@example.com", resp.Body.User.Email)
 }
 
 func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
@@ -423,8 +420,13 @@ func TestTokenExchangeHandler_InvalidCode(t *testing.T) {
 
 	state := encodeOAuthState("test-nonce", "/dashboard", "login")
 	input := &dto.OAuthTokenRequest{
-		Code:  "invalid-code",
-		State: state,
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  "invalid-code",
+			State: state,
+		},
 	}
 
 	resp, err := handler(context.Background(), input)
@@ -466,8 +468,13 @@ func TestTokenExchangeHandler_NonceMismatch(t *testing.T) {
 
 	state := encodeOAuthState("correct-nonce", "/dashboard", "login")
 	input := &dto.OAuthTokenRequest{
-		Code:  "some-code",
-		State: state,
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  "some-code",
+			State: state,
+		},
 	}
 
 	resp, err := handler(context.Background(), input)
@@ -512,8 +519,13 @@ func TestTokenExchangeHandler_EmailExists(t *testing.T) {
 
 	state := encodeOAuthState("test-nonce", "/dashboard", "login")
 	input := &dto.OAuthTokenRequest{
-		Code:  "some-code",
-		State: state,
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  "some-code",
+			State: state,
+		},
 	}
 
 	resp, err := handler(context.Background(), input)
@@ -537,8 +549,39 @@ func TestTokenExchangeHandler_MalformedState(t *testing.T) {
 	handler := handlers.TokenExchangeHandler(deps)
 
 	input := &dto.OAuthTokenRequest{
-		Code:  "some-code",
-		State: "not-valid-base64!!!",
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  "some-code",
+			State: "not-valid-base64!!!",
+		},
+	}
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestTokenExchangeHandler_EmptyState(t *testing.T) {
+	deps := &handlers.OAuthHandlerDeps{
+		AuthCodeRepo: &MockOAuthAuthorizationCodeRepository{},
+		OAuthSvc:     &MockOAuthService{},
+		TokenSvc:     &MockTokenService{},
+		TokenRepo:    &MockRefreshTokenRepository{},
+		AuditRepo:    newMockAuditRepo(),
+	}
+	handler := handlers.TokenExchangeHandler(deps)
+
+	input := &dto.OAuthTokenRequest{
+		Body: struct {
+			Code  string `json:"code" maxLength:"256"`
+			State string `json:"state" maxLength:"1024"`
+		}{
+			Code:  "some-code",
+			State: "",
+		},
 	}
 
 	resp, err := handler(context.Background(), input)

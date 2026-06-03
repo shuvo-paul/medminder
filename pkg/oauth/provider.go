@@ -12,8 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Errors returned by the OAuth provider registry.
@@ -130,7 +132,7 @@ func Register(provider Provider) error {
 	// Store provider info for public API
 	globalRegistry.providerInfo[name] = ProviderInfo{
 		ID:           name,
-		Name:         strings.Title(name),
+		Name:         cases.Title(language.English).String(name),
 		IconURL:      fmt.Sprintf("/assets/icons/%s.svg", name),
 		CallbackPath: fmt.Sprintf("/api/auth/oauth/%s/callback", name),
 	}
@@ -177,11 +179,19 @@ func (s *OAuthState) Encode() string {
 	return base64.URLEncoding.EncodeToString(data)
 }
 
-// DecodeOAuthState decodes a base64url-encoded OAuthState string.
+// DecodeOAuthState decodes a base64-encoded OAuthState string.
+// Accepts both standard base64 and base64url encodings.
 func DecodeOAuthState(encoded string) (*OAuthState, error) {
+	if encoded == "" {
+		return nil, errors.New("oauth: invalid state: empty state parameter")
+	}
+
 	data, err := base64.URLEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("oauth: invalid state encoding: %w", err)
+		data, err = base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("oauth: invalid state encoding: %w", err)
+		}
 	}
 
 	var state OAuthState

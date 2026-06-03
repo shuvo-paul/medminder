@@ -90,7 +90,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 	handlers.RegisterPasswordResetRoutes(api, passwordResetDeps)
 
 	// OAuth provider routes (unauthenticated)
-	handlers.RegisterOAuthProviderRoutes(api, oauthAuthCodeRepo, oauthSvc, tokenSvc, tokenRepo, auditRepository)
+	handlers.RegisterOAuthProviderRoutes(api, oauthAuthCodeRepo, oauthSvc, tokenSvc, tokenRepo, auditRepository, frontendURL)
 
 	// Set password (authenticated) — for OAuth-only users to add a password
 	huma.Register(api, huma.Operation{

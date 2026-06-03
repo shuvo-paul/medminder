@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -110,6 +109,7 @@ func InitiateOAuthHandler() func(context.Context, *dto.InitiateOAuthInput) (*dto
 
 		return &dto.InitiateOAuthOutput{
 			Location: authURL,
+			Status:   http.StatusFound,
 		}, nil
 	}
 }
@@ -121,16 +121,18 @@ type OAuthHandlerDeps struct {
 	TokenSvc     service.TokenServiceInterface
 	TokenRepo    repository.RefreshTokenRepository
 	AuditRepo    auditRepo.AuditRepository
+	FrontendURL  string
 }
 
 // RegisterOAuthProviderRoutes registers the OAuth provider routes.
-func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuthorizationCodeRepository, oauthSvc service.OAuthService, tokenSvc service.TokenServiceInterface, tokenRepo repository.RefreshTokenRepository, auditRepository auditRepo.AuditRepository) {
+func RegisterOAuthProviderRoutes(api huma.API, authCodeRepo repository.OAuthAuthorizationCodeRepository, oauthSvc service.OAuthService, tokenSvc service.TokenServiceInterface, tokenRepo repository.RefreshTokenRepository, auditRepository auditRepo.AuditRepository, frontendURL string) {
 	deps := &OAuthHandlerDeps{
 		AuthCodeRepo: authCodeRepo,
 		OAuthSvc:     oauthSvc,
 		TokenSvc:     tokenSvc,
 		TokenRepo:    tokenRepo,
 		AuditRepo:    auditRepository,
+		FrontendURL:  frontendURL,
 	}
 
 	// List providers - unauthenticated
@@ -214,7 +216,7 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 	return func(ctx context.Context, input *dto.OAuthCallbackInput) (*dto.OAuthCallbackOutput, error) {
 		// --- Mode 1: Provider error ---
 		if input.Error != "" {
-			return handleProviderError(input)
+			return handleProviderError(input, deps.FrontendURL)
 		}
 
 		// --- Mode 2: Success (authorization code received) ---
@@ -226,7 +228,8 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		state, err := dto.ParseOAuthState(input.State)
 		if err != nil {
 			return &dto.OAuthCallbackOutput{
-				Redirect: "/auth/login?oauth_error=invalid_state",
+				Redirect: deps.FrontendURL + "/login?oauth_error=invalid_state",
+				Status:   http.StatusFound,
 			}, nil
 		}
 
@@ -273,20 +276,19 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 			return nil, huma.Error500InternalServerError("failed to store authorization code", err)
 		}
 
-		// Encode original state to pass back to frontend
-		encodedState, err := json.Marshal(state)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to encode state", err)
-		}
+		// Encode original state base64url to pass back to frontend
+		encodedState := state.Encode()
 
 		// 302 redirect to frontend callback route (NO JWT tokens in URL)
-		redirectURL := fmt.Sprintf("/auth/callback?code=%s&state=%s",
+		redirectURL := fmt.Sprintf("%s/auth/callback?code=%s&state=%s",
+			deps.FrontendURL,
 			url.QueryEscape(internalCode),
-			url.QueryEscape(string(encodedState)),
+			url.QueryEscape(encodedState),
 		)
 
 		return &dto.OAuthCallbackOutput{
 			Redirect: redirectURL,
+			Status:   http.StatusFound,
 		}, nil
 	}
 }
@@ -297,13 +299,13 @@ func OAuthCallbackHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAuthTokenRequest) (*dto.OAuthTokenResponse, error) {
 	return func(ctx context.Context, input *dto.OAuthTokenRequest) (*dto.OAuthTokenResponse, error) {
 		// Parse and validate state
-		state, err := dto.ParseOAuthState(input.State)
+		state, err := dto.ParseOAuthState(input.Body.State)
 		if err != nil {
 			return nil, huma.Error401Unauthorized("invalid state", err)
 		}
 
 		// Hash the received code
-		codeHash := hashCode(input.Code)
+		codeHash := hashCode(input.Body.Code)
 
 		// Look up and lock the authorization code (prevents concurrent redemption)
 		authCodeInfo, err := deps.AuthCodeRepo.GetAndLockAuthorizationCode(ctx, codeHash)
@@ -338,24 +340,42 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 				return nil, huma.Error409Conflict(string(dto.OAuthErrorEmailExists),
 					fmt.Errorf("email already exists"))
 			}
+			log.Error("oauth_token_exchange_get_or_create_user_failed",
+				log.F("error", err.Error()),
+				log.F("provider", authCodeInfo.Provider),
+				log.F("provider_user_id", authCodeInfo.ProviderUserID),
+				log.F("provider_email", authCodeInfo.ProviderEmail),
+			)
 			return nil, huma.Error500InternalServerError("authentication failed", err)
 		}
 
 		// Mark authorization code as used (one-time use)
 		_, err = deps.AuthCodeRepo.MarkAuthorizationCodeAsUsed(ctx, codeHash)
 		if err != nil {
+			log.Error("oauth_token_exchange_mark_code_used_failed",
+				log.F("error", err.Error()),
+				log.F("user_id", oauthUser.ID.String()),
+			)
 			return nil, huma.Error500InternalServerError("failed to mark code as used", err)
 		}
 
 		// Generate JWT access token
 		accessToken, err := deps.TokenSvc.GenerateAccessToken(oauthUser.ID, oauthUser.Email)
 		if err != nil {
+			log.Error("oauth_token_exchange_generate_access_token_failed",
+				log.F("error", err.Error()),
+				log.F("user_id", oauthUser.ID.String()),
+			)
 			return nil, huma.Error500InternalServerError("failed to generate access token", err)
 		}
 
 		// Generate refresh token
 		refreshToken, err := deps.TokenSvc.GenerateRefreshToken()
 		if err != nil {
+			log.Error("oauth_token_exchange_generate_refresh_token_failed",
+				log.F("error", err.Error()),
+				log.F("user_id", oauthUser.ID.String()),
+			)
 			return nil, huma.Error500InternalServerError("failed to generate refresh token", err)
 		}
 
@@ -363,19 +383,25 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 		refreshTokenHash := deps.TokenSvc.HashRefreshToken(refreshToken)
 		refreshExpiry := time.Now().Add(service.RefreshTokenExpiry)
 		if _, err := deps.TokenRepo.CreateRefreshToken(ctx, oauthUser.ID, refreshTokenHash, refreshExpiry); err != nil {
+			log.Error("oauth_token_exchange_store_refresh_token_failed",
+				log.F("error", err.Error()),
+				log.F("user_id", oauthUser.ID.String()),
+			)
 			return nil, huma.Error500InternalServerError("failed to store refresh token", err)
 		}
 
 		return &dto.OAuthTokenResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-			TokenType:    "Bearer",
-			ExpiresIn:    int(service.AccessTokenExpiry.Seconds()),
-			User: dto.OAuthTokenUserInfo{
-				ID:            oauthUser.ID.String(),
-				Email:         oauthUser.Email,
-				DisplayName:   oauthUser.DisplayName,
-				EmailVerified: oauthUser.EmailVerified,
+			Body: dto.OAuthTokenResponseBody{
+				AccessToken:  accessToken,
+				RefreshToken: refreshToken,
+				TokenType:    "Bearer",
+				ExpiresIn:    int(service.AccessTokenExpiry.Seconds()),
+				User: dto.OAuthTokenUserInfo{
+					ID:            oauthUser.ID.String(),
+					Email:         oauthUser.Email,
+					DisplayName:   oauthUser.DisplayName,
+					EmailVerified: oauthUser.EmailVerified,
+				},
 			},
 		}, nil
 	}
@@ -384,27 +410,31 @@ func TokenExchangeHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 // handleProviderError handles the error case where the OAuth provider returned an error
 // (e.g., user denied access). It attempts to parse the state to redirect back to the
 // original frontend page, falling back to /login if state is absent or malformed.
-func handleProviderError(input *dto.OAuthCallbackInput) (*dto.OAuthCallbackOutput, error) {
+func handleProviderError(input *dto.OAuthCallbackInput, frontendURL string) (*dto.OAuthCallbackOutput, error) {
 	if input.State == "" {
 		return &dto.OAuthCallbackOutput{
-			Redirect: "/auth/login?oauth_error=cancelled",
+			Redirect: frontendURL + "/login?oauth_error=cancelled",
+			Status:   http.StatusFound,
 		}, nil
 	}
 
 	state, err := dto.ParseOAuthState(input.State)
 	if err != nil || state.Redirect == "" {
 		return &dto.OAuthCallbackOutput{
-			Redirect: "/auth/login?oauth_error=cancelled",
+			Redirect: frontendURL + "/login?oauth_error=cancelled",
+			Status:   http.StatusFound,
 		}, nil
 	}
 
-	redirectURL := fmt.Sprintf("%s?oauth_error=cancelled&provider=%s",
+	redirectURL := fmt.Sprintf("%s%s?oauth_error=cancelled&provider=%s",
+		frontendURL,
 		state.Redirect,
 		url.QueryEscape(input.Provider),
 	)
 
 	return &dto.OAuthCallbackOutput{
 		Redirect: redirectURL,
+		Status:   http.StatusFound,
 	}, nil
 }
 

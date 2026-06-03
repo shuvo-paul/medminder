@@ -1,11 +1,9 @@
 package dto
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
+
+	"github.com/shuvo-paul/medminder/pkg/oauth"
 )
 
 // OAuthProvider represents an OAuth provider.
@@ -27,38 +25,17 @@ const (
 	OAuthErrorLinkFailed    OAuthErrorCode = "link_failed"
 )
 
-// OAuthState represents the state parameter in OAuth flows.
-type OAuthState struct {
-	Nonce    string `json:"nonce"`    // crypto.randomUUID() from client
-	Redirect string `json:"redirect"` // e.g., "/dashboard"
-	Purpose  string `json:"purpose"`  // "register" | "login" | "link"
-}
-
-// Encode encodes the OAuthState as a base64url-encoded string.
-func (s *OAuthState) Encode() string {
-	data, _ := json.Marshal(s)
-	return base64.URLEncoding.EncodeToString(data)
-}
-
-// DecodeOAuthState decodes a base64url-encoded OAuthState string.
-func DecodeOAuthState(encoded string) (*OAuthState, error) {
-	data, err := base64.URLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("invalid state encoding: %w", err)
-	}
-
-	var state OAuthState
-	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, fmt.Errorf("invalid state JSON: %w", err)
-	}
-
-	return &state, nil
-}
+// OAuthState is the state parameter in OAuth flows.
+// It is a type alias for pkg/oauth.OAuthState so all encoding/decoding
+// logic lives in a single place.
+type OAuthState = oauth.OAuthState
 
 // OAuthTokenRequest represents the request body for token exchange.
 type OAuthTokenRequest struct {
-	Code  string `json:"code" maxLength:"256"`   // authorization code
-	State string `json:"state" maxLength:"1024"` // base64url-encoded JSON: {nonce, redirect, purpose}
+	Body struct {
+		Code  string `json:"code" maxLength:"256"`   // authorization code
+		State string `json:"state" maxLength:"1024"` // base64url-encoded JSON: {nonce, redirect, purpose}
+	}
 }
 
 // OAuthTokenUserInfo represents user information in token response.
@@ -69,13 +46,18 @@ type OAuthTokenUserInfo struct {
 	EmailVerified bool   `json:"email_verified"`
 }
 
-// OAuthTokenResponse represents the response for token exchange.
-type OAuthTokenResponse struct {
+// OAuthTokenResponseBody is the JSON body of an OAuth token exchange response.
+type OAuthTokenResponseBody struct {
 	AccessToken  string             `json:"access_token"`
 	RefreshToken string             `json:"refresh_token"`
 	TokenType    string             `json:"token_type"` // "Bearer"
 	ExpiresIn    int                `json:"expires_in"` // 86400 (24h)
 	User         OAuthTokenUserInfo `json:"user"`
+}
+
+// OAuthTokenResponse represents the response for token exchange.
+type OAuthTokenResponse struct {
+	Body OAuthTokenResponseBody
 }
 
 // OAuthInitInput represents the input for initiating OAuth link flow.
@@ -223,17 +205,6 @@ type OAuthCallbackOutput struct {
 }
 
 // ParseOAuthState parses the OAuth state from a string.
-// This is a convenience function that wraps DecodeOAuthState.
 func ParseOAuthState(stateStr string) (*OAuthState, error) {
-	// Handle URL encoding (replace - with + and _ with /)
-	stateStr = strings.ReplaceAll(stateStr, "-", "+")
-	stateStr = strings.ReplaceAll(stateStr, "_", "/")
-
-	// Add padding if needed
-	padding := 4 - len(stateStr)%4
-	if padding < 4 {
-		stateStr += strings.Repeat("=", padding)
-	}
-
-	return DecodeOAuthState(stateStr)
+	return oauth.DecodeOAuthState(stateStr)
 }

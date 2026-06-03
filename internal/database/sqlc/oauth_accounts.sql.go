@@ -13,9 +13,9 @@ import (
 )
 
 const createOAuthAccount = `-- name: CreateOAuthAccount :one
-INSERT INTO oauth_accounts (id, user_id, provider, provider_user_id, connected_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, provider, provider_user_id, connected_at, created_at
+INSERT INTO oauth_accounts (id, user_id, provider, provider_user_id, created_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, user_id, provider, provider_user_id, created_at
 `
 
 type CreateOAuthAccountParams struct {
@@ -23,7 +23,6 @@ type CreateOAuthAccountParams struct {
 	UserID         uuid.UUID    `json:"user_id"`
 	Provider       string       `json:"provider"`
 	ProviderUserID string       `json:"provider_user_id"`
-	ConnectedAt    sql.NullTime `json:"connected_at"`
 	CreatedAt      sql.NullTime `json:"created_at"`
 }
 
@@ -33,7 +32,6 @@ func (q *Queries) CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccount
 		arg.UserID,
 		arg.Provider,
 		arg.ProviderUserID,
-		arg.ConnectedAt,
 		arg.CreatedAt,
 	)
 	var i OauthAccount
@@ -42,7 +40,6 @@ func (q *Queries) CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccount
 		&i.UserID,
 		&i.Provider,
 		&i.ProviderUserID,
-		&i.ConnectedAt,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -51,7 +48,7 @@ func (q *Queries) CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccount
 const deleteOAuthAccount = `-- name: DeleteOAuthAccount :one
 DELETE FROM oauth_accounts
 WHERE id = $1
-RETURNING id, user_id, provider, provider_user_id, connected_at, created_at
+RETURNING id, user_id, provider, provider_user_id, created_at
 `
 
 func (q *Queries) DeleteOAuthAccount(ctx context.Context, id uuid.UUID) (OauthAccount, error) {
@@ -62,7 +59,6 @@ func (q *Queries) DeleteOAuthAccount(ctx context.Context, id uuid.UUID) (OauthAc
 		&i.UserID,
 		&i.Provider,
 		&i.ProviderUserID,
-		&i.ConnectedAt,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -84,7 +80,7 @@ func (q *Queries) DeleteOAuthAccountByUserIDAndProvider(ctx context.Context, arg
 }
 
 const getOAuthAccountByProviderAndUserID = `-- name: GetOAuthAccountByProviderAndUserID :one
-SELECT id, user_id, provider, provider_user_id, connected_at, created_at FROM oauth_accounts
+SELECT id, user_id, provider, provider_user_id, created_at FROM oauth_accounts
 WHERE provider = $1 AND provider_user_id = $2
 `
 
@@ -101,14 +97,13 @@ func (q *Queries) GetOAuthAccountByProviderAndUserID(ctx context.Context, arg Ge
 		&i.UserID,
 		&i.Provider,
 		&i.ProviderUserID,
-		&i.ConnectedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOAuthAccountByUserIDAndProvider = `-- name: GetOAuthAccountByUserIDAndProvider :one
-SELECT id, user_id, provider, provider_user_id, connected_at, created_at FROM oauth_accounts
+SELECT id, user_id, provider, provider_user_id, created_at FROM oauth_accounts
 WHERE user_id = $1 AND provider = $2
 `
 
@@ -125,14 +120,13 @@ func (q *Queries) GetOAuthAccountByUserIDAndProvider(ctx context.Context, arg Ge
 		&i.UserID,
 		&i.Provider,
 		&i.ProviderUserID,
-		&i.ConnectedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOAuthAccountsByUserID = `-- name: GetOAuthAccountsByUserID :many
-SELECT id, user_id, provider, provider_user_id, connected_at, created_at FROM oauth_accounts
+SELECT id, user_id, provider, provider_user_id, created_at FROM oauth_accounts
 WHERE user_id = $1
 `
 
@@ -150,7 +144,6 @@ func (q *Queries) GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID
 			&i.UserID,
 			&i.Provider,
 			&i.ProviderUserID,
-			&i.ConnectedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

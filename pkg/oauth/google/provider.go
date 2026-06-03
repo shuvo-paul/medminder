@@ -134,29 +134,6 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 	}, nil
 }
 
-func init() {
-	// Auto-register the Google provider if environment variables are set
-	provider, err := New()
-	if err != nil {
-		return // Should not happen since New() doesn't return error
-	}
-
-	// Check if required env vars are present
-	missing := false
-	for _, envVar := range provider.RequiredEnvVars() {
-		if os.Getenv(envVar) == "" {
-			missing = true
-			break
-		}
-	}
-
-	if !missing {
-		if err := oauth.Register(provider); err != nil {
-			fmt.Printf("oauth/google: failed to register provider: %v\n", err)
-		}
-	}
-}
-
 // TokenResponseWithExpiry includes expiry time for caching.
 type TokenResponseWithExpiry struct {
 	oauth.TokenResponse

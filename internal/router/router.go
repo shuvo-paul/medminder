@@ -45,6 +45,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 
 	router := chi.NewRouter()
 	router.Use(chiMiddleware.RealIP)
+	router.Use(chiMiddleware.Recoverer)
 
 	// Extract IP and User-Agent into request context (available to handlers via context).
 	router.Use(middleware.RequestInfo)

@@ -19,36 +19,6 @@ func TestOAuthState_Encode(t *testing.T) {
 	assert.NotEqual(t, "test-nonce-123", encoded) // Should be base64 encoded
 }
 
-func TestDecodeOAuthState(t *testing.T) {
-	state := &OAuthState{
-		Nonce:    "test-nonce-123",
-		Redirect: "/dashboard",
-		Purpose:  "login",
-	}
-
-	encoded := state.Encode()
-	decoded, err := DecodeOAuthState(encoded)
-
-	require.NoError(t, err)
-	assert.Equal(t, state.Nonce, decoded.Nonce)
-	assert.Equal(t, state.Redirect, decoded.Redirect)
-	assert.Equal(t, state.Purpose, decoded.Purpose)
-}
-
-func TestDecodeOAuthState_InvalidEncoding(t *testing.T) {
-	_, err := DecodeOAuthState("not-valid-base64!!!")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid state encoding")
-}
-
-func TestDecodeOAuthState_InvalidJSON(t *testing.T) {
-	// Valid base64 but invalid JSON
-	encoded := "bm90LWpzb24=" // "not-json" in base64
-	_, err := DecodeOAuthState(encoded)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid state JSON")
-}
-
 func TestParseOAuthState(t *testing.T) {
 	state := &OAuthState{
 		Nonce:    "test-nonce",
