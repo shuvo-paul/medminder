@@ -54,6 +54,7 @@ type ChangePasswordInput struct {
 	Body          struct {
 		CurrentPassword string `json:"current_password" minLength:"1"`
 		NewPassword     string `json:"new_password" minLength:"8"`
+		ConfirmPassword string `json:"confirm_password" minLength:"8"`
 	}
 }
 

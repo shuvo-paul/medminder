@@ -827,6 +827,7 @@ func TestChangePasswordHandler_Success(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "CurrentPwd1"
 	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "NewPwd123"
 
 	resp, err := handler(context.Background(), input)
 
@@ -849,6 +850,7 @@ func TestChangePasswordHandler_InvalidToken(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "CurrentPwd1"
 	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "NewPwd123"
 
 	resp, err := handler(context.Background(), input)
 
@@ -873,6 +875,7 @@ func TestChangePasswordHandler_WeakNewPassword(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "CurrentPwd1"
 	input.Body.NewPassword = "short"
+	input.Body.ConfirmPassword = "short"
 
 	resp, err := handler(context.Background(), input)
 
@@ -880,6 +883,32 @@ func TestChangePasswordHandler_WeakNewPassword(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "invalid new password")
 	// Verify ChangePassword was never called
+	mockAuthSvc.AssertNotCalled(t, "ChangePassword", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestChangePasswordHandler_PasswordMismatch(t *testing.T) {
+	userID := uuid.New()
+	token := makeAccessToken(userID, "test@example.com", time.Now().Add(time.Hour))
+
+	mockTokenSvc := new(MockTokenService)
+	mockTokenSvc.On("ValidateAccessToken", token).Return(jwt.MapClaims{"sub": userID.String()}, nil)
+
+	mockAuthSvc := new(MockAuthService)
+
+	handler := handlers.ChangePasswordHandler(mockAuthSvc, mockTokenSvc)
+
+	input := &dto.ChangePasswordInput{
+		Authorization: "Bearer " + token,
+	}
+	input.Body.CurrentPassword = "CurrentPwd1"
+	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "DifferentPwd1"
+
+	resp, err := handler(context.Background(), input)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "passwords do not match")
 	mockAuthSvc.AssertNotCalled(t, "ChangePassword", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -901,6 +930,7 @@ func TestChangePasswordHandler_WrongCurrentPassword(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "WrongPwd1"
 	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "NewPwd123"
 
 	resp, err := handler(context.Background(), input)
 
@@ -927,6 +957,7 @@ func TestChangePasswordHandler_NoPasswordSet(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "CurrentPwd1"
 	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "NewPwd123"
 
 	resp, err := handler(context.Background(), input)
 
@@ -953,6 +984,7 @@ func TestChangePasswordHandler_ServiceError(t *testing.T) {
 	}
 	input.Body.CurrentPassword = "CurrentPwd1"
 	input.Body.NewPassword = "NewPwd123"
+	input.Body.ConfirmPassword = "NewPwd123"
 
 	resp, err := handler(context.Background(), input)
 

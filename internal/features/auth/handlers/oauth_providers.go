@@ -805,6 +805,10 @@ func ChangePasswordHandler(authSvc service.AuthService, tokenSvc service.TokenSe
 			return nil, huma.Error400BadRequest("invalid new password", err)
 		}
 
+		if input.Body.NewPassword != input.Body.ConfirmPassword {
+			return nil, huma.Error400BadRequest("passwords do not match")
+		}
+
 		if err := authSvc.ChangePassword(ctx, userID, input.Body.CurrentPassword, input.Body.NewPassword); err != nil {
 			if errors.Is(err, service.ErrNoPasswordSet) {
 				return nil, huma.Error400BadRequest("no password set", err)
