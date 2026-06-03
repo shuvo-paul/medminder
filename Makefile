@@ -1,4 +1,4 @@
-.PHONY := start dev run build test test-cover tidy clean web-install web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
+.PHONY: start dev run build test test-cover tidy clean web-deps web-dev web-build web-preview embed-frontend db-migrate-up db-migrate-down db-migrate-steps db-migrate-force db-migrate-create sqlc-generate
 
 GO ?= go
 PNPM ?= pnpm
@@ -7,13 +7,6 @@ BIN_DIR := bin
 BIN := $(BIN_DIR)/medminder
 CMD := cmd/server/main.go
 WEB_DIR := web
-DB_HOST ?= localhost
-DB_PORT ?= 5432
-DB_USER ?= medminder
-DB_PASSWORD ?= medminder
-DB_NAME ?= medminder
-DB_SSLMODE ?= disable
-MIGRATION_SOURCE ?= file://internal/common/database/migrations
 
 start:
 	@trap 'kill 0' EXIT; \
@@ -44,17 +37,11 @@ tidy:
 clean:
 	rm -rf $(BIN_DIR)
 
-web-install:
+web-deps:
 	cd $(WEB_DIR) && $(PNPM) install
 
-web-dev:
-	cd $(WEB_DIR) && $(PNPM) dev
-
-web-build:
-	cd $(WEB_DIR) && $(PNPM) build
-
-web-preview:
-	cd $(WEB_DIR) && $(PNPM) preview
+web-%: web-deps
+	cd $(WEB_DIR) && $(PNPM) $*
 
 embed-frontend: web-build build
 

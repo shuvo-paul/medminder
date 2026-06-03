@@ -19,7 +19,7 @@
 | Production build | `pnpm build` | `web/` |
 | Type/syntax check | `pnpm check` | `web/` |
 | Preview build | `pnpm preview` | `web/` |
-| Install deps | `make web-install` | root |
+| Install deps | `make web-deps` | root |
 | Full prod build | `make embed-frontend` | root |
 
 ## Code Style
