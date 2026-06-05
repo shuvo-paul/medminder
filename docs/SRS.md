@@ -163,32 +163,32 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ##### 3.1.7.1 Supported Providers
 
-- [ ] **REQ-OAUTH-001**: The system shall support Google as an OAuth provider.
-- [ ] **REQ-OAUTH-001b**: The OAuth architecture shall be extensible to support additional providers (e.g., GitHub, Apple) without database migrations.
+- [x] **REQ-OAUTH-001**: The system shall support Google as an OAuth provider.
+- [x] **REQ-OAUTH-001b**: The OAuth architecture shall be extensible to support additional providers (e.g., GitHub, Apple) without database migrations.
 
 ##### 3.1.7.2 OAuth Registration/Login
 
-- [ ] **REQ-OAUTH-002**: The system shall allow users to register using their Google account.
-- [ ] **REQ-OAUTH-003**: The system shall automatically create a user account upon successful OAuth login if no account exists.
-- [ ] **REQ-OAUTH-004**: Upon successful OAuth login, the system shall issue a short-lived authorization code (5-minute expiry) and redirect the frontend to `/auth/callback?code={code}`. The frontend exchanges this code for JWT access and refresh tokens via `POST /api/auth/oauth/token`. Tokens shall never appear in redirect URLs.
-- [ ] **REQ-OAUTH-005**: Users registering via OAuth shall not be required to set a password.
+- [x] **REQ-OAUTH-002**: The system shall allow users to register using their Google account.
+- [x] **REQ-OAUTH-003**: The system shall automatically create a user account upon successful OAuth login if no account exists.
+- [x] **REQ-OAUTH-004**: Upon successful OAuth login, the system shall issue a short-lived authorization code (5-minute expiry) and redirect the frontend to `/auth/callback?code={code}`. The frontend exchanges this code for JWT access and refresh tokens via `POST /api/auth/oauth/token`. Tokens shall never appear in redirect URLs.
+- [x] **REQ-OAUTH-005**: Users registering via OAuth shall not be required to set a password.
 
 ##### 3.1.7.3 Connecting OAuth to Existing Account
 
-- [ ] **REQ-OAUTH-006**: Users with email/password accounts shall be able to link their Google account.
-- [ ] **REQ-OAUTH-007**: Users shall be able to link only one Google account to their account (but may link other OAuth providers like GitHub, Apple).
-- [ ] **REQ-OAUTH-008**: Users shall be able to unlink their Google account.
-- [ ] **REQ-OAUTH-009**: The system shall record the timestamp when an OAuth provider was connected.
+- [x] **REQ-OAUTH-006**: Users with email/password accounts shall be able to link their Google account.
+- [x] **REQ-OAUTH-007**: Users shall be able to link only one Google account to their account (but may link other OAuth providers like GitHub, Apple).
+- [x] **REQ-OAUTH-008**: Users shall be able to unlink their Google account.
+- [x] **REQ-OAUTH-009**: The system shall record the timestamp when an OAuth provider was connected.
 
 ##### 3.1.7.4 Setting Password for OAuth Users
 
-- [ ] **REQ-OAUTH-010**: Users who registered via OAuth shall be able to set a password.
-- [ ] **REQ-OAUTH-011**: Users shall be able to change their password after setting it.
-- [ ] **REQ-OAUTH-012**: Password requirements (8+ characters, uppercase, lowercase, number) shall apply to OAuth users who set a password.
+- [x] **REQ-OAUTH-010**: Users who registered via OAuth shall be able to set a password.
+- [x] **REQ-OAUTH-011**: Users shall be able to change their password after setting it.
+- [x] **REQ-OAUTH-012**: Password requirements (8+ characters, uppercase, lowercase, number) shall apply to OAuth users who set a password.
 
 ##### 3.1.7.5 Account Linking by Email
 
-- [ ] **REQ-OAUTH-013**: If a user attempts OAuth login with an email that already has a registered account, the system shall reject the OAuth login and prompt the user to link accounts via the existing account settings.
+- [x] **REQ-OAUTH-013**: If a user attempts OAuth login with an email that already has a registered account, the system shall reject the OAuth login and prompt the user to link accounts via the existing account settings.
 
 #### 3.1.8 Email Management
 
