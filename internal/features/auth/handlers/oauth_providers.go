@@ -538,36 +538,6 @@ func handleProviderError(input *dto.OAuthCallbackInput, frontendURL string) (*dt
 	}, nil
 }
 
-// ExtractUserIDFromAuth extracts the authenticated user ID from the Authorization header.
-// It parses the Bearer token, validates it, and returns the user ID from the "sub" claim.
-func ExtractUserIDFromAuth(authHeader string, tokenSvc service.TokenServiceInterface) (uuid.UUID, error) {
-	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid authorization header", nil)
-	}
-	tokenString := authHeader[7:]
-
-	claims, err := tokenSvc.ValidateAccessToken(tokenString)
-	if err != nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid or expired access token", err)
-	}
-
-	userIDStr, ok := claims["sub"].(string)
-	if !ok {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid access token", nil)
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID in token", nil)
-	}
-
-	if userID == uuid.Nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID", nil)
-	}
-
-	return userID, nil
-}
-
 // OAuthLinkInitHandler returns a handler that initiates an OAuth account linking flow.
 // POST /api/auth/oauth/{provider}/init (authenticated)
 //
@@ -637,34 +607,6 @@ func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 			Body: struct {
 				State string `json:"state" doc:"Base64-encoded state with purpose=link"`
 			}{State: encodedState},
-		}, nil
-	}
-}
-
-// SetPasswordHandler returns a handler that sets a password for an OAuth-only user.
-// POST /api/auth/password/set (authenticated)
-//
-// This allows users who registered via OAuth to add a password, enabling
-// password-based login and preventing lock-out when unlinking providers.
-func SetPasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
-	return func(ctx context.Context, input *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := ValidatePassword(input.Body.Password); err != nil {
-			return nil, huma.Error400BadRequest("invalid password", err)
-		}
-
-		if err := authSvc.SetPassword(ctx, userID, input.Body.Password); err != nil {
-			return nil, huma.Error500InternalServerError("failed to set password", err)
-		}
-
-		return &dto.SetPasswordOutput{
-			Body: struct {
-				Message string `json:"message" doc:"Success message"`
-			}{Message: "password set successfully"},
 		}, nil
 	}
 }
@@ -788,47 +730,6 @@ func OAuthLinkStatusHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.O
 				CanUnlink:   canUnlink,
 				HasPassword: hasPassword,
 			},
-		}, nil
-	}
-}
-
-// ChangePasswordHandler returns a handler that changes the authenticated user's password.
-// PUT /api/auth/password (authenticated)
-func ChangePasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
-	return func(ctx context.Context, input *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := ValidatePassword(input.Body.NewPassword); err != nil {
-			return nil, huma.Error400BadRequest("invalid new password", err)
-		}
-
-		if input.Body.NewPassword != input.Body.ConfirmPassword {
-			return nil, huma.Error400BadRequest("passwords do not match")
-		}
-
-		if err := authSvc.ChangePassword(ctx, userID, input.Body.CurrentPassword, input.Body.NewPassword); err != nil {
-			if errors.Is(err, service.ErrNoPasswordSet) {
-				return nil, huma.Error400BadRequest("no password set", err)
-			}
-			if errors.Is(err, service.ErrWrongPassword) {
-				return nil, huma.Error403Forbidden("current password is incorrect", err)
-			}
-			if errors.Is(err, service.ErrUserNotFound) {
-				return nil, huma.Error404NotFound("user not found", err)
-			}
-			if errors.Is(err, service.ErrSamePassword) {
-				return nil, huma.Error400BadRequest("new password must differ from current password", err)
-			}
-			return nil, huma.Error500InternalServerError("failed to change password", err)
-		}
-
-		return &dto.ChangePasswordOutput{
-			Body: struct {
-				Message string `json:"message"`
-			}{Message: "password changed successfully"},
 		}, nil
 	}
 }
