@@ -28,6 +28,8 @@
 	let unlinkError = $state('');
 
 	let showSetPassword = $state(false);
+	let showChangePassword = $state(false);
+	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let showPassword = $state(false);
@@ -138,6 +140,63 @@
 			} else {
 				const data = await res.json();
 				passwordError = data.detail || 'Failed to set password';
+			}
+		} catch {
+			passwordError = 'Network error';
+		} finally {
+			isSettingPassword = false;
+		}
+	}
+
+	async function handleChangePassword() {
+		passwordError = '';
+		if (!currentPassword) {
+			passwordError = 'Current password is required';
+			return;
+		}
+		if (newPassword.length < 8) {
+			passwordError = 'Password must be at least 8 characters';
+			return;
+		}
+		if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+			passwordError = 'Password must contain uppercase, lowercase, and number';
+			return;
+		}
+		if (newPassword !== confirmPassword) {
+			passwordError = 'Passwords do not match';
+			return;
+		}
+		if (currentPassword === newPassword) {
+			passwordError = 'New password must differ from current password';
+			return;
+		}
+
+		isSettingPassword = true;
+		try {
+			const res = await fetch('/api/auth/password', {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${getToken()}`,
+				},
+				body: JSON.stringify({
+					current_password: currentPassword,
+					new_password: newPassword,
+					confirm_password: confirmPassword,
+				}),
+			});
+			if (res.ok) {
+				toast.success('Password changed successfully');
+				showChangePassword = false;
+				currentPassword = '';
+				newPassword = '';
+				confirmPassword = '';
+			} else if (res.status === 403) {
+				const data = await res.json();
+				passwordError = data.detail || 'Current password is incorrect';
+			} else {
+				const data = await res.json();
+				passwordError = data.detail || 'Failed to change password';
 			}
 		} catch {
 			passwordError = 'Network error';
@@ -266,7 +325,73 @@
 		</CardHeader>
 		<CardContent>
 			{#if hasPassword}
-				<p class="text-sm text-muted-foreground">Your account has a password. You can sign in with email and password.</p>
+				{#if showChangePassword}
+					<form onsubmit={(e) => { e.preventDefault(); handleChangePassword(); }} class="space-y-3">
+						<div class="space-y-1">
+							<Label for="current-password">Current Password</Label>
+							<Input
+								id="current-password"
+								type="password"
+								bind:value={currentPassword}
+								placeholder="Enter your current password"
+							/>
+						</div>
+						<div class="space-y-1">
+							<Label for="change-new-password">New Password</Label>
+							<div class="relative">
+								<Input
+									id="change-new-password"
+									type={showPassword ? 'text' : 'password'}
+									bind:value={newPassword}
+									class="pr-10"
+									placeholder="8+ chars, upper+lower+number"
+								/>
+								<button
+									type="button"
+									onclick={() => (showPassword = !showPassword)}
+									class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								>
+									{#if showPassword}
+										<EyeOff class="h-4 w-4" />
+									{:else}
+										<Eye class="h-4 w-4" />
+									{/if}
+								</button>
+							</div>
+						</div>
+						<div class="space-y-1">
+							<Label for="change-confirm-password">Confirm Password</Label>
+							<Input
+								id="change-confirm-password"
+								type="password"
+								bind:value={confirmPassword}
+								placeholder="Repeat your password"
+							/>
+						</div>
+						{#if passwordError}
+							<p class="text-sm text-destructive">{passwordError}</p>
+						{/if}
+						<div class="flex gap-2">
+							<Button type="submit" disabled={isSettingPassword}>
+								{isSettingPassword ? 'Changing...' : 'Change Password'}
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								onclick={() => { showChangePassword = false; passwordError = ''; currentPassword = ''; newPassword = ''; confirmPassword = ''; }}
+							>
+								Cancel
+							</Button>
+						</div>
+					</form>
+				{:else}
+					<div class="flex items-center justify-between">
+						<p class="text-sm text-muted-foreground">Your account has a password.</p>
+						<Button variant="outline" onclick={() => (showChangePassword = true)}>
+							Change Password
+						</Button>
+					</div>
+				{/if}
 			{:else if showSetPassword}
 				<form onsubmit={(e) => { e.preventDefault(); handleSetPassword(); }} class="space-y-3">
 					<div class="space-y-1">
