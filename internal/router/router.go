@@ -19,6 +19,8 @@ import (
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth"
+	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	"github.com/shuvo-paul/medminder/internal/features/profiles"
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
@@ -69,6 +71,9 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	email.StartEmailQueue(emailClient, 3, slog.Default())
 
 	auth.RegisterRoutes(api, dbConn, queries, auditRepo, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
+
+	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
+	profiles.RegisterRoutes(api, dbConn, queries, tokenSvc)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)

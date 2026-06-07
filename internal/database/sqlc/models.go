@@ -22,6 +22,15 @@ type AuditLog struct {
 	CreatedAt sql.NullTime          `json:"created_at"`
 }
 
+type DoseSchedule struct {
+	ID        uuid.UUID `json:"id"`
+	ProfileID uuid.UUID `json:"profile_id"`
+	Name      string    `json:"name"`
+	Time      time.Time `json:"time"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type EmailChangeRequest struct {
 	ID        uuid.UUID    `json:"id"`
 	UserID    uuid.UUID    `json:"user_id"`
@@ -70,6 +79,16 @@ type PasswordResetToken struct {
 	ExpiresAt time.Time    `json:"expires_at"`
 	UsedAt    sql.NullTime `json:"used_at"`
 	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+type Profile struct {
+	ID          uuid.UUID    `json:"id"`
+	OwnerUserID uuid.UUID    `json:"owner_user_id"`
+	Name        string       `json:"name"`
+	DateOfBirth sql.NullTime `json:"date_of_birth"`
+	Timezone    string       `json:"timezone"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
 type RefreshToken struct {

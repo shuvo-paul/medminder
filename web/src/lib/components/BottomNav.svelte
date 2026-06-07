@@ -4,13 +4,15 @@
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import Pill from '@lucide/svelte/icons/pill';
 	import CalendarClock from '@lucide/svelte/icons/calendar-clock';
+	import UsersRound from '@lucide/svelte/icons/users-round';
 	import UserRound from '@lucide/svelte/icons/user-round';
 
 	const navItems = [
 		{ href: '/', label: 'Dashboard', icon: LayoutDashboard, match: (p: string) => p === '/' },
 		{ href: '/medications', label: 'Medications', icon: Pill, match: (p: string) => p.startsWith('/medications') },
 		{ href: '/schedule', label: 'Schedule', icon: CalendarClock, match: (p: string) => p.startsWith('/schedule') },
-		{ href: '/profile', label: 'Profile', icon: UserRound, match: (p: string) => p.startsWith('/profile') },
+		{ href: '/profiles', label: 'Profiles', icon: UsersRound, match: (p: string) => p.startsWith('/profiles') },
+		{ href: '/profile', label: 'Account', icon: UserRound, match: (p: string) => p.startsWith('/profile') },
 	];
 </script>
 

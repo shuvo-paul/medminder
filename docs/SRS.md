@@ -212,7 +212,7 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.2.1 Profile CRUD
 
-- [ ] **REQ-PROF-001**: Users shall be able to create profiles with name, avatar URL, date of birth, medical conditions, and timezone (IANA timezone identifier, e.g., `Asia/Dhaka`).
+- [ ] **REQ-PROF-001**: Users shall be able to create profiles with name, date of birth, medical conditions, and timezone (IANA timezone identifier, e.g., `Asia/Dhaka`).
 - [ ] **REQ-PROF-001b**: When creating a profile, the system shall prompt for meal times (Breakfast, Lunch, Dinner) to set up initial dose schedules.
 - [ ] **REQ-PROF-001c**: The system shall create initial dose schedules (Breakfast, Lunch, Dinner) based on user-provided meal times during profile creation.
 - [ ] **REQ-PROF-001d**: Users shall be able to modify or delete initial dose schedules after profile creation.
@@ -929,4 +929,3 @@ Huma uses [RFC 9457](https://tools.ietf.org/html/rfc9457) Problem Details for HT
 All timestamps in API responses are in ISO 8601 format (UTC). All datetime storage in the database is in UTC. Display times in client applications shall be converted to the **profile's configured timezone** (not the viewing user's timezone), since profiles represent specific individuals who live in a specific timezone.
 
 ---
-
