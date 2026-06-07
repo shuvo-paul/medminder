@@ -571,7 +571,7 @@ func OAuthLinkInitHandler(deps *OAuthHandlerDeps) func(context.Context, *dto.OAu
 			return nil, huma.Error400BadRequest("invalid redirect URL", errors.New("redirect must be a relative path"))
 		}
 		if redirect == "" {
-			redirect = "/profile"
+			redirect = "/account"
 		}
 
 		state := dto.OAuthState{
