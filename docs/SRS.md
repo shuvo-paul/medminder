@@ -192,14 +192,14 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.1.8 Email Management
 
-- [ ] **REQ-EMAIL-001**: Users shall be able to change their login email address.
-- [ ] **REQ-EMAIL-002**: Changing email shall require current password confirmation (OAuth-only users without a password must set one first).
-- [ ] **REQ-EMAIL-003**: The system shall send an email verification link to the new email address.
-- [ ] **REQ-EMAIL-003b**: Email change verification tokens shall expire after 24 hours.
-- [ ] **REQ-EMAIL-004**: The old email shall remain active until the new email is verified.
-- [ ] **REQ-EMAIL-005**: If the new email is already registered, the system shall reject the change.
-- [ ] **REQ-EMAIL-006**: Users with OAuth-linked accounts shall be able to change their email (OAuth account remains linked).
-- [ ] **REQ-EMAIL-007**: Users shall be able to cancel pending email changes before verification via `POST /api/auth/email/cancel`.
+- [x] **REQ-EMAIL-001**: Users shall be able to change their login email address.
+- [x] **REQ-EMAIL-002**: Changing email shall require current password confirmation (OAuth-only users without a password must set one first).
+- [x] **REQ-EMAIL-003**: The system shall send an email verification link to the new email address.
+- [x] **REQ-EMAIL-003b**: Email change verification tokens shall expire after 24 hours.
+- [x] **REQ-EMAIL-004**: The old email shall remain active until the new email is verified.
+- [x] **REQ-EMAIL-005**: If the new email is already registered, the system shall reject the change.
+- [x] **REQ-EMAIL-006**: Users with OAuth-linked accounts shall be able to change their email (OAuth account remains linked).
+- [x] **REQ-EMAIL-007**: Users shall be able to cancel pending email changes before verification via `POST /api/auth/email/cancel`.
 
 #### 3.1.9 Account Deletion
 
