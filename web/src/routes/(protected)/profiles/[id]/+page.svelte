@@ -86,6 +86,7 @@
 	let editTimezone = $state('');
 	let editErrors = $state<Record<string, string>>({});
 	let showTzDropdown = $state(false);
+	let tzHideTimer: ReturnType<typeof setTimeout>;
 	let tzFiltered = $derived(
 		COMMON_TIMEZONES.filter((tz) => tz.toLowerCase().includes(editTimezone.toLowerCase()))
 	);
@@ -395,14 +396,29 @@
 										placeholder="Search timezone..."
 										autocomplete="off"
 										bind:value={editTimezone}
-										onfocus={() => (showTzDropdown = true)}
-										onblur={() => (showTzDropdown = false)}
+										onfocus={() => {
+											clearTimeout(tzHideTimer);
+											showTzDropdown = true;
+										}}
+										onblur={() => {
+											tzHideTimer = setTimeout(() => {
+												showTzDropdown = false;
+											}, 150);
+										}}
 									/>
 									{#if showTzDropdown}
-										<div class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover shadow-md">
+										<div
+											role="listbox"
+											class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover shadow-md"
+											onmouseenter={() => clearTimeout(tzHideTimer)}
+											onmouseleave={() => {
+												showTzDropdown = false;
+											}}
+										>
 											{#each tzFiltered as tz}
 												<button
 													type="button"
+													role="option"
 													class="w-full px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
 													onmousedown={() => {
 														editTimezone = tz;
