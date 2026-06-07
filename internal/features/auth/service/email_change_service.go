@@ -89,7 +89,7 @@ func (s *emailChangeService) RequestEmailChange(ctx context.Context, userID uuid
 	}
 
 	pendingReq, err := s.changeRepo.GetPendingByUserID(ctx, userID)
-	if err != nil && !errors.Is(err, repository.ErrTokenNotFound) {
+	if err != nil && !errors.Is(err, repository.ErrTokenNotFound) && !errors.Is(err, repository.ErrTokenExpired) {
 		return fmt.Errorf("checking pending request: %w", err)
 	}
 	if err == nil {
