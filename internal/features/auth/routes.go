@@ -111,6 +111,18 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 		},
 	}, handlers.CancelEmailChangeHandler(emailChangeSvc, tokenSvc))
 
+	// Get pending email change (authenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-pending-email-change",
+		Method:      http.MethodGet,
+		Path:        "/api/auth/email/change/pending",
+		Summary:     "Get pending email change request",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.GetPendingEmailChangeHandler(emailChangeSvc, tokenSvc))
+
 	// Verify updated email (unauthenticated - token in body)
 	huma.Register(api, huma.Operation{
 		OperationID: "verify-updated-email",

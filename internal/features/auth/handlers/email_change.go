@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
@@ -86,6 +87,30 @@ func VerifyUpdatedEmailHandler(svc service.EmailChangeService) func(context.Cont
 			Body: struct {
 				AccessToken string `json:"access_token"`
 			}{AccessToken: result.AccessToken},
+		}, nil
+	}
+}
+
+func GetPendingEmailChangeHandler(svc service.EmailChangeService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.GetPendingEmailChangeInput) (*dto.GetPendingEmailChangeOutput, error) {
+	return func(ctx context.Context, input *dto.GetPendingEmailChangeInput) (*dto.GetPendingEmailChangeOutput, error) {
+		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		if err != nil {
+			return nil, huma.Error401Unauthorized("Invalid or expired token", nil)
+		}
+
+		newEmail, expiresAt, err := svc.GetPendingEmailChange(ctx, userID)
+		if err != nil {
+			if errors.Is(err, repository.ErrTokenNotFound) || errors.Is(err, repository.ErrTokenExpired) {
+				return nil, huma.Error404NotFound("No pending email change request", err)
+			}
+			return nil, err
+		}
+
+		return &dto.GetPendingEmailChangeOutput{
+			Body: struct {
+				NewEmail  string `json:"new_email"`
+				ExpiresAt string `json:"expires_at"`
+			}{NewEmail: newEmail, ExpiresAt: expiresAt.Format(time.RFC3339)},
 		}, nil
 	}
 }

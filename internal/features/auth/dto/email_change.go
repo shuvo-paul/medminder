@@ -23,3 +23,14 @@ type CancelEmailChangeOutput struct {
 		Message string `json:"message"`
 	}
 }
+
+type GetPendingEmailChangeInput struct {
+	Authorization string `header:"Authorization" json:"-"`
+}
+
+type GetPendingEmailChangeOutput struct {
+	Body struct {
+		NewEmail  string `json:"new_email"`
+		ExpiresAt string `json:"expires_at"`
+	}
+}

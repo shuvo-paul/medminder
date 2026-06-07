@@ -77,6 +77,19 @@
 		}
 	}
 
+	async function fetchPendingEmailChange() {
+		try {
+			const res = await fetch('/api/auth/email/change/pending', {
+				headers: { Authorization: `Bearer ${getToken()}` },
+			});
+			if (res.ok) {
+				emailChangeSuccess = true;
+			}
+		} catch (e) {
+			console.error('Failed to fetch pending email change', e);
+		}
+	}
+
 	async function handleLinkOAuth(provider: string) {
 		try {
 			const res = await fetch(`/api/auth/oauth/${provider}/init`, {
@@ -315,6 +328,7 @@
 	// Fetch accounts on load
 	$effect(() => {
 		fetchAccounts();
+		fetchPendingEmailChange();
 	});
 
 	// Show toast for successful link

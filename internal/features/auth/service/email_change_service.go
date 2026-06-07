@@ -37,6 +37,7 @@ type EmailChangeService interface {
 	RequestEmailChange(ctx context.Context, userID uuid.UUID, newEmail, currentPassword string) error
 	VerifyEmailChange(ctx context.Context, token string) (*VerifyEmailChangeResult, error)
 	CancelEmailChange(ctx context.Context, userID uuid.UUID) error
+	GetPendingEmailChange(ctx context.Context, userID uuid.UUID) (string, time.Time, error)
 }
 
 type emailChangeService struct {
@@ -177,6 +178,17 @@ func (s *emailChangeService) CancelEmailChange(ctx context.Context, userID uuid.
 	}
 
 	return nil
+}
+
+func (s *emailChangeService) GetPendingEmailChange(ctx context.Context, userID uuid.UUID) (string, time.Time, error) {
+	pendingReq, err := s.changeRepo.GetPendingByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrTokenNotFound) || errors.Is(err, repository.ErrTokenExpired) {
+			return "", time.Time{}, err
+		}
+		return "", time.Time{}, fmt.Errorf("finding pending request: %w", err)
+	}
+	return pendingReq.NewEmail, pendingReq.ExpiresAt, nil
 }
 
 func hashEmailChangeToken(token string) (string, error) {
