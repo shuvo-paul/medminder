@@ -21,4 +21,6 @@ var (
 	ErrProviderAlreadyLinked = fmt.Errorf("%w: %w", errors.New("provider already linked"), commonerrors.ErrConflict)
 	ErrUserNotFound          = fmt.Errorf("%w: %w", errors.New("user not found"), commonerrors.ErrNotFound)
 	ErrSamePassword          = fmt.Errorf("%w: %w", errors.New("new password must differ from current password"), commonerrors.ErrBadRequest)
+	ErrPendingEmailChange    = fmt.Errorf("%w: %w", errors.New("pending email change request exists"), commonerrors.ErrConflict)
+	ErrNoEmailChangeRequest  = fmt.Errorf("%w: %w", errors.New("no pending email change request"), commonerrors.ErrNotFound)
 )

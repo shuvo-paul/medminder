@@ -102,6 +102,11 @@ func (m *MockOAuthUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID)
 	return args.Error(0)
 }
 
+func (m *MockOAuthUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error {
+	args := m.Called(ctx, id, email)
+	return args.Error(0)
+}
+
 // MockAuditRepository is a mock for the audit log repository.
 type MockAuditRepository struct {
 	mock.Mock

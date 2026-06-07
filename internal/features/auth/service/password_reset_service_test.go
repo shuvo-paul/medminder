@@ -17,11 +17,12 @@ import (
 // Mock implementations
 
 type MockPRUserRepository struct {
-	GetUserByEmailFn func(ctx context.Context, email string) (db.User, error)
-	GetUserByIDFn    func(ctx context.Context, id string) (db.User, error)
-	UpdatePasswordFn func(ctx context.Context, id, passwordHash string) error
-	CreateUserFn     func(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error)
-	VerifyEmailFn    func(ctx context.Context, id uuid.UUID) error
+	GetUserByEmailFn  func(ctx context.Context, email string) (db.User, error)
+	GetUserByIDFn     func(ctx context.Context, id string) (db.User, error)
+	UpdatePasswordFn  func(ctx context.Context, id, passwordHash string) error
+	CreateUserFn      func(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error)
+	VerifyEmailFn     func(ctx context.Context, id uuid.UUID) error
+	UpdateUserEmailFn func(ctx context.Context, id uuid.UUID, email string) error
 }
 
 func (m *MockPRUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
@@ -55,6 +56,13 @@ func (m *MockPRUserRepository) UpdatePassword(ctx context.Context, id, passwordH
 func (m *MockPRUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) error {
 	if m.VerifyEmailFn != nil {
 		return m.VerifyEmailFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *MockPRUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error {
+	if m.UpdateUserEmailFn != nil {
+		return m.UpdateUserEmailFn(ctx, id, email)
 	}
 	return nil
 }

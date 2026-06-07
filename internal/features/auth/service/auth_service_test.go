@@ -49,6 +49,11 @@ func (m *MockUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) erro
 	return args.Error(0)
 }
 
+func (m *MockUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error {
+	args := m.Called(ctx, id, email)
+	return args.Error(0)
+}
+
 // MockRefreshTokenRepository mocks repository.RefreshTokenRepository
 type MockRefreshTokenRepository struct {
 	mock.Mock
