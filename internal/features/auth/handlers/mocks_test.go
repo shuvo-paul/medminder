@@ -252,6 +252,33 @@ func (m *MockUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, 
 }
 
 // MockAuditRepository is a mock for the audit log repository.
+type MockEmailChangeService struct {
+	mock.Mock
+}
+
+func (m *MockEmailChangeService) RequestEmailChange(ctx context.Context, userID uuid.UUID, newEmail, currentPassword string) error {
+	args := m.Called(ctx, userID, newEmail, currentPassword)
+	return args.Error(0)
+}
+
+func (m *MockEmailChangeService) VerifyEmailChange(ctx context.Context, token string) (*service.VerifyEmailChangeResult, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.VerifyEmailChangeResult), args.Error(1)
+}
+
+func (m *MockEmailChangeService) CancelEmailChange(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *MockEmailChangeService) GetPendingEmailChange(ctx context.Context, userID uuid.UUID) (string, time.Time, error) {
+	args := m.Called(ctx, userID)
+	return args.String(0), args.Get(1).(time.Time), args.Error(2)
+}
+
 type MockAuditRepository struct {
 	mock.Mock
 }

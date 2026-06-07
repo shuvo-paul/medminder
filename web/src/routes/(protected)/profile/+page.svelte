@@ -90,6 +90,7 @@
 			}
 		} catch (e) {
 			console.error('Failed to fetch pending email change', e);
+			toast.error('Failed to check pending email change status');
 		}
 	}
 
