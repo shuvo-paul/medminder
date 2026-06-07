@@ -31,7 +31,7 @@ type CreateProfileInput struct {
 	Authorization string `header:"Authorization" json:"-"`
 	Body          struct {
 		Name          string              `json:"name" minLength:"1" maxLength:"100"`
-		DateOfBirth   *string             `json:"date_of_birth" format:"date"`
+		DateOfBirth   *string             `json:"date_of_birth,omitempty"`
 		Timezone      string              `json:"timezone" minLength:"1" maxLength:"50"`
 		DoseSchedules []DoseScheduleInput `json:"dose_schedules"`
 	}
@@ -68,9 +68,9 @@ type UpdateProfileInput struct {
 	Authorization string `header:"Authorization" json:"-"`
 	ID            string `path:"id"`
 	Body          struct {
-		Name        *string `json:"name" minLength:"1" maxLength:"100"`
-		DateOfBirth *string `json:"date_of_birth" format:"date"`
-		Timezone    *string `json:"timezone" minLength:"1" maxLength:"50"`
+		Name        *string `json:"name,omitempty" minLength:"1" maxLength:"100"`
+		DateOfBirth *string `json:"date_of_birth,omitempty"`
+		Timezone    *string `json:"timezone,omitempty" minLength:"1" maxLength:"50"`
 	}
 }
 
@@ -93,7 +93,7 @@ type DeleteProfileOutput struct {
 
 type DoseScheduleInput struct {
 	Name string `json:"name" minLength:"1" maxLength:"100"`
-	Time string `json:"time" format:"time"`
+	Time string `json:"time"`
 }
 
 func DateOfBirthToPtr(t sql.NullTime) *string {

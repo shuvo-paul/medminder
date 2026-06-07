@@ -16,7 +16,7 @@ type CreateScheduleInput struct {
 	ID            string `path:"id"`
 	Body          struct {
 		Name string `json:"name" minLength:"1" maxLength:"100"`
-		Time string `json:"time" format:"time"`
+		Time string `json:"time"`
 	}
 }
 
@@ -43,8 +43,8 @@ type UpdateScheduleInput struct {
 	ID            string `path:"id"`
 	ScheduleID    string `path:"scheduleId"`
 	Body          struct {
-		Name *string `json:"name" minLength:"1" maxLength:"100"`
-		Time *string `json:"time" format:"time"`
+		Name *string `json:"name,omitempty" minLength:"1" maxLength:"100"`
+		Time *string `json:"time,omitempty"`
 	}
 }
 
