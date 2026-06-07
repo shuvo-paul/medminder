@@ -59,6 +59,7 @@
 		'Europe/Moscow',
 		'Asia/Dubai',
 		'Asia/Kolkata',
+		'Asia/Dhaka',
 		'Asia/Bangkok',
 		'Asia/Singapore',
 		'Asia/Hong_Kong',

@@ -30,6 +30,7 @@
 		'Europe/Moscow',
 		'Asia/Dubai',
 		'Asia/Kolkata',
+		'Asia/Dhaka',
 		'Asia/Bangkok',
 		'Asia/Singapore',
 		'Asia/Hong_Kong',
@@ -42,7 +43,7 @@
 		'UTC',
 	];
 
-	const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+	const defaultTimezone = 'Asia/Dhaka';
 
 	let name = $state('');
 	let dateOfBirth = $state('');
