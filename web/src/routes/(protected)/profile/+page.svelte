@@ -15,6 +15,7 @@
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import Mail from '@lucide/svelte/icons/mail';
 
 	const urlParams = $derived($page.url.searchParams);
 	const linkedProvider = $derived(urlParams.get('linked'));
@@ -36,8 +37,27 @@
 	let isSettingPassword = $state(false);
 	let passwordError = $state('');
 
+	let showChangeEmail = $state(false);
+	let newEmail = $state('');
+	let emailPassword = $state('');
+	let isChangingEmail = $state(false);
+	let emailError = $state('');
+	let emailChangeSuccess = $state(false);
+	let pendingEmail = $state('');
+
 	function getToken() {
 		return localStorage.getItem('access_token') || '';
+	}
+
+	function getCurrentEmail() {
+		const token = getToken();
+		if (!token) return '';
+		try {
+			const payload = JSON.parse(atob(token.split('.')[1]));
+			return payload.email || '';
+		} catch {
+			return '';
+		}
 	}
 
 	async function fetchAccounts() {
@@ -55,6 +75,22 @@
 			console.error('Failed to fetch accounts', e);
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function fetchPendingEmailChange() {
+		try {
+			const res = await fetch('/api/auth/email/change/pending', {
+				headers: { Authorization: `Bearer ${getToken()}` },
+			});
+			if (res.ok) {
+				const data = await res.json();
+				pendingEmail = data.new_email;
+				emailChangeSuccess = true;
+			}
+		} catch (e) {
+			console.error('Failed to fetch pending email change', e);
+			toast.error('Failed to check pending email change status');
 		}
 	}
 
@@ -205,6 +241,81 @@
 		}
 	}
 
+	async function handleRequestEmailChange() {
+		emailError = '';
+		if (!newEmail.trim()) {
+			emailError = 'New email is required';
+			return;
+		}
+		if (!emailPassword) {
+			emailError = 'Current password is required';
+			return;
+		}
+		if (newEmail.trim().toLowerCase() === getCurrentEmail().toLowerCase()) {
+			emailError = 'New email must be different from current email';
+			return;
+		}
+
+		isChangingEmail = true;
+		try {
+			const res = await fetch('/api/auth/email/change/request', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${getToken()}`,
+				},
+				body: JSON.stringify({
+					new_email: newEmail.trim(),
+					current_password: emailPassword,
+				}),
+			});
+			if (res.ok) {
+				toast.success('Verification email sent to your new email address');
+				pendingEmail = newEmail.trim();
+				emailChangeSuccess = true;
+				showChangeEmail = false;
+				newEmail = '';
+				emailPassword = '';
+			} else if (res.status === 409) {
+				emailError = 'This email is already in use';
+			} else if (res.status === 400) {
+				const data = await res.json();
+				if (data.detail?.includes('password')) {
+					emailError = 'Set a password first before changing your email';
+				} else if (data.detail?.includes('incorrect')) {
+					emailError = 'Current password is incorrect';
+				} else {
+					emailError = data.detail || 'Failed to request email change';
+				}
+			} else {
+				const data = await res.json();
+				emailError = data.detail || 'Failed to request email change';
+			}
+		} catch {
+			emailError = 'Network error';
+		} finally {
+			isChangingEmail = false;
+		}
+	}
+
+	async function handleCancelEmailChange() {
+		try {
+			const res = await fetch('/api/auth/email/change/cancel', {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${getToken()}` },
+			});
+			if (res.ok) {
+				toast.success('Email change request cancelled');
+				emailChangeSuccess = false;
+				pendingEmail = '';
+			} else {
+				toast.error('Failed to cancel email change');
+			}
+		} catch {
+			toast.error('Network error');
+		}
+	}
+
 	function handleLogout() {
 		const token = getToken();
 		if (token) {
@@ -223,6 +334,7 @@
 	// Fetch accounts on load
 	$effect(() => {
 		fetchAccounts();
+		fetchPendingEmailChange();
 	});
 
 	// Show toast for successful link
@@ -311,6 +423,77 @@
 
 			{#if isLoading}
 				<p class="text-center text-xs text-muted-foreground">Loading...</p>
+			{/if}
+		</CardContent>
+	</Card>
+
+	<!-- Email Section -->
+	<Card class="mb-4">
+		<CardHeader>
+			<CardTitle class="text-base">Email Address</CardTitle>
+			<CardDescription>Update your email address</CardDescription>
+		</CardHeader>
+		<CardContent class="space-y-3">
+			<div class="flex items-center justify-between rounded-lg border p-3">
+				<div class="flex items-center gap-3">
+					<Mail class="size-5 text-muted-foreground" />
+					<div>
+						<p class="text-sm font-medium">{getCurrentEmail() || 'Loading...'}</p>
+					</div>
+				</div>
+				{#if emailChangeSuccess}
+					<Button variant="outline" size="sm" onclick={handleCancelEmailChange}>
+						Cancel Request
+					</Button>
+				{:else if !showChangeEmail}
+					<Button variant="outline" onclick={() => (showChangeEmail = true)}>
+						Change Email
+					</Button>
+				{/if}
+			</div>
+
+			{#if emailChangeSuccess}
+				<Alert>
+					<AlertDescription class="text-sm">
+						Email change pending to <strong>{pendingEmail}</strong>. Check your inbox for a verification link.
+					</AlertDescription>
+				</Alert>
+			{:else if showChangeEmail}
+				<form onsubmit={(e) => { e.preventDefault(); handleRequestEmailChange(); }} class="space-y-3">
+					<div class="space-y-1">
+						<Label for="new-email">New Email Address</Label>
+						<Input
+							id="new-email"
+							type="email"
+							bind:value={newEmail}
+							placeholder="your@newemail.com"
+						/>
+					</div>
+					<div class="space-y-1">
+						<Label for="email-current-password">Current Password</Label>
+						<Input
+							id="email-current-password"
+							type="password"
+							bind:value={emailPassword}
+							placeholder="Enter your current password"
+						/>
+					</div>
+					{#if emailError}
+						<p class="text-sm text-destructive">{emailError}</p>
+					{/if}
+					<div class="flex gap-2">
+						<Button type="submit" disabled={isChangingEmail}>
+							{isChangingEmail ? 'Sending...' : 'Send Verification'}
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							onclick={() => { showChangeEmail = false; emailError = ''; newEmail = ''; emailPassword = ''; }}
+						>
+							Cancel
+						</Button>
+					</div>
+				</form>
 			{/if}
 		</CardContent>
 	</Card>

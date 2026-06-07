@@ -19,11 +19,13 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
 	evTokenRepo := repository.NewEmailVerificationTokenRepository(queries)
+	emailChangeRepo := repository.NewEmailChangeRepository(queries)
 	tokenSvc := service.NewTokenService(jwtSecret)
 
 	// Services
 	authSvc := service.NewAuthService(userRepo, tokenRepo, tokenSvc)
 	emailVerifSvc := service.NewEmailVerificationService(userRepo, evTokenRepo, tokenSvc, frontendURL)
+	emailChangeSvc := service.NewEmailChangeService(userRepo, emailChangeRepo, tokenSvc, frontendURL)
 	passwordResetSvc := service.NewPasswordResetService(
 		userRepo,
 		repository.NewPasswordResetTokenRepository(queries),
@@ -84,6 +86,51 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 			{"bearer": {}},
 		},
 	}, handlers.ResendVerificationHandler(emailVerifSvc, tokenSvc))
+
+	// Request email change (authenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "request-email-change",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/email/change/request",
+		Summary:     "Request an email address change",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.RequestEmailChangeHandler(emailChangeSvc, tokenSvc))
+
+	// Cancel email change (authenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "cancel-email-change",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/email/change/cancel",
+		Summary:     "Cancel a pending email address change",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.CancelEmailChangeHandler(emailChangeSvc, tokenSvc))
+
+	// Get pending email change (authenticated)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-pending-email-change",
+		Method:      http.MethodGet,
+		Path:        "/api/auth/email/change/pending",
+		Summary:     "Get pending email change request",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.GetPendingEmailChangeHandler(emailChangeSvc, tokenSvc))
+
+	// Verify updated email (unauthenticated - token in body)
+	huma.Register(api, huma.Operation{
+		OperationID: "verify-updated-email",
+		Method:      http.MethodPost,
+		Path:        "/api/auth/email/verify-updated",
+		Summary:     "Verify updated email address from email change request",
+		Tags:        []string{"auth"},
+	}, handlers.VerifyUpdatedEmailHandler(emailChangeSvc))
 
 	// Password reset routes (already use dto types)
 	passwordResetDeps := handlers.NewPasswordResetDeps(passwordResetSvc)

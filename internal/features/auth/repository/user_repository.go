@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id string) (db.User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
 	VerifyEmail(ctx context.Context, id uuid.UUID) error
+	UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error
 }
 
 type userRepository struct {
@@ -50,4 +51,11 @@ func (r *userRepository) UpdatePassword(ctx context.Context, id, passwordHash st
 
 func (r *userRepository) VerifyEmail(ctx context.Context, id uuid.UUID) error {
 	return r.queries.VerifyUserEmail(ctx, id)
+}
+
+func (r *userRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error {
+	return r.queries.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
+		ID:    id,
+		Email: email,
+	})
 }

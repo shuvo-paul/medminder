@@ -24,3 +24,6 @@ WHERE id = $1;
 
 -- name: VerifyUserEmail :exec
 UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1;
+
+-- name: UpdateUserEmail :exec
+UPDATE users SET email = $2, email_verified = true, updated_at = NOW() WHERE id = $1;

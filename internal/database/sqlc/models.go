@@ -22,6 +22,15 @@ type AuditLog struct {
 	CreatedAt sql.NullTime          `json:"created_at"`
 }
 
+type EmailChangeRequest struct {
+	ID        uuid.UUID    `json:"id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	NewEmail  string       `json:"new_email"`
+	TokenHash string       `json:"token_hash"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
 type EmailVerificationToken struct {
 	ID        uuid.UUID    `json:"id"`
 	UserID    uuid.UUID    `json:"user_id"`
