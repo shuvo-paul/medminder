@@ -212,14 +212,14 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.2.1 Profile CRUD
 
-- [ ] **REQ-PROF-001**: Users shall be able to create profiles with name, date of birth, medical conditions, and timezone (IANA timezone identifier, e.g., `Asia/Dhaka`).
-- [ ] **REQ-PROF-001b**: When creating a profile, the system shall prompt for meal times (Breakfast, Lunch, Dinner) to set up initial dose schedules.
-- [ ] **REQ-PROF-001c**: The system shall create initial dose schedules (Breakfast, Lunch, Dinner) based on user-provided meal times during profile creation.
-- [ ] **REQ-PROF-001d**: Users shall be able to modify or delete initial dose schedules after profile creation.
-- [ ] **REQ-PROF-001e**: Users shall be able to create additional dose schedules at any time.
-- [ ] **REQ-PROF-002**: Users shall be able to view all profiles they own or have access to.
-- [ ] **REQ-PROF-003**: Users shall be able to update profile details (requires `profile:write` permission).
-- [ ] **REQ-PROF-004**: Users with `profile:admin` permission shall be able to delete profiles.
+- [x] **REQ-PROF-001**: Users shall be able to create profiles with name, date of birth, medical conditions, and timezone (IANA timezone identifier, e.g., `Asia/Dhaka`).
+- [x] **REQ-PROF-001b**: When creating a profile, the system shall prompt for meal times (Breakfast, Lunch, Dinner) to set up initial dose schedules.
+- [x] **REQ-PROF-001c**: The system shall create initial dose schedules (Breakfast, Lunch, Dinner) based on user-provided meal times during profile creation.
+- [x] **REQ-PROF-001d**: Users shall be able to modify or delete initial dose schedules after profile creation.
+- [x] **REQ-PROF-001e**: Users shall be able to create additional dose schedules at any time.
+- [x] **REQ-PROF-002**: Users shall be able to view all profiles they own or have access to.
+- [x] **REQ-PROF-003**: Users shall be able to update profile details (requires `profile:write` permission).
+- [x] **REQ-PROF-004**: Users with `profile:admin` permission shall be able to delete profiles.
 
 #### 3.2.2 Profile Ownership
 
