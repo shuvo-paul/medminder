@@ -348,7 +348,7 @@
 		</header>
 
 		<div class="space-y-6">
-			<Card>
+			<Card class="overflow-visible">
 				<CardHeader>
 					<div class="flex items-center justify-between">
 						<CardTitle>Profile Information</CardTitle>

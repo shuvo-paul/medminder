@@ -139,7 +139,7 @@
 	</header>
 
 	<form onsubmit={handleSubmit} class="max-w-lg space-y-6">
-		<Card>
+		<Card class="overflow-visible">
 			<CardHeader>
 				<CardTitle>Profile Details</CardTitle>
 				<CardDescription>Basic information for this profile</CardDescription>
