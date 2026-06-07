@@ -116,7 +116,7 @@ func (s *emailChangeService) RequestEmailChange(ctx context.Context, userID uuid
 		return fmt.Errorf("storing email change request: %w", err)
 	}
 
-	verificationLink := fmt.Sprintf("%s/auth/verify-email?token=%s", s.frontendURL, rawToken)
+	verificationLink := fmt.Sprintf("%s/auth/verify-updated?token=%s", s.frontendURL, rawToken)
 	emailBody := fmt.Sprintf("<p>You requested to change your email address to this email. Click <a href=\"%s\">here</a> to confirm this change. This link expires in 24 hours.</p>", verificationLink)
 
 	emailqueue.QueueEmail(ctx, newEmail, "MedMinder Email Change Verification", emailBody)
