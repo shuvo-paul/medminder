@@ -400,7 +400,7 @@
 							</div>
 						</div>
 					{:else}
-						<dl class="grid gap-4 sm:grid-cols-2">
+						<dl class="flex flex-col gap-4">
 							<div class="flex items-center gap-2">
 								<Globe class="size-4 text-muted-foreground" />
 								<dt class="text-sm text-muted-foreground">Timezone</dt>
