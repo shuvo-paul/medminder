@@ -43,6 +43,7 @@
 	let isChangingEmail = $state(false);
 	let emailError = $state('');
 	let emailChangeSuccess = $state(false);
+	let pendingEmail = $state('');
 
 	function getToken() {
 		return localStorage.getItem('access_token') || '';
@@ -83,6 +84,8 @@
 				headers: { Authorization: `Bearer ${getToken()}` },
 			});
 			if (res.ok) {
+				const data = await res.json();
+				pendingEmail = data.new_email;
 				emailChangeSuccess = true;
 			}
 		} catch (e) {
@@ -267,6 +270,7 @@
 			});
 			if (res.ok) {
 				toast.success('Verification email sent to your new email address');
+				pendingEmail = newEmail.trim();
 				emailChangeSuccess = true;
 				showChangeEmail = false;
 				newEmail = '';
@@ -302,6 +306,7 @@
 			if (res.ok) {
 				toast.success('Email change request cancelled');
 				emailChangeSuccess = false;
+				pendingEmail = '';
 			} else {
 				toast.error('Failed to cancel email change');
 			}
@@ -449,7 +454,7 @@
 			{#if emailChangeSuccess}
 				<Alert>
 					<AlertDescription class="text-sm">
-						Email change pending. Check your new inbox for a verification link.
+						Email change pending to <strong>{pendingEmail}</strong>. Check your inbox for a verification link.
 					</AlertDescription>
 				</Alert>
 			{:else if showChangeEmail}
