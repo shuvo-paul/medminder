@@ -49,6 +49,10 @@
 	let dateOfBirth = $state('');
 	let timezone = $state(defaultTimezone);
 	let errors = $state<Record<string, string>>({});
+	let showTzDropdown = $state(false);
+	let tzFiltered = $derived(
+		COMMON_TIMEZONES.filter((tz) => tz.toLowerCase().includes(timezone.toLowerCase()))
+	);
 	let isSubmitting = $state(false);
 
 	interface ScheduleRow {
@@ -170,15 +174,33 @@
 
 				<div class="space-y-2">
 					<Label for="timezone">Timezone <span class="text-destructive">*</span></Label>
-					<select
-						id="timezone"
-						bind:value={timezone}
-						class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{#each COMMON_TIMEZONES as tz}
-							<option value={tz}>{tz}</option>
-						{/each}
-					</select>
+					<div class="relative">
+						<Input
+							id="timezone"
+							placeholder="Search timezone..."
+							autocomplete="off"
+							bind:value={timezone}
+							onfocus={() => (showTzDropdown = true)}
+							onblur={() => (showTzDropdown = false)}
+						/>
+						{#if showTzDropdown}
+							<div class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover shadow-md">
+								{#each tzFiltered as tz}
+									<button
+										type="button"
+										class="w-full px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+										onmousedown={() => {
+											timezone = tz;
+											showTzDropdown = false;
+										}}
+									>{tz}</button>
+								{/each}
+								{#if tzFiltered.length === 0}
+									<div class="px-3 py-1.5 text-sm text-muted-foreground">No timezone found</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
 					{#if errors.timezone}
 						<p class="text-sm text-destructive">{errors.timezone}</p>
 					{/if}

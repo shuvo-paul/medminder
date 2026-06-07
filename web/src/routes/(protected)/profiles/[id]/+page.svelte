@@ -85,6 +85,10 @@
 	let editDateOfBirth = $state('');
 	let editTimezone = $state('');
 	let editErrors = $state<Record<string, string>>({});
+	let showTzDropdown = $state(false);
+	let tzFiltered = $derived(
+		COMMON_TIMEZONES.filter((tz) => tz.toLowerCase().includes(editTimezone.toLowerCase()))
+	);
 	let isSavingProfile = $state(false);
 
 	let showAddSchedule = $state(false);
@@ -385,15 +389,33 @@
 							</div>
 							<div class="space-y-2">
 								<Label for="edit-tz">Timezone</Label>
-								<select
-									id="edit-tz"
-									bind:value={editTimezone}
-									class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-								>
-									{#each COMMON_TIMEZONES as tz}
-										<option value={tz}>{tz}</option>
-									{/each}
-								</select>
+								<div class="relative">
+									<Input
+										id="edit-tz"
+										placeholder="Search timezone..."
+										autocomplete="off"
+										bind:value={editTimezone}
+										onfocus={() => (showTzDropdown = true)}
+										onblur={() => (showTzDropdown = false)}
+									/>
+									{#if showTzDropdown}
+										<div class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover shadow-md">
+											{#each tzFiltered as tz}
+												<button
+													type="button"
+													class="w-full px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+													onmousedown={() => {
+														editTimezone = tz;
+														showTzDropdown = false;
+													}}
+												>{tz}</button>
+											{/each}
+											{#if tzFiltered.length === 0}
+												<div class="px-3 py-1.5 text-sm text-muted-foreground">No timezone found</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
 								{#if editErrors.timezone}
 									<p class="text-sm text-destructive">{editErrors.timezone}</p>
 								{/if}
