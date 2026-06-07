@@ -45,7 +45,7 @@
 	</header>
 
 	{#if isLoading}
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="flex flex-col gap-4">
 			{#each Array(3) as _}
 				<Card class="animate-pulse">
 					<CardHeader>
@@ -88,7 +88,7 @@
 			</CardContent>
 		</Card>
 	{:else}
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="flex flex-col gap-4">
 			{#each profiles as profile (profile.id)}
 				<a href="/profiles/{profile.id}" class="block">
 					<Card class="transition-colors hover:border-primary/50">
