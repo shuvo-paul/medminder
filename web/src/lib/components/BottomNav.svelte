@@ -12,7 +12,7 @@
 		{ href: '/medications', label: 'Medications', icon: Pill, match: (p: string) => p.startsWith('/medications') },
 		{ href: '/schedule', label: 'Schedule', icon: CalendarClock, match: (p: string) => p.startsWith('/schedule') },
 		{ href: '/profiles', label: 'Profiles', icon: UsersRound, match: (p: string) => p.startsWith('/profiles') },
-		{ href: '/profile', label: 'Account', icon: UserRound, match: (p: string) => p.startsWith('/profile') },
+		{ href: '/account', label: 'Account', icon: UserRound, match: (p: string) => p.startsWith('/account') },
 	];
 </script>
 

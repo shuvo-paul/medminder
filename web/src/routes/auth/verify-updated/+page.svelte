@@ -62,7 +62,7 @@
 			status = 'success';
 
 			setTimeout(() => {
-				goto('/profile');
+				goto('/account');
 			}, 2000);
 		} catch {
 			errorMessage = 'Network error. Please check your connection and try again.';
@@ -108,7 +108,7 @@
 					</div>
 
 					<p class="text-center text-sm text-muted-foreground">
-						<a href="/profile" class="text-primary hover:underline">Back to settings</a>
+						<a href="/account" class="text-primary hover:underline">Back to settings</a>
 					</p>
 				</CardContent>
 			</Card>

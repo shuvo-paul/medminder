@@ -102,7 +102,7 @@
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${getToken()}`,
 				},
-				body: JSON.stringify({ redirect: '/profile' }),
+				body: JSON.stringify({ redirect: '/account' }),
 			});
 			if (!res.ok) {
 				toast.error('Failed to initiate link');
