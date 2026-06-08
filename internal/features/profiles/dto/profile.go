@@ -18,7 +18,6 @@ type DoseScheduleDTO struct {
 
 type ProfileDTO struct {
 	ID          uuid.UUID         `json:"id"`
-	OwnerUserID uuid.UUID         `json:"owner_user_id"`
 	Name        string            `json:"name"`
 	DateOfBirth *string           `json:"date_of_birth"`
 	Timezone    string            `json:"timezone"`
