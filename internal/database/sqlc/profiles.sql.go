@@ -47,16 +47,14 @@ func (q *Queries) CreateDoseSchedule(ctx context.Context, arg CreateDoseSchedule
 const createProfile = `-- name: CreateProfile :one
 
 INSERT INTO profiles (
-    owner_user_id,
     name,
     date_of_birth,
     timezone
-) VALUES ($1, $2, $3, $4)
-RETURNING id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
+) VALUES ($1, $2, $3)
+RETURNING id, name, date_of_birth, timezone, created_at, updated_at
 `
 
 type CreateProfileParams struct {
-	OwnerUserID uuid.UUID    `json:"owner_user_id"`
 	Name        string       `json:"name"`
 	DateOfBirth sql.NullTime `json:"date_of_birth"`
 	Timezone    string       `json:"timezone"`
@@ -64,16 +62,10 @@ type CreateProfileParams struct {
 
 // Profile queries
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
-	row := q.db.QueryRowContext(ctx, createProfile,
-		arg.OwnerUserID,
-		arg.Name,
-		arg.DateOfBirth,
-		arg.Timezone,
-	)
+	row := q.db.QueryRowContext(ctx, createProfile, arg.Name, arg.DateOfBirth, arg.Timezone)
 	var i Profile
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerUserID,
 		&i.Name,
 		&i.DateOfBirth,
 		&i.Timezone,
@@ -131,7 +123,7 @@ func (q *Queries) GetDoseScheduleByID(ctx context.Context, id uuid.UUID) (DoseSc
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
+SELECT id, name, date_of_birth, timezone, created_at, updated_at
 FROM profiles
 WHERE id = $1
 `
@@ -141,7 +133,6 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 	var i Profile
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerUserID,
 		&i.Name,
 		&i.DateOfBirth,
 		&i.Timezone,
@@ -188,15 +179,16 @@ func (q *Queries) ListDoseSchedulesByProfile(ctx context.Context, profileID uuid
 	return items, nil
 }
 
-const listProfilesByOwner = `-- name: ListProfilesByOwner :many
-SELECT id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
-FROM profiles
-WHERE owner_user_id = $1
-ORDER BY created_at DESC
+const listProfilesByUser = `-- name: ListProfilesByUser :many
+SELECT p.id, p.name, p.date_of_birth, p.timezone, p.created_at, p.updated_at
+FROM profiles p
+INNER JOIN profile_permissions pp ON pp.profile_id = p.id
+WHERE pp.shared_with_user_id = $1
+ORDER BY p.created_at DESC
 `
 
-func (q *Queries) ListProfilesByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]Profile, error) {
-	rows, err := q.db.QueryContext(ctx, listProfilesByOwner, ownerUserID)
+func (q *Queries) ListProfilesByUser(ctx context.Context, sharedWithUserID uuid.UUID) ([]Profile, error) {
+	rows, err := q.db.QueryContext(ctx, listProfilesByUser, sharedWithUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +198,6 @@ func (q *Queries) ListProfilesByOwner(ctx context.Context, ownerUserID uuid.UUID
 		var i Profile
 		if err := rows.Scan(
 			&i.ID,
-			&i.OwnerUserID,
 			&i.Name,
 			&i.DateOfBirth,
 			&i.Timezone,
@@ -257,7 +248,7 @@ const updateProfile = `-- name: UpdateProfile :one
 UPDATE profiles
 SET name = $2, date_of_birth = $3, timezone = $4, updated_at = NOW()
 WHERE id = $1
-RETURNING id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
+RETURNING id, name, date_of_birth, timezone, created_at, updated_at
 `
 
 type UpdateProfileParams struct {
@@ -277,7 +268,6 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 	var i Profile
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerUserID,
 		&i.Name,
 		&i.DateOfBirth,
 		&i.Timezone,

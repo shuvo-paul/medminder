@@ -6,6 +6,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,12 +84,23 @@ type PasswordResetToken struct {
 
 type Profile struct {
 	ID          uuid.UUID    `json:"id"`
-	OwnerUserID uuid.UUID    `json:"owner_user_id"`
 	Name        string       `json:"name"`
 	DateOfBirth sql.NullTime `json:"date_of_birth"`
 	Timezone    string       `json:"timezone"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
+}
+
+type ProfilePermission struct {
+	ID               uuid.UUID       `json:"id"`
+	ProfileID        uuid.UUID       `json:"profile_id"`
+	SharedWithUserID uuid.UUID       `json:"shared_with_user_id"`
+	GrantedByUserID  uuid.UUID       `json:"granted_by_user_id"`
+	Permissions      json.RawMessage `json:"permissions"`
+	Status           string          `json:"status"`
+	ExpiresAt        sql.NullTime    `json:"expires_at"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
 type RefreshToken struct {
