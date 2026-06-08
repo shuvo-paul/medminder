@@ -9,9 +9,9 @@ import (
 )
 
 type ProfileRepository interface {
-	CreateProfile(ctx context.Context, ownerUserID uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
+	CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (db.Profile, error)
-	ListProfilesByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]db.Profile, error)
+	ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error)
 	UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
 }
@@ -24,9 +24,8 @@ func NewProfileRepository(queries *db.Queries) ProfileRepository {
 	return &profileRepository{queries: queries}
 }
 
-func (r *profileRepository) CreateProfile(ctx context.Context, ownerUserID uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
+func (r *profileRepository) CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
 	return r.queries.CreateProfile(ctx, db.CreateProfileParams{
-		OwnerUserID: ownerUserID,
 		Name:        name,
 		DateOfBirth: dateOfBirth,
 		Timezone:    timezone,
@@ -37,8 +36,8 @@ func (r *profileRepository) GetProfileByID(ctx context.Context, id uuid.UUID) (d
 	return r.queries.GetProfileByID(ctx, id)
 }
 
-func (r *profileRepository) ListProfilesByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]db.Profile, error) {
-	return r.queries.ListProfilesByOwner(ctx, ownerUserID)
+func (r *profileRepository) ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error) {
+	return r.queries.ListProfilesByUser(ctx, userID)
 }
 
 func (r *profileRepository) UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
