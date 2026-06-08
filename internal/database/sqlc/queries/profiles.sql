@@ -2,29 +2,29 @@
 
 -- name: CreateProfile :one
 INSERT INTO profiles (
-    owner_user_id,
     name,
     date_of_birth,
     timezone
-) VALUES ($1, $2, $3, $4)
-RETURNING id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at;
+) VALUES ($1, $2, $3)
+RETURNING id, name, date_of_birth, timezone, created_at, updated_at;
 
 -- name: GetProfileByID :one
-SELECT id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
+SELECT id, name, date_of_birth, timezone, created_at, updated_at
 FROM profiles
 WHERE id = $1;
 
--- name: ListProfilesByOwner :many
-SELECT id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at
-FROM profiles
-WHERE owner_user_id = $1
-ORDER BY created_at DESC;
+-- name: ListProfilesByUser :many
+SELECT p.id, p.name, p.date_of_birth, p.timezone, p.created_at, p.updated_at
+FROM profiles p
+INNER JOIN profile_permissions pp ON pp.profile_id = p.id
+WHERE pp.shared_with_user_id = $1
+ORDER BY p.created_at DESC;
 
 -- name: UpdateProfile :one
 UPDATE profiles
 SET name = $2, date_of_birth = $3, timezone = $4, updated_at = NOW()
 WHERE id = $1
-RETURNING id, owner_user_id, name, date_of_birth, timezone, created_at, updated_at;
+RETURNING id, name, date_of_birth, timezone, created_at, updated_at;
 
 -- name: DeleteProfile :exec
 DELETE FROM profiles WHERE id = $1;
