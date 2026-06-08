@@ -18,7 +18,7 @@ type TokenServiceInterface interface {
 
 func CreateProfileHandler(svc service.ProfileService, tokenSvc TokenServiceInterface) func(context.Context, *dto.CreateProfileInput) (*dto.CreateProfileOutput, error) {
 	return func(ctx context.Context, input *dto.CreateProfileInput) (*dto.CreateProfileOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		_, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +37,7 @@ func CreateProfileHandler(svc service.ProfileService, tokenSvc TokenServiceInter
 			schedules[i] = service.DoseScheduleInput{Name: s.Name, Time: s.Time}
 		}
 
-		result, err := svc.CreateProfile(ctx, userID, input.Body.Name, dateOfBirth, input.Body.Timezone, schedules)
+		result, err := svc.CreateProfile(ctx, input.Body.Name, dateOfBirth, input.Body.Timezone, schedules)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidTimezone) {
 				return nil, huma.Error400BadRequest("Invalid timezone", err)
@@ -201,13 +201,12 @@ func ExtractUserIDFromAuth(authHeader string, tokenSvc TokenServiceInterface) (u
 
 func toProfileDTO(p service.ProfileDTO) dto.ProfileDTO {
 	result := dto.ProfileDTO{
-		ID:          p.ID,
-		OwnerUserID: p.OwnerUserID,
-		Name:        p.Name,
-		Timezone:    p.Timezone,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
-		Schedules:   make([]dto.DoseScheduleDTO, len(p.Schedules)),
+		ID:        p.ID,
+		Name:      p.Name,
+		Timezone:  p.Timezone,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+		Schedules: make([]dto.DoseScheduleDTO, len(p.Schedules)),
 	}
 	if p.DateOfBirth != nil {
 		result.DateOfBirth = p.DateOfBirth
