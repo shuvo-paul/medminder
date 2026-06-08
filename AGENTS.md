@@ -97,3 +97,17 @@ The router orchestrates by calling feature `RegisterRoutes` functions. This keep
 - Use `.env` files for local configuration (gitignored)
 - Configuration loaded from `configs/` directory
 - Reference `.env.example` for dev credentials and required variables
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues on `shuvo-paul/medminder`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default label names used for triage: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — one CONTEXT.md + docs/adr/ at root. See `docs/agents/domain.md`.
