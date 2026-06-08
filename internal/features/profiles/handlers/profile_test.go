@@ -30,10 +30,9 @@ func TestCreateProfile_Success(t *testing.T) {
 		{Name: "Morning", Time: "08:00"},
 	}
 
-	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&service.ProfileResult{
+	mockSvc.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&service.ProfileResult{
 		Profile: service.ProfileDTO{
 			ID:          profileID,
-			OwnerUserID: userID,
 			Name:        "Test Profile",
 			DateOfBirth: func() *string { s := "1990-01-15"; return &s }(),
 			Timezone:    "America/New_York",
@@ -94,7 +93,7 @@ func TestCreateProfile_InvalidTimezone(t *testing.T) {
 		"sub": userID.String(),
 	}, nil)
 
-	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "Invalid/Timezone", mock.Anything).Return(nil, service.ErrInvalidTimezone)
+	mockSvc.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "Invalid/Timezone", mock.Anything).Return(nil, service.ErrInvalidTimezone)
 
 	handler := handlers.CreateProfileHandler(mockSvc, mockTokenSvc)
 
@@ -125,12 +124,11 @@ func TestListProfiles_Success(t *testing.T) {
 	mockSvc.On("ListProfiles", mock.Anything, userID).Return([]service.ProfileResult{
 		{
 			Profile: service.ProfileDTO{
-				ID:          profileID,
-				OwnerUserID: userID,
-				Name:        "Profile 1",
-				Timezone:    "UTC",
-				CreatedAt:   now,
-				UpdatedAt:   now,
+				ID:        profileID,
+				Name:      "Profile 1",
+				Timezone:  "UTC",
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 		},
 	}, nil)
@@ -162,12 +160,11 @@ func TestGetProfile_Success(t *testing.T) {
 
 	mockSvc.On("GetProfile", mock.Anything, profileID, userID).Return(&service.ProfileResult{
 		Profile: service.ProfileDTO{
-			ID:          profileID,
-			OwnerUserID: userID,
-			Name:        "Test Profile",
-			Timezone:    "UTC",
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:        profileID,
+			Name:      "Test Profile",
+			Timezone:  "UTC",
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}, nil)
 
@@ -225,12 +222,11 @@ func TestUpdateProfile_Success(t *testing.T) {
 
 	mockSvc.On("UpdateProfile", mock.Anything, profileID, userID, &newName, mock.Anything, (*string)(nil)).Return(&service.ProfileResult{
 		Profile: service.ProfileDTO{
-			ID:          profileID,
-			OwnerUserID: userID,
-			Name:        "Updated Profile",
-			Timezone:    "UTC",
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:        profileID,
+			Name:      "Updated Profile",
+			Timezone:  "UTC",
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}, nil)
 
@@ -246,32 +242,6 @@ func TestUpdateProfile_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Updated Profile", resp.Body.Profile.Name)
-}
-
-func TestUpdateProfile_Unauthorized(t *testing.T) {
-	mockSvc := new(MockProfileService)
-	mockTokenSvc := new(MockTokenService)
-
-	userID := uuid.UUID{2}
-	profileID := uuid.New()
-
-	mockTokenSvc.On("ValidateAccessToken", "valid-token").Return(jwt.MapClaims{
-		"sub": userID.String(),
-	}, nil)
-
-	mockSvc.On("UpdateProfile", mock.Anything, profileID, userID, mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrUnauthorizedAccess)
-
-	handler := handlers.UpdateProfileHandler(mockSvc, mockTokenSvc)
-
-	input := &dto.UpdateProfileInput{}
-	input.Authorization = "Bearer valid-token"
-	input.ID = profileID.String()
-
-	resp, err := handler(context.Background(), input)
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Unauthorized")
 }
 
 func TestDeleteProfile_Success(t *testing.T) {

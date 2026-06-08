@@ -18,8 +18,8 @@ type MockProfileRepository struct {
 	mock.Mock
 }
 
-func (m *MockProfileRepository) CreateProfile(ctx context.Context, ownerUserID uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
-	args := m.Called(ctx, ownerUserID, name, dateOfBirth, timezone)
+func (m *MockProfileRepository) CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
+	args := m.Called(ctx, name, dateOfBirth, timezone)
 	return args.Get(0).(db.Profile), args.Error(1)
 }
 
@@ -28,8 +28,8 @@ func (m *MockProfileRepository) GetProfileByID(ctx context.Context, id uuid.UUID
 	return args.Get(0).(db.Profile), args.Error(1)
 }
 
-func (m *MockProfileRepository) ListProfilesByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]db.Profile, error) {
-	args := m.Called(ctx, ownerUserID)
+func (m *MockProfileRepository) ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error) {
+	args := m.Called(ctx, userID)
 	return args.Get(0).([]db.Profile), args.Error(1)
 }
 
@@ -82,7 +82,6 @@ func TestProfileService_Create(t *testing.T) {
 		name  string
 		setup func(*MockProfileRepository, *MockDoseScheduleRepository)
 		input struct {
-			ownerUserID uuid.UUID
 			name        string
 			dateOfBirth *time.Time
 			timezone    string
@@ -94,16 +93,14 @@ func TestProfileService_Create(t *testing.T) {
 			name: "CreateProfile_Success",
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
 				profileID := uuid.New()
-				ownerID := uuid.New()
 				now := time.Now()
-				profileRepo.On("CreateProfile", mock.Anything, mock.Anything, "Test Profile", mock.Anything, "UTC").
+				profileRepo.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "UTC").
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: ownerID,
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   now,
-						UpdatedAt:   now,
+						ID:        profileID,
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: now,
+						UpdatedAt: now,
 					}, nil)
 				scheduleRepo.On("CreateDoseSchedule", mock.Anything, profileID, "Morning", mock.Anything).
 					Return(db.DoseSchedule{
@@ -116,13 +113,11 @@ func TestProfileService_Create(t *testing.T) {
 					}, nil)
 			},
 			input: struct {
-				ownerUserID uuid.UUID
 				name        string
 				dateOfBirth *time.Time
 				timezone    string
 				schedules   []service.DoseScheduleInput
 			}{
-				ownerUserID: uuid.New(),
 				name:        "Test Profile",
 				dateOfBirth: nil,
 				timezone:    "UTC",
@@ -142,13 +137,11 @@ func TestProfileService_Create(t *testing.T) {
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
 			},
 			input: struct {
-				ownerUserID uuid.UUID
 				name        string
 				dateOfBirth *time.Time
 				timezone    string
 				schedules   []service.DoseScheduleInput
 			}{
-				ownerUserID: uuid.New(),
 				name:        "Test Profile",
 				dateOfBirth: nil,
 				timezone:    "Invalid/Timezone",
@@ -167,7 +160,7 @@ func TestProfileService_Create(t *testing.T) {
 			scheduleRepo := new(MockDoseScheduleRepository)
 			svc := service.NewProfileService(profileRepo, scheduleRepo)
 			tt.setup(profileRepo, scheduleRepo)
-			result, err := svc.CreateProfile(context.Background(), tt.input.ownerUserID, tt.input.name, tt.input.dateOfBirth, tt.input.timezone, tt.input.schedules)
+			result, err := svc.CreateProfile(context.Background(), tt.input.name, tt.input.dateOfBirth, tt.input.timezone, tt.input.schedules)
 			tt.expect(t, result, err)
 		})
 	}
@@ -189,12 +182,11 @@ func TestProfileService_Get(t *testing.T) {
 				now := time.Now()
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: [16]byte{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   now,
-						UpdatedAt:   now,
+						ID:        uuid.New(),
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: now,
+						UpdatedAt: now,
 					}, nil)
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
 					Return([]db.DoseSchedule{}, nil)
@@ -229,32 +221,6 @@ func TestProfileService_Get(t *testing.T) {
 				assert.True(t, errors.Is(err, service.ErrProfileNotFound))
 			},
 		},
-		{
-			name: "GetProfile_Unauthorized",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
-				now := time.Now()
-				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
-					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   now,
-						UpdatedAt:   now,
-					}, nil)
-			},
-			input: struct {
-				profileID uuid.UUID
-				userID    uuid.UUID
-			}{
-				profileID: uuid.New(),
-				userID:    uuid.UUID{2},
-			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, service.ErrUnauthorizedAccess))
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -279,25 +245,22 @@ func TestProfileService_List(t *testing.T) {
 		{
 			name: "ListProfiles_Success",
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
-				ownerID := uuid.New()
 				now := time.Now()
-				profileRepo.On("ListProfilesByOwner", mock.Anything, mock.Anything).
+				profileRepo.On("ListProfilesByUser", mock.Anything, mock.Anything).
 					Return([]db.Profile{
 						{
-							ID:          uuid.New(),
-							OwnerUserID: ownerID,
-							Name:        "Profile 1",
-							Timezone:    "UTC",
-							CreatedAt:   now,
-							UpdatedAt:   now,
+							ID:        uuid.New(),
+							Name:      "Profile 1",
+							Timezone:  "UTC",
+							CreatedAt: now,
+							UpdatedAt: now,
 						},
 						{
-							ID:          uuid.New(),
-							OwnerUserID: ownerID,
-							Name:        "Profile 2",
-							Timezone:    "UTC",
-							CreatedAt:   now,
-							UpdatedAt:   now,
+							ID:        uuid.New(),
+							Name:      "Profile 2",
+							Timezone:  "UTC",
+							CreatedAt: now,
+							UpdatedAt: now,
 						},
 					}, nil)
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
@@ -338,27 +301,24 @@ func TestProfileService_Update(t *testing.T) {
 		{
 			name: "UpdateProfile_Success",
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
-				ownerID := uuid.UUID{1}
 				now := time.Now()
 				profileID := uuid.New()
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: ownerID,
-						Name:        "Old Name",
-						Timezone:    "UTC",
-						CreatedAt:   now,
-						UpdatedAt:   now,
+						ID:        profileID,
+						Name:      "Old Name",
+						Timezone:  "UTC",
+						CreatedAt: now,
+						UpdatedAt: now,
 					}, nil)
 				newName := "New Name"
 				profileRepo.On("UpdateProfile", mock.Anything, mock.Anything, newName, mock.Anything, "UTC").
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: ownerID,
-						Name:        newName,
-						Timezone:    "UTC",
-						CreatedAt:   now,
-						UpdatedAt:   now,
+						ID:        profileID,
+						Name:      newName,
+						Timezone:  "UTC",
+						CreatedAt: now,
+						UpdatedAt: now,
 					}, nil)
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
 					Return([]db.DoseSchedule{}, nil)
@@ -408,12 +368,11 @@ func TestProfileService_Delete(t *testing.T) {
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        uuid.New(),
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("DeleteDoseSchedulesByProfile", mock.Anything, mock.Anything).Return(nil)
 				profileRepo.On("DeleteProfile", mock.Anything, mock.Anything).Return(nil)
@@ -427,31 +386,6 @@ func TestProfileService_Delete(t *testing.T) {
 			},
 			expect: func(t *testing.T, err error) {
 				assert.NoError(t, err)
-			},
-		},
-		{
-			name: "DeleteProfile_Unauthorized",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
-				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
-					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
-					}, nil)
-			},
-			input: struct {
-				profileID uuid.UUID
-				userID    uuid.UUID
-			}{
-				profileID: uuid.New(),
-				userID:    uuid.UUID{2},
-			},
-			expect: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, service.ErrUnauthorizedAccess))
 			},
 		},
 	}
@@ -488,12 +422,11 @@ func TestDoseScheduleService_Create(t *testing.T) {
 					capturedProfileID = id
 					return true
 				})).Return(db.Profile{
-					ID:          capturedProfileID,
-					OwnerUserID: uuid.UUID{1},
-					Name:        "Test Profile",
-					Timezone:    "UTC",
-					CreatedAt:   time.Now(),
-					UpdatedAt:   time.Now(),
+					ID:        capturedProfileID,
+					Name:      "Test Profile",
+					Timezone:  "UTC",
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
 				}, nil)
 				scheduleRepo.On("CreateDoseSchedule", mock.Anything, mock.Anything, "Morning", mock.Anything).
 					Return(db.DoseSchedule{
@@ -554,12 +487,11 @@ func TestDoseScheduleService_Get(t *testing.T) {
 				scheduleID := uuid.New()
 				profileRepo.On("GetProfileByID", mock.Anything, profileID).
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        profileID,
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("GetDoseScheduleByID", mock.Anything, mock.Anything).
 					Return(db.DoseSchedule{
@@ -590,12 +522,11 @@ func TestDoseScheduleService_Get(t *testing.T) {
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        uuid.New(),
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("GetDoseScheduleByID", mock.Anything, mock.Anything).
 					Return(db.DoseSchedule{}, sql.ErrNoRows)
@@ -643,12 +574,11 @@ func TestDoseScheduleService_List(t *testing.T) {
 			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        uuid.New(),
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
 					Return([]db.DoseSchedule{
@@ -708,12 +638,11 @@ func TestDoseScheduleService_Update(t *testing.T) {
 				scheduleID := uuid.New()
 				profileRepo.On("GetProfileByID", mock.Anything, profileID).
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        profileID,
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("GetDoseScheduleByID", mock.Anything, mock.Anything).
 					Return(db.DoseSchedule{
@@ -785,12 +714,11 @@ func TestDoseScheduleService_Delete(t *testing.T) {
 				scheduleID := uuid.New()
 				profileRepo.On("GetProfileByID", mock.Anything, profileID).
 					Return(db.Profile{
-						ID:          profileID,
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
+						ID:        profileID,
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
 					}, nil)
 				scheduleRepo.On("GetDoseScheduleByID", mock.Anything, mock.Anything).
 					Return(db.DoseSchedule{
@@ -814,33 +742,6 @@ func TestDoseScheduleService_Delete(t *testing.T) {
 			},
 			expect: func(t *testing.T, err error) {
 				assert.NoError(t, err)
-			},
-		},
-		{
-			name: "DeleteSchedule_Unauthorized",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
-				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
-					Return(db.Profile{
-						ID:          uuid.New(),
-						OwnerUserID: uuid.UUID{1},
-						Name:        "Test Profile",
-						Timezone:    "UTC",
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
-					}, nil)
-			},
-			input: struct {
-				profileID  uuid.UUID
-				scheduleID uuid.UUID
-				userID     uuid.UUID
-			}{
-				profileID:  uuid.New(),
-				scheduleID: uuid.New(),
-				userID:     uuid.UUID{2},
-			},
-			expect: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, service.ErrUnauthorizedAccess))
 			},
 		},
 	}
