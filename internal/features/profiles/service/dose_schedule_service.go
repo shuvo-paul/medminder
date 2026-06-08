@@ -31,16 +31,12 @@ func NewDoseScheduleService(profileRepo repository.ProfileRepository, scheduleRe
 }
 
 func (s *doseScheduleService) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*DoseScheduleResult, error) {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
 		return nil, err
-	}
-
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
 	}
 
 	t, err := time.Parse("15:04", timeStr)
@@ -58,16 +54,12 @@ func (s *doseScheduleService) CreateDoseSchedule(ctx context.Context, profileID 
 }
 
 func (s *doseScheduleService) GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*DoseScheduleResult, error) {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
 		return nil, err
-	}
-
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
 	}
 
 	schedule, err := s.scheduleRepo.GetDoseScheduleByID(ctx, scheduleID)
@@ -87,16 +79,12 @@ func (s *doseScheduleService) GetDoseSchedule(ctx context.Context, profileID uui
 }
 
 func (s *doseScheduleService) ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]DoseScheduleResult, error) {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
 		return nil, err
-	}
-
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
 	}
 
 	schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profileID)
@@ -108,16 +96,12 @@ func (s *doseScheduleService) ListDoseSchedules(ctx context.Context, profileID u
 }
 
 func (s *doseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*DoseScheduleResult, error) {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
 		return nil, err
-	}
-
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
 	}
 
 	schedule, err := s.scheduleRepo.GetDoseScheduleByID(ctx, scheduleID)
@@ -156,16 +140,12 @@ func (s *doseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID 
 }
 
 func (s *doseScheduleService) DeleteDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) error {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ErrProfileNotFound
 		}
 		return err
-	}
-
-	if profile.OwnerUserID != userID {
-		return ErrUnauthorizedAccess
 	}
 
 	schedule, err := s.scheduleRepo.GetDoseScheduleByID(ctx, scheduleID)

@@ -21,7 +21,6 @@ type ProfileResult struct {
 
 type ProfileDTO struct {
 	ID          uuid.UUID
-	OwnerUserID uuid.UUID
 	Name        string
 	DateOfBirth *string
 	Timezone    string
@@ -40,7 +39,7 @@ type DoseScheduleDTO struct {
 }
 
 type ProfileService interface {
-	CreateProfile(ctx context.Context, ownerUserID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error)
+	CreateProfile(ctx context.Context, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error)
 	GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*ProfileResult, error)
 	ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error)
 	UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*ProfileResult, error)
@@ -59,7 +58,7 @@ func NewProfileService(profileRepo repository.ProfileRepository, scheduleRepo re
 	}
 }
 
-func (s *profileService) CreateProfile(ctx context.Context, ownerUserID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error) {
+func (s *profileService) CreateProfile(ctx context.Context, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error) {
 	if _, err := time.LoadLocation(timezone); err != nil {
 		return nil, ErrInvalidTimezone
 	}
@@ -69,7 +68,7 @@ func (s *profileService) CreateProfile(ctx context.Context, ownerUserID uuid.UUI
 		dob = sql.NullTime{Time: *dateOfBirth, Valid: true}
 	}
 
-	profile, err := s.profileRepo.CreateProfile(ctx, ownerUserID, name, dob, timezone)
+	profile, err := s.profileRepo.CreateProfile(ctx, name, dob, timezone)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +97,6 @@ func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, us
 		return nil, err
 	}
 
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
-	}
-
 	schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profileID)
 	if err != nil {
 		return nil, err
@@ -112,7 +107,7 @@ func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, us
 }
 
 func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error) {
-	profiles, err := s.profileRepo.ListProfilesByOwner(ctx, userID)
+	profiles, err := s.profileRepo.ListProfilesByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +131,6 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 			return nil, ErrProfileNotFound
 		}
 		return nil, err
-	}
-
-	if profile.OwnerUserID != userID {
-		return nil, ErrUnauthorizedAccess
 	}
 
 	updatedName := profile.Name
@@ -177,16 +168,12 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 }
 
 func (s *profileService) DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error {
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ErrProfileNotFound
 		}
 		return err
-	}
-
-	if profile.OwnerUserID != userID {
-		return ErrUnauthorizedAccess
 	}
 
 	if err := s.scheduleRepo.DeleteDoseSchedulesByProfile(ctx, profileID); err != nil {
@@ -206,7 +193,6 @@ func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO) ProfileRes
 	return ProfileResult{
 		Profile: ProfileDTO{
 			ID:          profile.ID,
-			OwnerUserID: profile.OwnerUserID,
 			Name:        profile.Name,
 			DateOfBirth: dob,
 			Timezone:    profile.Timezone,
