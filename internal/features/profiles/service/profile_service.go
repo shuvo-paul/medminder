@@ -72,13 +72,13 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, na
 		dob = sql.NullTime{Time: *dateOfBirth, Valid: true}
 	}
 
-	profile, err := s.profileRepo.CreateProfile(ctx, name, dob, timezone)
+	ownerPerms, err := json.Marshal([]string{"profile:owner", "profile:admin"})
 	if err != nil {
 		return nil, err
 	}
 
-	ownerPerms, _ := json.Marshal([]string{"profile:owner", "profile:admin"})
-	if err := s.profileRepo.CreateProfilePermission(ctx, profile.ID, userID, ownerPerms); err != nil {
+	profile, err := s.profileRepo.CreateProfileWithPermission(ctx, name, dob, timezone, userID, ownerPerms)
+	if err != nil {
 		return nil, err
 	}
 
@@ -106,7 +106,10 @@ func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, us
 		return nil, err
 	}
 
-	isOwner, _ := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
+	isOwner, err := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
+	if err != nil {
+		return nil, err
+	}
 
 	schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profileID)
 	if err != nil {
@@ -125,7 +128,10 @@ func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]
 
 	var results []ProfileResult
 	for _, profile := range profiles {
-		isOwner, _ := s.permChecker.HasPermission(ctx, profile.ID, userID, "profile:owner")
+		isOwner, err := s.permChecker.HasPermission(ctx, profile.ID, userID, "profile:owner")
+		if err != nil {
+			return nil, err
+		}
 		schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profile.ID)
 		if err != nil {
 			return nil, err
@@ -145,7 +151,10 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 		return nil, err
 	}
 
-	isOwner, _ := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
+	isOwner, err := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
+	if err != nil {
+		return nil, err
+	}
 
 	updatedName := profile.Name
 	if name != nil {

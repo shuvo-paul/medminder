@@ -13,7 +13,7 @@ import (
 )
 
 func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc authService.TokenServiceInterface) {
-	profileRepo := repository.NewProfileRepository(queries)
+	profileRepo := repository.NewProfileRepository(queries, dbConn)
 	scheduleRepo := repository.NewDoseScheduleRepository(queries)
 	permChecker := profileService.NewPermissionChecker(queries)
 	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
