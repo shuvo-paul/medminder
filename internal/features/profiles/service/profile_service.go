@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +25,7 @@ type ProfileDTO struct {
 	Name        string
 	DateOfBirth *string
 	Timezone    string
+	IsOwner     bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Schedules   []DoseScheduleDTO
@@ -39,7 +41,7 @@ type DoseScheduleDTO struct {
 }
 
 type ProfileService interface {
-	CreateProfile(ctx context.Context, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error)
+	CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error)
 	GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*ProfileResult, error)
 	ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error)
 	UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*ProfileResult, error)
@@ -49,16 +51,18 @@ type ProfileService interface {
 type profileService struct {
 	profileRepo  repository.ProfileRepository
 	scheduleRepo repository.DoseScheduleRepository
+	permChecker  PermissionChecker
 }
 
-func NewProfileService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository) ProfileService {
+func NewProfileService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository, permChecker PermissionChecker) ProfileService {
 	return &profileService{
 		profileRepo:  profileRepo,
 		scheduleRepo: scheduleRepo,
+		permChecker:  permChecker,
 	}
 }
 
-func (s *profileService) CreateProfile(ctx context.Context, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error) {
+func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error) {
 	if _, err := time.LoadLocation(timezone); err != nil {
 		return nil, ErrInvalidTimezone
 	}
@@ -73,6 +77,11 @@ func (s *profileService) CreateProfile(ctx context.Context, name string, dateOfB
 		return nil, err
 	}
 
+	ownerPerms, _ := json.Marshal([]string{"profile:owner", "profile:admin"})
+	if err := s.profileRepo.CreateProfilePermission(ctx, profile.ID, userID, ownerPerms); err != nil {
+		return nil, err
+	}
+
 	for _, schedule := range schedules {
 		t, err := time.Parse("15:04", schedule.Time)
 		if err != nil {
@@ -84,7 +93,7 @@ func (s *profileService) CreateProfile(ctx context.Context, name string, dateOfB
 		}
 	}
 
-	profileResult := toProfileResult(profile, []DoseScheduleDTO{})
+	profileResult := toProfileResult(profile, []DoseScheduleDTO{}, true)
 	return &profileResult, nil
 }
 
@@ -97,12 +106,14 @@ func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, us
 		return nil, err
 	}
 
+	isOwner, _ := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
+
 	schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profileID)
 	if err != nil {
 		return nil, err
 	}
 
-	profileResult := toProfileResult(profile, toDoseScheduleDTOs(schedules))
+	profileResult := toProfileResult(profile, toDoseScheduleDTOs(schedules), isOwner)
 	return &profileResult, nil
 }
 
@@ -114,11 +125,12 @@ func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]
 
 	var results []ProfileResult
 	for _, profile := range profiles {
+		isOwner, _ := s.permChecker.HasPermission(ctx, profile.ID, userID, "profile:owner")
 		schedules, err := s.scheduleRepo.ListDoseSchedulesByProfile(ctx, profile.ID)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, toProfileResult(profile, toDoseScheduleDTOs(schedules)))
+		results = append(results, toProfileResult(profile, toDoseScheduleDTOs(schedules), isOwner))
 	}
 
 	return results, nil
@@ -132,6 +144,8 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 		}
 		return nil, err
 	}
+
+	isOwner, _ := s.permChecker.HasPermission(ctx, profileID, userID, "profile:owner")
 
 	updatedName := profile.Name
 	if name != nil {
@@ -163,7 +177,7 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 		return nil, err
 	}
 
-	profileResult := toProfileResult(updated, toDoseScheduleDTOs(schedules))
+	profileResult := toProfileResult(updated, toDoseScheduleDTOs(schedules), isOwner)
 	return &profileResult, nil
 }
 
@@ -183,7 +197,7 @@ func (s *profileService) DeleteProfile(ctx context.Context, profileID uuid.UUID,
 	return s.profileRepo.DeleteProfile(ctx, profileID)
 }
 
-func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO) ProfileResult {
+func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO, isOwner bool) ProfileResult {
 	var dob *string
 	if profile.DateOfBirth.Valid {
 		s := profile.DateOfBirth.Time.Format("2006-01-02")
@@ -196,6 +210,7 @@ func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO) ProfileRes
 			Name:        profile.Name,
 			DateOfBirth: dob,
 			Timezone:    profile.Timezone,
+			IsOwner:     isOwner,
 			CreatedAt:   profile.CreatedAt,
 			UpdatedAt:   profile.UpdatedAt,
 			Schedules:   schedules,

@@ -14,8 +14,8 @@ type MockProfileService struct {
 	mock.Mock
 }
 
-func (m *MockProfileService) CreateProfile(ctx context.Context, name string, dateOfBirth *time.Time, timezone string, schedules []service.DoseScheduleInput) (*service.ProfileResult, error) {
-	args := m.Called(ctx, name, dateOfBirth, timezone, schedules)
+func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []service.DoseScheduleInput) (*service.ProfileResult, error) {
+	args := m.Called(ctx, userID, name, dateOfBirth, timezone, schedules)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

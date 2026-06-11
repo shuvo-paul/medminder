@@ -21,6 +21,7 @@ type ProfileDTO struct {
 	Name        string            `json:"name"`
 	DateOfBirth *string           `json:"date_of_birth"`
 	Timezone    string            `json:"timezone"`
+	IsOwner     bool              `json:"is_owner"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
 	Schedules   []DoseScheduleDTO `json:"schedules"`

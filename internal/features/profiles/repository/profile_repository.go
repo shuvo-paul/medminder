@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
@@ -10,6 +11,7 @@ import (
 
 type ProfileRepository interface {
 	CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
+	CreateProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) error
 	GetProfileByID(ctx context.Context, id uuid.UUID) (db.Profile, error)
 	ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error)
 	UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
@@ -30,6 +32,18 @@ func (r *profileRepository) CreateProfile(ctx context.Context, name string, date
 		DateOfBirth: dateOfBirth,
 		Timezone:    timezone,
 	})
+}
+
+func (r *profileRepository) CreateProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) error {
+	_, err := r.queries.CreateProfilePermission(ctx, db.CreateProfilePermissionParams{
+		ProfileID:        profileID,
+		SharedWithUserID: userID,
+		GrantedByUserID:  userID,
+		Permissions:      permissions,
+		Status:           "accepted",
+		ExpiresAt:        sql.NullTime{},
+	})
+	return err
 }
 
 func (r *profileRepository) GetProfileByID(ctx context.Context, id uuid.UUID) (db.Profile, error) {

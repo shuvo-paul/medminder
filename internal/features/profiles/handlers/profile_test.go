@@ -30,7 +30,7 @@ func TestCreateProfile_Success(t *testing.T) {
 		{Name: "Morning", Time: "08:00"},
 	}
 
-	mockSvc.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&service.ProfileResult{
+	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&service.ProfileResult{
 		Profile: service.ProfileDTO{
 			ID:          profileID,
 			Name:        "Test Profile",
@@ -93,7 +93,7 @@ func TestCreateProfile_InvalidTimezone(t *testing.T) {
 		"sub": userID.String(),
 	}, nil)
 
-	mockSvc.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "Invalid/Timezone", mock.Anything).Return(nil, service.ErrInvalidTimezone)
+	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "Invalid/Timezone", mock.Anything).Return(nil, service.ErrInvalidTimezone)
 
 	handler := handlers.CreateProfileHandler(mockSvc, mockTokenSvc)
 
