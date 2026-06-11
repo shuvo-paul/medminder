@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -14,12 +15,36 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type MockPermissionChecker struct {
+	mock.Mock
+}
+
+func (m *MockPermissionChecker) HasPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permission string) (bool, error) {
+	args := m.Called(ctx, profileID, userID, permission)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockPermissionChecker) HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error) {
+	args := m.Called(ctx, profileID, userID, permissions)
+	return args.Bool(0), args.Error(1)
+}
+
 type MockProfileRepository struct {
 	mock.Mock
 }
 
 func (m *MockProfileRepository) CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
 	args := m.Called(ctx, name, dateOfBirth, timezone)
+	return args.Get(0).(db.Profile), args.Error(1)
+}
+
+func (m *MockProfileRepository) CreateProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) error {
+	args := m.Called(ctx, profileID, userID, permissions)
+	return args.Error(0)
+}
+
+func (m *MockProfileRepository) CreateProfileWithPermission(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string, userID uuid.UUID, permissions json.RawMessage) (db.Profile, error) {
+	args := m.Called(ctx, name, dateOfBirth, timezone, userID, permissions)
 	return args.Get(0).(db.Profile), args.Error(1)
 }
 
@@ -80,8 +105,9 @@ func (m *MockDoseScheduleRepository) DeleteDoseSchedulesByProfile(ctx context.Co
 func TestProfileService_Create(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(*MockProfileRepository, *MockDoseScheduleRepository)
+		setup func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input struct {
+			userID      uuid.UUID
 			name        string
 			dateOfBirth *time.Time
 			timezone    string
@@ -91,10 +117,11 @@ func TestProfileService_Create(t *testing.T) {
 	}{
 		{
 			name: "CreateProfile_Success",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				userID := uuid.UUID{1}
 				profileID := uuid.New()
 				now := time.Now()
-				profileRepo.On("CreateProfile", mock.Anything, "Test Profile", mock.Anything, "UTC").
+				profileRepo.On("CreateProfileWithPermission", mock.Anything, "Test Profile", mock.Anything, "UTC", userID, mock.Anything).
 					Return(db.Profile{
 						ID:        profileID,
 						Name:      "Test Profile",
@@ -113,11 +140,13 @@ func TestProfileService_Create(t *testing.T) {
 					}, nil)
 			},
 			input: struct {
+				userID      uuid.UUID
 				name        string
 				dateOfBirth *time.Time
 				timezone    string
 				schedules   []service.DoseScheduleInput
 			}{
+				userID:      uuid.UUID{1},
 				name:        "Test Profile",
 				dateOfBirth: nil,
 				timezone:    "UTC",
@@ -130,18 +159,21 @@ func TestProfileService_Create(t *testing.T) {
 				assert.NotNil(t, result)
 				assert.Equal(t, "Test Profile", result.Profile.Name)
 				assert.Equal(t, "UTC", result.Profile.Timezone)
+				assert.True(t, result.Profile.IsOwner)
 			},
 		},
 		{
 			name: "CreateProfile_InvalidTimezone",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 			},
 			input: struct {
+				userID      uuid.UUID
 				name        string
 				dateOfBirth *time.Time
 				timezone    string
 				schedules   []service.DoseScheduleInput
 			}{
+				userID:      uuid.UUID{1},
 				name:        "Test Profile",
 				dateOfBirth: nil,
 				timezone:    "Invalid/Timezone",
@@ -152,15 +184,41 @@ func TestProfileService_Create(t *testing.T) {
 				assert.True(t, errors.Is(err, service.ErrInvalidTimezone))
 			},
 		},
+		{
+			name: "CreateProfile_PermissionError",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				userID := uuid.UUID{1}
+				profileRepo.On("CreateProfileWithPermission", mock.Anything, "Test Profile", mock.Anything, "UTC", userID, mock.Anything).
+					Return(db.Profile{}, errors.New("db error"))
+			},
+			input: struct {
+				userID      uuid.UUID
+				name        string
+				dateOfBirth *time.Time
+				timezone    string
+				schedules   []service.DoseScheduleInput
+			}{
+				userID:      uuid.UUID{1},
+				name:        "Test Profile",
+				dateOfBirth: nil,
+				timezone:    "UTC",
+				schedules:   nil,
+			},
+			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "db error")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
-			svc := service.NewProfileService(profileRepo, scheduleRepo)
-			tt.setup(profileRepo, scheduleRepo)
-			result, err := svc.CreateProfile(context.Background(), tt.input.name, tt.input.dateOfBirth, tt.input.timezone, tt.input.schedules)
+			permChecker := new(MockPermissionChecker)
+			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			tt.setup(profileRepo, scheduleRepo, permChecker)
+			result, err := svc.CreateProfile(context.Background(), tt.input.userID, tt.input.name, tt.input.dateOfBirth, tt.input.timezone, tt.input.schedules)
 			tt.expect(t, result, err)
 		})
 	}
@@ -169,7 +227,7 @@ func TestProfileService_Create(t *testing.T) {
 func TestProfileService_Get(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(*MockProfileRepository, *MockDoseScheduleRepository)
+		setup func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input struct {
 			profileID uuid.UUID
 			userID    uuid.UUID
@@ -178,7 +236,7 @@ func TestProfileService_Get(t *testing.T) {
 	}{
 		{
 			name: "GetProfile_Success",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 				now := time.Now()
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
@@ -188,6 +246,8 @@ func TestProfileService_Get(t *testing.T) {
 						CreatedAt: now,
 						UpdatedAt: now,
 					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, nil)
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
 					Return([]db.DoseSchedule{}, nil)
 			},
@@ -201,11 +261,12 @@ func TestProfileService_Get(t *testing.T) {
 			expect: func(t *testing.T, result *service.ProfileResult, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
+				assert.False(t, result.Profile.IsOwner)
 			},
 		},
 		{
 			name: "GetProfile_NotFound",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{}, sql.ErrNoRows)
 			},
@@ -221,14 +282,41 @@ func TestProfileService_Get(t *testing.T) {
 				assert.True(t, errors.Is(err, service.ErrProfileNotFound))
 			},
 		},
+		{
+			name: "GetProfile_HasPermissionError",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
+					Return(db.Profile{
+						ID:        uuid.New(),
+						Name:      "Test Profile",
+						Timezone:  "UTC",
+						CreatedAt: time.Now(),
+						UpdatedAt: time.Now(),
+					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, errors.New("permission db error"))
+			},
+			input: struct {
+				profileID uuid.UUID
+				userID    uuid.UUID
+			}{
+				profileID: uuid.New(),
+				userID:    uuid.UUID{1},
+			},
+			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "permission db error")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
-			svc := service.NewProfileService(profileRepo, scheduleRepo)
-			tt.setup(profileRepo, scheduleRepo)
+			permChecker := new(MockPermissionChecker)
+			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.GetProfile(context.Background(), tt.input.profileID, tt.input.userID)
 			tt.expect(t, result, err)
 		})
@@ -238,13 +326,13 @@ func TestProfileService_Get(t *testing.T) {
 func TestProfileService_List(t *testing.T) {
 	tests := []struct {
 		name   string
-		setup  func(*MockProfileRepository, *MockDoseScheduleRepository)
+		setup  func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input  uuid.UUID
 		expect func(*testing.T, []service.ProfileResult, error)
 	}{
 		{
 			name: "ListProfiles_Success",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 				now := time.Now()
 				profileRepo.On("ListProfilesByUser", mock.Anything, mock.Anything).
 					Return([]db.Profile{
@@ -263,6 +351,8 @@ func TestProfileService_List(t *testing.T) {
 							UpdatedAt: now,
 						},
 					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, nil).Maybe()
 				scheduleRepo.On("ListDoseSchedulesByProfile", mock.Anything, mock.Anything).
 					Return([]db.DoseSchedule{}, nil).Maybe()
 			},
@@ -272,14 +362,38 @@ func TestProfileService_List(t *testing.T) {
 				assert.Len(t, result, 2)
 			},
 		},
+		{
+			name: "ListProfiles_HasPermissionError",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				now := time.Now()
+				profileRepo.On("ListProfilesByUser", mock.Anything, mock.Anything).
+					Return([]db.Profile{
+						{
+							ID:        uuid.New(),
+							Name:      "Profile 1",
+							Timezone:  "UTC",
+							CreatedAt: now,
+							UpdatedAt: now,
+						},
+					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, errors.New("permission db error"))
+			},
+			input: uuid.New(),
+			expect: func(t *testing.T, result []service.ProfileResult, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "permission db error")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
-			svc := service.NewProfileService(profileRepo, scheduleRepo)
-			tt.setup(profileRepo, scheduleRepo)
+			permChecker := new(MockPermissionChecker)
+			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.ListProfiles(context.Background(), tt.input)
 			tt.expect(t, result, err)
 		})
@@ -289,7 +403,7 @@ func TestProfileService_List(t *testing.T) {
 func TestProfileService_Update(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(*MockProfileRepository, *MockDoseScheduleRepository)
+		setup func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input struct {
 			profileID uuid.UUID
 			userID    uuid.UUID
@@ -300,7 +414,7 @@ func TestProfileService_Update(t *testing.T) {
 	}{
 		{
 			name: "UpdateProfile_Success",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 				now := time.Now()
 				profileID := uuid.New()
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
@@ -311,6 +425,8 @@ func TestProfileService_Update(t *testing.T) {
 						CreatedAt: now,
 						UpdatedAt: now,
 					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, nil)
 				newName := "New Name"
 				profileRepo.On("UpdateProfile", mock.Anything, mock.Anything, newName, mock.Anything, "UTC").
 					Return(db.Profile{
@@ -339,14 +455,46 @@ func TestProfileService_Update(t *testing.T) {
 				assert.NotNil(t, result)
 			},
 		},
+		{
+			name: "UpdateProfile_HasPermissionError",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				now := time.Now()
+				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
+					Return(db.Profile{
+						ID:        uuid.New(),
+						Name:      "Old Name",
+						Timezone:  "UTC",
+						CreatedAt: now,
+						UpdatedAt: now,
+					}, nil)
+				permChecker.On("HasPermission", mock.Anything, mock.Anything, mock.Anything, "profile:owner").
+					Return(false, errors.New("permission db error"))
+			},
+			input: struct {
+				profileID uuid.UUID
+				userID    uuid.UUID
+				name      *string
+				timezone  *string
+			}{
+				profileID: uuid.New(),
+				userID:    uuid.UUID{1},
+				name:      func() *string { s := "New Name"; return &s }(),
+				timezone:  nil,
+			},
+			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "permission db error")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
-			svc := service.NewProfileService(profileRepo, scheduleRepo)
-			tt.setup(profileRepo, scheduleRepo)
+			permChecker := new(MockPermissionChecker)
+			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.UpdateProfile(context.Background(), tt.input.profileID, tt.input.userID, tt.input.name, nil, tt.input.timezone)
 			tt.expect(t, result, err)
 		})
@@ -356,7 +504,7 @@ func TestProfileService_Update(t *testing.T) {
 func TestProfileService_Delete(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(*MockProfileRepository, *MockDoseScheduleRepository)
+		setup func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input struct {
 			profileID uuid.UUID
 			userID    uuid.UUID
@@ -365,7 +513,7 @@ func TestProfileService_Delete(t *testing.T) {
 	}{
 		{
 			name: "DeleteProfile_Success",
-			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository) {
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{
 						ID:        uuid.New(),
@@ -394,8 +542,9 @@ func TestProfileService_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
-			svc := service.NewProfileService(profileRepo, scheduleRepo)
-			tt.setup(profileRepo, scheduleRepo)
+			permChecker := new(MockPermissionChecker)
+			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			tt.setup(profileRepo, scheduleRepo, permChecker)
 			err := svc.DeleteProfile(context.Background(), tt.input.profileID, tt.input.userID)
 			tt.expect(t, err)
 		})

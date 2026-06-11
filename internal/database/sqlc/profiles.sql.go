@@ -183,7 +183,7 @@ const listProfilesByUser = `-- name: ListProfilesByUser :many
 SELECT p.id, p.name, p.date_of_birth, p.timezone, p.created_at, p.updated_at
 FROM profiles p
 INNER JOIN profile_permissions pp ON pp.profile_id = p.id
-WHERE pp.shared_with_user_id = $1
+WHERE pp.shared_with_user_id = $1 AND pp.status = 'accepted' AND (pp.expires_at IS NULL OR pp.expires_at > NOW())
 ORDER BY p.created_at DESC
 `
 

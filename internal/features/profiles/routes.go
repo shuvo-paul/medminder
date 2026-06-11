@@ -13,11 +13,11 @@ import (
 )
 
 func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc authService.TokenServiceInterface) {
-	profileRepo := repository.NewProfileRepository(queries)
+	profileRepo := repository.NewProfileRepository(queries, dbConn)
 	scheduleRepo := repository.NewDoseScheduleRepository(queries)
-	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo)
-	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
 	permChecker := profileService.NewPermissionChecker(queries)
+	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
+	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")
