@@ -51,14 +51,12 @@ type InvitationService interface {
 type invitationService struct {
 	profileRepo  repository.ProfileRepository
 	scheduleRepo repository.DoseScheduleRepository
-	permChecker  PermissionChecker
 }
 
-func NewInvitationService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository, permChecker PermissionChecker) InvitationService {
+func NewInvitationService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository) InvitationService {
 	return &invitationService{
 		profileRepo:  profileRepo,
 		scheduleRepo: scheduleRepo,
-		permChecker:  permChecker,
 	}
 }
 
@@ -92,6 +90,16 @@ func (s *invitationService) ShareProfile(ctx context.Context, profileID uuid.UUI
 		return nil, ErrUserNotFound
 	}
 
+	existing, err := s.profileRepo.GetProfilePermission(ctx, profileID, input.SharedWithUserID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err != sql.ErrNoRows {
+		if existing.Status == "accepted" || existing.Status == "pending" {
+			return nil, ErrUserAlreadySharing
+		}
+	}
+
 	permsJSON, err := json.Marshal(input.Permissions)
 	if err != nil {
 		return nil, err
@@ -104,7 +112,10 @@ func (s *invitationService) ShareProfile(ctx context.Context, profileID uuid.UUI
 		return nil, err
 	}
 
-	result := toInvitationResult(pp, "")
+	result, err := toInvitationResult(pp, "")
+	if err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -131,7 +142,11 @@ func (s *invitationService) ListInvitations(ctx context.Context, userID uuid.UUI
 			return nil, err
 		}
 
-		results = append(results, toInvitationResult(pp, profile.Name))
+		result, err := toInvitationResult(pp, profile.Name)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
 	}
 
 	return results, nil
@@ -158,16 +173,16 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, invitationID u
 		return nil, ErrInvitationExpired
 	}
 
-	accepted, err := s.profileRepo.AcceptProfilePermission(ctx, invitationID)
-	if err != nil {
-		return nil, err
-	}
-
 	profile, err := s.profileRepo.GetProfileByID(ctx, pp.ProfileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
+		return nil, err
+	}
+
+	accepted, err := s.profileRepo.AcceptProfilePermission(ctx, invitationID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -218,9 +233,11 @@ func (s *invitationService) DeclineInvitation(ctx context.Context, invitationID 
 	return err
 }
 
-func toInvitationResult(pp db.ProfilePermission, profileName string) InvitationResult {
+func toInvitationResult(pp db.ProfilePermission, profileName string) (InvitationResult, error) {
 	var perms []string
-	json.Unmarshal(pp.Permissions, &perms)
+	if err := json.Unmarshal(pp.Permissions, &perms); err != nil {
+		return InvitationResult{}, err
+	}
 
 	var expiresAt *time.Time
 	if pp.ExpiresAt.Valid {
@@ -239,5 +256,5 @@ func toInvitationResult(pp db.ProfilePermission, profileName string) InvitationR
 			ExpiresAt:        expiresAt,
 			CreatedAt:        pp.CreatedAt,
 		},
-	}
+	}, nil
 }

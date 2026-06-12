@@ -18,7 +18,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 	permChecker := profileService.NewPermissionChecker(queries)
 	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
 	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
-	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo, permChecker)
+	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")

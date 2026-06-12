@@ -41,6 +41,8 @@ func TestInvitationService_ShareProfile(t *testing.T) {
 				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
 					Return(db.Profile{ID: uuid.UUID{1}, Name: "Test Profile"}, nil)
 				profileRepo.On("UserExists", mock.Anything, mock.Anything).Return(true, nil)
+				profileRepo.On("GetProfilePermission", mock.Anything, mock.Anything, mock.Anything).
+					Return(db.ProfilePermission{}, sql.ErrNoRows)
 				profileRepo.On("CreateInvitation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(db.ProfilePermission{
 						ID:               uuid.MustParse("00000000-0000-0000-0000-000000000001"),
@@ -218,6 +220,114 @@ func TestInvitationService_ShareProfile(t *testing.T) {
 				assert.Nil(t, result)
 			},
 		},
+		{
+			name: "ShareProfile_AlreadySharing_Accepted",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
+					Return(db.Profile{ID: uuid.UUID{1}, Name: "Test"}, nil)
+				profileRepo.On("UserExists", mock.Anything, mock.Anything).Return(true, nil)
+				profileRepo.On("GetProfilePermission", mock.Anything, mock.Anything, mock.Anything).
+					Return(db.ProfilePermission{
+						ID:               uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+						ProfileID:        uuid.UUID{1},
+						SharedWithUserID: uuid.UUID{2},
+						Status:           "accepted",
+					}, nil)
+			},
+			input: struct {
+				profileID       uuid.UUID
+				grantedByUserID uuid.UUID
+				sharedWithID    uuid.UUID
+				permissions     []string
+				expiresInDays   int
+			}{
+				profileID:       uuid.UUID{1},
+				grantedByUserID: uuid.UUID{1},
+				sharedWithID:    uuid.UUID{2},
+				permissions:     []string{"profile:read"},
+				expiresInDays:   7,
+			},
+			expect: func(t *testing.T, result *service.InvitationResult, err error) {
+				assert.ErrorIs(t, err, service.ErrUserAlreadySharing)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "ShareProfile_AlreadySharing_Pending",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
+					Return(db.Profile{ID: uuid.UUID{1}, Name: "Test"}, nil)
+				profileRepo.On("UserExists", mock.Anything, mock.Anything).Return(true, nil)
+				profileRepo.On("GetProfilePermission", mock.Anything, mock.Anything, mock.Anything).
+					Return(db.ProfilePermission{
+						ID:               uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+						ProfileID:        uuid.UUID{1},
+						SharedWithUserID: uuid.UUID{2},
+						Status:           "pending",
+					}, nil)
+			},
+			input: struct {
+				profileID       uuid.UUID
+				grantedByUserID uuid.UUID
+				sharedWithID    uuid.UUID
+				permissions     []string
+				expiresInDays   int
+			}{
+				profileID:       uuid.UUID{1},
+				grantedByUserID: uuid.UUID{1},
+				sharedWithID:    uuid.UUID{2},
+				permissions:     []string{"profile:read"},
+				expiresInDays:   7,
+			},
+			expect: func(t *testing.T, result *service.InvitationResult, err error) {
+				assert.ErrorIs(t, err, service.ErrUserAlreadySharing)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "ShareProfile_DeclinedCanReshare",
+			setup: func(profileRepo *MockProfileRepository, scheduleRepo *MockDoseScheduleRepository, permChecker *MockPermissionChecker) {
+				profileRepo.On("GetProfileByID", mock.Anything, mock.Anything).
+					Return(db.Profile{ID: uuid.UUID{1}, Name: "Test Profile"}, nil)
+				profileRepo.On("UserExists", mock.Anything, mock.Anything).Return(true, nil)
+				profileRepo.On("GetProfilePermission", mock.Anything, mock.Anything, mock.Anything).
+					Return(db.ProfilePermission{
+						ID:               uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+						ProfileID:        uuid.UUID{1},
+						SharedWithUserID: uuid.UUID{2},
+						Status:           "declined",
+					}, nil)
+				profileRepo.On("CreateInvitation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(db.ProfilePermission{
+						ID:               uuid.MustParse("00000000-0000-0000-0000-000000000003"),
+						ProfileID:        uuid.UUID{1},
+						SharedWithUserID: uuid.UUID{2},
+						GrantedByUserID:  uuid.UUID{1},
+						Permissions:      json.RawMessage(`["profile:read"]`),
+						Status:           "pending",
+						ExpiresAt:        makeNullTime(makeExpiry(7)),
+						CreatedAt:        time.Now(),
+					}, nil)
+			},
+			input: struct {
+				profileID       uuid.UUID
+				grantedByUserID uuid.UUID
+				sharedWithID    uuid.UUID
+				permissions     []string
+				expiresInDays   int
+			}{
+				profileID:       uuid.UUID{1},
+				grantedByUserID: uuid.UUID{1},
+				sharedWithID:    uuid.UUID{2},
+				permissions:     []string{"profile:read"},
+				expiresInDays:   7,
+			},
+			expect: func(t *testing.T, result *service.InvitationResult, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, "pending", result.Invitation.Status)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,7 +335,7 @@ func TestInvitationService_ShareProfile(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewInvitationService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewInvitationService(profileRepo, scheduleRepo)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.ShareProfile(context.Background(), tt.input.profileID, tt.input.grantedByUserID, service.ShareInput{
 				SharedWithUserID: tt.input.sharedWithID,
@@ -353,7 +463,7 @@ func TestInvitationService_ListInvitations(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewInvitationService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewInvitationService(profileRepo, scheduleRepo)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			results, err := svc.ListInvitations(context.Background(), userID)
 			tt.expect(t, results, err)
@@ -527,7 +637,7 @@ func TestInvitationService_AcceptInvitation(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewInvitationService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewInvitationService(profileRepo, scheduleRepo)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.AcceptInvitation(context.Background(), invitationID, userID)
 			tt.expect(t, result, err)
@@ -625,7 +735,7 @@ func TestInvitationService_DeclineInvitation(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewInvitationService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewInvitationService(profileRepo, scheduleRepo)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			err := svc.DeclineInvitation(context.Background(), invitationID, userID)
 			tt.expect(t, err)

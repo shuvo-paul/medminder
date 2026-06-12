@@ -19,6 +19,7 @@ type ProfileRepository interface {
 	UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
 	GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
+	GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error)
 	ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error)
 	CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error)
 	AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
@@ -119,6 +120,13 @@ func (r *profileRepository) DeleteProfile(ctx context.Context, id uuid.UUID) err
 
 func (r *profileRepository) GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
 	return r.queries.GetProfilePermissionByID(ctx, id)
+}
+
+func (r *profileRepository) GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error) {
+	return r.queries.GetProfilePermission(ctx, db.GetProfilePermissionParams{
+		ProfileID:        profileID,
+		SharedWithUserID: userID,
+	})
 }
 
 func (r *profileRepository) CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error) {

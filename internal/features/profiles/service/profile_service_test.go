@@ -73,6 +73,11 @@ func (m *MockProfileRepository) GetProfilePermissionByID(ctx context.Context, id
 	return args.Get(0).(db.ProfilePermission), args.Error(1)
 }
 
+func (m *MockProfileRepository) GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error) {
+	args := m.Called(ctx, profileID, userID)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
 func (m *MockProfileRepository) ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error) {
 	args := m.Called(ctx, userID)
 	return args.Get(0).([]db.ProfilePermission), args.Error(1)
