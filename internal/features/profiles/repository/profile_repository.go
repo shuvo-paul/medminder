@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
@@ -17,6 +18,12 @@ type ProfileRepository interface {
 	ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error)
 	UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
+	GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
+	ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error)
+	CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error)
+	AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
+	UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error)
+	UserExists(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 type profileRepository struct {
@@ -93,6 +100,10 @@ func (r *profileRepository) ListProfilesByUser(ctx context.Context, userID uuid.
 	return r.queries.ListProfilesByUser(ctx, userID)
 }
 
+func (r *profileRepository) ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error) {
+	return r.queries.ListProfilePermissionsByUser(ctx, userID)
+}
+
 func (r *profileRepository) UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {
 	return r.queries.UpdateProfile(ctx, db.UpdateProfileParams{
 		ID:          id,
@@ -104,4 +115,41 @@ func (r *profileRepository) UpdateProfile(ctx context.Context, id uuid.UUID, nam
 
 func (r *profileRepository) DeleteProfile(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteProfile(ctx, id)
+}
+
+func (r *profileRepository) GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
+	return r.queries.GetProfilePermissionByID(ctx, id)
+}
+
+func (r *profileRepository) CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error) {
+	return r.queries.CreateProfilePermission(ctx, db.CreateProfilePermissionParams{
+		ProfileID:        profileID,
+		SharedWithUserID: sharedWithUserID,
+		GrantedByUserID:  grantedByUserID,
+		Permissions:      permissions,
+		Status:           "pending",
+		ExpiresAt:        sql.NullTime{Time: expiresAt, Valid: true},
+	})
+}
+
+func (r *profileRepository) AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
+	return r.queries.AcceptProfilePermission(ctx, id)
+}
+
+func (r *profileRepository) UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error) {
+	return r.queries.UpdateProfilePermissionStatus(ctx, db.UpdateProfilePermissionStatusParams{
+		ID:     id,
+		Status: status,
+	})
+}
+
+func (r *profileRepository) UserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+	_, err := r.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

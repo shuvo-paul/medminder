@@ -118,3 +118,36 @@ func (m *MockTokenService) HashRefreshToken(token string) string {
 	args := m.Called(token)
 	return args.String(0)
 }
+
+type MockInvitationService struct {
+	mock.Mock
+}
+
+func (m *MockInvitationService) ShareProfile(ctx context.Context, profileID uuid.UUID, grantedByUserID uuid.UUID, input service.ShareInput) (*service.InvitationResult, error) {
+	args := m.Called(ctx, profileID, grantedByUserID, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.InvitationResult), args.Error(1)
+}
+
+func (m *MockInvitationService) ListInvitations(ctx context.Context, userID uuid.UUID) ([]service.InvitationResult, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]service.InvitationResult), args.Error(1)
+}
+
+func (m *MockInvitationService) AcceptInvitation(ctx context.Context, invitationID uuid.UUID, userID uuid.UUID) (*service.AcceptedProfileResult, error) {
+	args := m.Called(ctx, invitationID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.AcceptedProfileResult), args.Error(1)
+}
+
+func (m *MockInvitationService) DeclineInvitation(ctx context.Context, invitationID uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, invitationID, userID)
+	return args.Error(0)
+}

@@ -18,6 +18,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 	permChecker := profileService.NewPermissionChecker(queries)
 	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
 	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
+	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo, permChecker)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")
@@ -140,4 +141,49 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 			{"bearer": {}},
 		},
 	}, handlers.DeleteScheduleHandler(scheduleSvc, profileSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "share-profile",
+		Method:      "POST",
+		Path:        "/api/profiles/{id}/share",
+		Summary:     "Share a profile with another user",
+		Tags:        []string{"profiles"},
+		Middlewares: []func(huma.Context, func(huma.Context)){adminPerm},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.ShareProfileHandler(invitationSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-invitations",
+		Method:      "GET",
+		Path:        "/api/invitations",
+		Summary:     "List pending invitations for the authenticated user",
+		Tags:        []string{"invitations"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.ListInvitationsHandler(invitationSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "accept-invitation",
+		Method:      "PUT",
+		Path:        "/api/invitations/{invitationId}/accept",
+		Summary:     "Accept a profile invitation",
+		Tags:        []string{"invitations"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.AcceptInvitationHandler(invitationSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "decline-invitation",
+		Method:      "PUT",
+		Path:        "/api/invitations/{invitationId}/decline",
+		Summary:     "Decline a profile invitation",
+		Tags:        []string{"invitations"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.DeclineInvitationHandler(invitationSvc, tokenSvc))
 }

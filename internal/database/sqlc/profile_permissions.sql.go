@@ -13,6 +13,30 @@ import (
 	"github.com/google/uuid"
 )
 
+const acceptProfilePermission = `-- name: AcceptProfilePermission :one
+UPDATE profile_permissions
+SET status = 'accepted', expires_at = NULL, updated_at = NOW()
+WHERE id = $1
+RETURNING id, profile_id, shared_with_user_id, granted_by_user_id, permissions, status, expires_at, created_at, updated_at
+`
+
+func (q *Queries) AcceptProfilePermission(ctx context.Context, id uuid.UUID) (ProfilePermission, error) {
+	row := q.db.QueryRowContext(ctx, acceptProfilePermission, id)
+	var i ProfilePermission
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.SharedWithUserID,
+		&i.GrantedByUserID,
+		&i.Permissions,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createProfilePermission = `-- name: CreateProfilePermission :one
 
 INSERT INTO profile_permissions (
@@ -82,6 +106,29 @@ type GetProfilePermissionParams struct {
 
 func (q *Queries) GetProfilePermission(ctx context.Context, arg GetProfilePermissionParams) (ProfilePermission, error) {
 	row := q.db.QueryRowContext(ctx, getProfilePermission, arg.ProfileID, arg.SharedWithUserID)
+	var i ProfilePermission
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.SharedWithUserID,
+		&i.GrantedByUserID,
+		&i.Permissions,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProfilePermissionByID = `-- name: GetProfilePermissionByID :one
+SELECT id, profile_id, shared_with_user_id, granted_by_user_id, permissions, status, expires_at, created_at, updated_at
+FROM profile_permissions
+WHERE id = $1
+`
+
+func (q *Queries) GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (ProfilePermission, error) {
+	row := q.db.QueryRowContext(ctx, getProfilePermissionByID, id)
 	var i ProfilePermission
 	err := row.Scan(
 		&i.ID,
@@ -173,6 +220,35 @@ func (q *Queries) ListProfilePermissionsByUser(ctx context.Context, sharedWithUs
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateProfilePermissionExpiresAt = `-- name: UpdateProfilePermissionExpiresAt :one
+UPDATE profile_permissions
+SET expires_at = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, profile_id, shared_with_user_id, granted_by_user_id, permissions, status, expires_at, created_at, updated_at
+`
+
+type UpdateProfilePermissionExpiresAtParams struct {
+	ID        uuid.UUID    `json:"id"`
+	ExpiresAt sql.NullTime `json:"expires_at"`
+}
+
+func (q *Queries) UpdateProfilePermissionExpiresAt(ctx context.Context, arg UpdateProfilePermissionExpiresAtParams) (ProfilePermission, error) {
+	row := q.db.QueryRowContext(ctx, updateProfilePermissionExpiresAt, arg.ID, arg.ExpiresAt)
+	var i ProfilePermission
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.SharedWithUserID,
+		&i.GrantedByUserID,
+		&i.Permissions,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateProfilePermissionPermissions = `-- name: UpdateProfilePermissionPermissions :one
