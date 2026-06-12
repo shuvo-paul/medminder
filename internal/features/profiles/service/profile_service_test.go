@@ -68,6 +68,41 @@ func (m *MockProfileRepository) DeleteProfile(ctx context.Context, id uuid.UUID)
 	return args.Error(0)
 }
 
+func (m *MockProfileRepository) GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error) {
+	args := m.Called(ctx, profileID, userID)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error) {
+	args := m.Called(ctx, profileID, sharedWithUserID, grantedByUserID, permissions, expiresAt)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error) {
+	args := m.Called(ctx, id, status)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) UserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, userID)
+	return args.Bool(0), args.Error(1)
+}
+
 type MockDoseScheduleRepository struct {
 	mock.Mock
 }
