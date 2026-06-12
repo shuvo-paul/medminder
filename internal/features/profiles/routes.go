@@ -19,10 +19,13 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
 	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
 	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo)
+	transferRepo := repository.NewOwnershipTransferRepository(queries, dbConn)
+	transferSvc := profileService.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")
 	adminPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:admin", "profile:owner")
+	ownerPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:owner")
 
 	huma.Register(api, huma.Operation{
 		OperationID: "create-profile",
@@ -186,4 +189,60 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 			{"bearer": {}},
 		},
 	}, handlers.DeclineInvitationHandler(invitationSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "initiate-transfer",
+		Method:      "POST",
+		Path:        "/api/profiles/{id}/transfer-ownership",
+		Summary:     "Initiate ownership transfer",
+		Tags:        []string{"transfers"},
+		Middlewares: []func(huma.Context, func(huma.Context)){ownerPerm},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.InitiateTransferHandler(transferSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-transfers",
+		Method:      "GET",
+		Path:        "/api/transfers",
+		Summary:     "List pending ownership transfers for the authenticated user",
+		Tags:        []string{"transfers"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.ListTransfersHandler(transferSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "accept-transfer",
+		Method:      "POST",
+		Path:        "/api/transfers/{transferId}/accept",
+		Summary:     "Accept an ownership transfer",
+		Tags:        []string{"transfers"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.AcceptTransferHandler(transferSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "decline-transfer",
+		Method:      "POST",
+		Path:        "/api/transfers/{transferId}/decline",
+		Summary:     "Decline an ownership transfer",
+		Tags:        []string{"transfers"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.DeclineTransferHandler(transferSvc, tokenSvc))
+
+	huma.Register(api, huma.Operation{
+		OperationID: "cancel-transfer",
+		Method:      "DELETE",
+		Path:        "/api/transfers/{transferId}",
+		Summary:     "Cancel an ownership transfer",
+		Tags:        []string{"transfers"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.CancelTransferHandler(transferSvc, tokenSvc))
 }

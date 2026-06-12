@@ -151,3 +151,38 @@ func (m *MockInvitationService) DeclineInvitation(ctx context.Context, invitatio
 	args := m.Called(ctx, invitationID, userID)
 	return args.Error(0)
 }
+
+type MockOwnershipTransferService struct {
+	mock.Mock
+}
+
+func (m *MockOwnershipTransferService) InitiateTransfer(ctx context.Context, profileID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID) (*service.OwnershipTransferResult, error) {
+	args := m.Called(ctx, profileID, fromUserID, toUserID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.OwnershipTransferResult), args.Error(1)
+}
+
+func (m *MockOwnershipTransferService) ListPendingTransfers(ctx context.Context, userID uuid.UUID) ([]service.OwnershipTransferResult, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]service.OwnershipTransferResult), args.Error(1)
+}
+
+func (m *MockOwnershipTransferService) AcceptTransfer(ctx context.Context, transferID uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, transferID, userID)
+	return args.Error(0)
+}
+
+func (m *MockOwnershipTransferService) DeclineTransfer(ctx context.Context, transferID uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, transferID, userID)
+	return args.Error(0)
+}
+
+func (m *MockOwnershipTransferService) CancelTransfer(ctx context.Context, transferID uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, transferID, userID)
+	return args.Error(0)
+}

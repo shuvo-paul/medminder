@@ -24,6 +24,7 @@ type ProfileRepository interface {
 	CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error)
 	AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
 	UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error)
+	UpdateProfilePermissionByProfileAndUser(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) (db.ProfilePermission, error)
 	UserExists(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
@@ -142,6 +143,14 @@ func (r *profileRepository) CreateInvitation(ctx context.Context, profileID uuid
 
 func (r *profileRepository) AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error) {
 	return r.queries.AcceptProfilePermission(ctx, id)
+}
+
+func (r *profileRepository) UpdateProfilePermissionByProfileAndUser(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) (db.ProfilePermission, error) {
+	return r.queries.UpdateProfilePermissionPermissionsByProfileAndUser(ctx, db.UpdateProfilePermissionPermissionsByProfileAndUserParams{
+		ProfileID:        profileID,
+		SharedWithUserID: userID,
+		Permissions:      permissions,
+	})
 }
 
 func (r *profileRepository) UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error) {
