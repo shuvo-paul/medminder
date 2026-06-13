@@ -23,7 +23,6 @@ var (
 	ErrTransferNotFound           = fmt.Errorf("%w: %w", errors.New("transfer not found"), commonerrors.ErrNotFound)
 	ErrTransferNotPending         = fmt.Errorf("%w: %w", errors.New("transfer is not pending"), commonerrors.ErrBadRequest)
 	ErrTransferExpired            = fmt.Errorf("%w: %w", errors.New("transfer has expired"), commonerrors.ErrBadRequest)
-	ErrTransferNotRecipient       = fmt.Errorf("%w: %w", errors.New("you are not the recipient of this transfer"), commonerrors.ErrForbidden)
 	ErrTransferNotInitiator       = fmt.Errorf("%w: %w", errors.New("you are not the initiator of this transfer"), commonerrors.ErrForbidden)
 	ErrPendingTransferExists      = fmt.Errorf("%w: %w", errors.New("a pending transfer already exists for this profile"), commonerrors.ErrConflict)
 	ErrCannotTransferToSelf       = fmt.Errorf("%w: %w", errors.New("cannot transfer ownership to yourself"), commonerrors.ErrBadRequest)

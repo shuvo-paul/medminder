@@ -46,6 +46,14 @@ func (m *MockOwnershipTransferRepository) UpdateTransferStatus(ctx context.Conte
 	return args.Get(0).(db.OwnershipTransfer), args.Error(1)
 }
 
+func (m *MockOwnershipTransferRepository) ListPendingTransfersWithDetailsByUser(ctx context.Context, userID uuid.UUID) ([]db.ListPendingTransfersWithDetailsByUserRow, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]db.ListPendingTransfersWithDetailsByUserRow), args.Error(1)
+}
+
 func TestInitiateTransfer(t *testing.T) {
 	profileID := uuid.UUID{1}
 	fromUserID := uuid.UUID{2}
@@ -83,12 +91,18 @@ func TestInitiateTransfer(t *testing.T) {
 						ExpiresAt:  now.AddDate(0, 0, 7),
 						CreatedAt:  now,
 					}, nil)
+				profileRepo.On("GetUserByID", mock.Anything, fromUserID).
+					Return(db.User{ID: fromUserID, DisplayName: "From User"}, nil)
+				profileRepo.On("GetUserByID", mock.Anything, toUserID).
+					Return(db.User{ID: toUserID, DisplayName: "To User"}, nil)
 			},
 			expect: func(t *testing.T, result *service.OwnershipTransferResult, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
 				assert.Equal(t, "pending", result.Transfer.Status)
 				assert.Equal(t, profileID, result.Transfer.ProfileID)
+				assert.Equal(t, "From User", result.Transfer.FromName)
+				assert.Equal(t, "To User", result.Transfer.ToName)
 			},
 		},
 		{
@@ -189,9 +203,8 @@ func TestInitiateTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			permChecker := new(MockPermissionChecker)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
-			tt.setup(profileRepo, transferRepo, permChecker)
+			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			tt.setup(profileRepo, transferRepo, nil)
 
 			fu := fromUserID
 			tu := toUserID
@@ -221,33 +234,36 @@ func TestListPendingTransfers(t *testing.T) {
 		{
 			name: "ListPendingTransfers_Success",
 			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
-				transferRepo.On("ListPendingTransfersByUser", mock.Anything, userID).
-					Return([]db.OwnershipTransfer{
+				transferRepo.On("ListPendingTransfersWithDetailsByUser", mock.Anything, userID).
+					Return([]db.ListPendingTransfersWithDetailsByUserRow{
 						{
-							ID:         uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-							ProfileID:  profileID,
-							FromUserID: fromUserID,
-							ToUserID:   userID,
-							Status:     "pending",
-							ExpiresAt:  now.AddDate(0, 0, 7),
-							CreatedAt:  now,
+							ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+							ProfileID:   profileID,
+							FromUserID:  fromUserID,
+							ToUserID:    userID,
+							Status:      "pending",
+							ExpiresAt:   now.AddDate(0, 0, 7),
+							CreatedAt:   now,
+							ProfileName: "Test Profile",
+							FromName:    "From User",
+							ToName:      "To User",
 						},
 					}, nil)
-				profileRepo.On("GetProfileByID", mock.Anything, profileID).
-					Return(db.Profile{ID: profileID, Name: "Test Profile"}, nil)
 			},
 			expect: func(t *testing.T, results []service.OwnershipTransferResult, err error) {
 				assert.NoError(t, err)
 				assert.Len(t, results, 1)
 				assert.Equal(t, "Test Profile", results[0].Transfer.ProfileName)
+				assert.Equal(t, "From User", results[0].Transfer.FromName)
+				assert.Equal(t, "To User", results[0].Transfer.ToName)
 				assert.Equal(t, "pending", results[0].Transfer.Status)
 			},
 		},
 		{
 			name: "ListPendingTransfers_Empty",
 			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
-				transferRepo.On("ListPendingTransfersByUser", mock.Anything, userID).
-					Return([]db.OwnershipTransfer{}, nil)
+				transferRepo.On("ListPendingTransfersWithDetailsByUser", mock.Anything, userID).
+					Return([]db.ListPendingTransfersWithDetailsByUserRow{}, nil)
 			},
 			expect: func(t *testing.T, results []service.OwnershipTransferResult, err error) {
 				assert.NoError(t, err)
@@ -260,9 +276,8 @@ func TestListPendingTransfers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			permChecker := new(MockPermissionChecker)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
-			tt.setup(profileRepo, transferRepo, permChecker)
+			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			tt.setup(profileRepo, transferRepo, nil)
 			results, err := svc.ListPendingTransfers(context.Background(), userID)
 			tt.expect(t, results, err)
 		})
@@ -423,9 +438,8 @@ func TestAcceptTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			permChecker := new(MockPermissionChecker)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
-			tt.setup(profileRepo, transferRepo, permChecker)
+			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			tt.setup(profileRepo, transferRepo, nil)
 			err := svc.AcceptTransfer(context.Background(), transferID, toUserID)
 			tt.expect(t, err)
 		})
@@ -494,15 +508,48 @@ func TestDeclineTransfer(t *testing.T) {
 				assert.ErrorIs(t, err, service.ErrTransferNotFound)
 			},
 		},
+		{
+			name: "DeclineTransfer_AlreadyAccepted",
+			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
+				transferRepo.On("GetTransferByID", mock.Anything, transferID).
+					Return(db.OwnershipTransfer{
+						ID:         transferID,
+						ProfileID:  profileID,
+						FromUserID: fromUserID,
+						ToUserID:   toUserID,
+						Status:     "accepted",
+						ExpiresAt:  now.AddDate(0, 0, 7),
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, service.ErrTransferNotPending)
+			},
+		},
+		{
+			name: "DeclineTransfer_Expired",
+			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
+				transferRepo.On("GetTransferByID", mock.Anything, transferID).
+					Return(db.OwnershipTransfer{
+						ID:         transferID,
+						ProfileID:  profileID,
+						FromUserID: fromUserID,
+						ToUserID:   toUserID,
+						Status:     "pending",
+						ExpiresAt:  now.AddDate(0, 0, -1),
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, service.ErrTransferExpired)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			permChecker := new(MockPermissionChecker)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
-			tt.setup(profileRepo, transferRepo, permChecker)
+			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			tt.setup(profileRepo, transferRepo, nil)
 			err := svc.DeclineTransfer(context.Background(), transferID, toUserID)
 			tt.expect(t, err)
 		})
@@ -518,9 +565,10 @@ func TestCancelTransfer(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name   string
-		setup  func(*MockProfileRepository, *MockOwnershipTransferRepository, *MockPermissionChecker)
-		expect func(*testing.T, error)
+		name         string
+		setup        func(*MockProfileRepository, *MockOwnershipTransferRepository, *MockPermissionChecker)
+		expect       func(*testing.T, error)
+		actingUserID uuid.UUID
 	}{
 		{
 			name: "CancelTransfer_Success",
@@ -534,15 +582,16 @@ func TestCancelTransfer(t *testing.T) {
 						Status:     "pending",
 						ExpiresAt:  now.AddDate(0, 0, 7),
 					}, nil)
-				transferRepo.On("UpdateTransferStatus", mock.Anything, transferID, "declined").
+				transferRepo.On("UpdateTransferStatus", mock.Anything, transferID, "cancelled").
 					Return(db.OwnershipTransfer{
 						ID:     transferID,
-						Status: "declined",
+						Status: "cancelled",
 					}, nil)
 			},
 			expect: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
+			actingUserID: fromUserID,
 		},
 		{
 			name: "CancelTransfer_NotFound",
@@ -553,6 +602,7 @@ func TestCancelTransfer(t *testing.T) {
 			expect: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, service.ErrTransferNotFound)
 			},
+			actingUserID: fromUserID,
 		},
 		{
 			name: "CancelTransfer_WrongUser",
@@ -570,6 +620,43 @@ func TestCancelTransfer(t *testing.T) {
 			expect: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, service.ErrTransferNotInitiator)
 			},
+			actingUserID: otherUserID,
+		},
+		{
+			name: "CancelTransfer_AlreadyAccepted",
+			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
+				transferRepo.On("GetTransferByID", mock.Anything, transferID).
+					Return(db.OwnershipTransfer{
+						ID:         transferID,
+						ProfileID:  profileID,
+						FromUserID: fromUserID,
+						ToUserID:   toUserID,
+						Status:     "accepted",
+						ExpiresAt:  now.AddDate(0, 0, 7),
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, service.ErrTransferNotPending)
+			},
+			actingUserID: fromUserID,
+		},
+		{
+			name: "CancelTransfer_Expired",
+			setup: func(profileRepo *MockProfileRepository, transferRepo *MockOwnershipTransferRepository, permChecker *MockPermissionChecker) {
+				transferRepo.On("GetTransferByID", mock.Anything, transferID).
+					Return(db.OwnershipTransfer{
+						ID:         transferID,
+						ProfileID:  profileID,
+						FromUserID: fromUserID,
+						ToUserID:   toUserID,
+						Status:     "pending",
+						ExpiresAt:  now.AddDate(0, 0, -1),
+					}, nil)
+			},
+			expect: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, service.ErrTransferExpired)
+			},
+			actingUserID: fromUserID,
 		},
 	}
 
@@ -577,15 +664,10 @@ func TestCancelTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			permChecker := new(MockPermissionChecker)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
-			tt.setup(profileRepo, transferRepo, permChecker)
+			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			tt.setup(profileRepo, transferRepo, nil)
 
-			userID := fromUserID
-			if tt.name == "CancelTransfer_WrongUser" {
-				userID = otherUserID
-			}
-			err := svc.CancelTransfer(context.Background(), transferID, userID)
+			err := svc.CancelTransfer(context.Background(), transferID, tt.actingUserID)
 			tt.expect(t, err)
 		})
 	}

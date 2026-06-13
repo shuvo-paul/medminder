@@ -14,6 +14,7 @@ type OwnershipTransferRepository interface {
 	GetTransferByID(ctx context.Context, transferID uuid.UUID) (db.OwnershipTransfer, error)
 	GetPendingTransferByProfile(ctx context.Context, profileID uuid.UUID) (db.OwnershipTransfer, error)
 	ListPendingTransfersByUser(ctx context.Context, userID uuid.UUID) ([]db.OwnershipTransfer, error)
+	ListPendingTransfersWithDetailsByUser(ctx context.Context, userID uuid.UUID) ([]db.ListPendingTransfersWithDetailsByUserRow, error)
 	UpdateTransferStatus(ctx context.Context, transferID uuid.UUID, status string) (db.OwnershipTransfer, error)
 }
 
@@ -46,6 +47,10 @@ func (r *ownershipTransferRepository) GetPendingTransferByProfile(ctx context.Co
 
 func (r *ownershipTransferRepository) ListPendingTransfersByUser(ctx context.Context, userID uuid.UUID) ([]db.OwnershipTransfer, error) {
 	return r.queries.ListPendingTransfersByUser(ctx, userID)
+}
+
+func (r *ownershipTransferRepository) ListPendingTransfersWithDetailsByUser(ctx context.Context, userID uuid.UUID) ([]db.ListPendingTransfersWithDetailsByUserRow, error) {
+	return r.queries.ListPendingTransfersWithDetailsByUser(ctx, userID)
 }
 
 func (r *ownershipTransferRepository) UpdateTransferStatus(ctx context.Context, transferID uuid.UUID, status string) (db.OwnershipTransfer, error) {

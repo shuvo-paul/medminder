@@ -26,6 +26,7 @@ type ProfileRepository interface {
 	UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error)
 	UpdateProfilePermissionByProfileAndUser(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) (db.ProfilePermission, error)
 	UserExists(ctx context.Context, userID uuid.UUID) (bool, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (db.User, error)
 }
 
 type profileRepository struct {
@@ -169,4 +170,8 @@ func (r *profileRepository) UserExists(ctx context.Context, userID uuid.UUID) (b
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *profileRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (db.User, error) {
+	return r.queries.GetUserByID(ctx, userID)
 }

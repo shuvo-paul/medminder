@@ -108,6 +108,11 @@ func (m *MockProfileRepository) UpdateProfilePermissionByProfileAndUser(ctx cont
 	return args.Get(0).(db.ProfilePermission), args.Error(1)
 }
 
+func (m *MockProfileRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (db.User, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(db.User), args.Error(1)
+}
+
 type MockDoseScheduleRepository struct {
 	mock.Mock
 }

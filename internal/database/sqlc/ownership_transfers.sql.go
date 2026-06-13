@@ -137,6 +137,75 @@ func (q *Queries) ListPendingTransfersByUser(ctx context.Context, toUserID uuid.
 	return items, nil
 }
 
+const listPendingTransfersWithDetailsByUser = `-- name: ListPendingTransfersWithDetailsByUser :many
+SELECT
+    ot.id,
+    ot.profile_id,
+    ot.from_user_id,
+    ot.to_user_id,
+    ot.status,
+    ot.expires_at,
+    ot.created_at,
+    ot.updated_at,
+    p.name as profile_name,
+    fu.display_name as from_name,
+    tu.display_name as to_name
+FROM ownership_transfers ot
+JOIN profiles p ON p.id = ot.profile_id
+JOIN users fu ON fu.id = ot.from_user_id
+JOIN users tu ON tu.id = ot.to_user_id
+WHERE ot.to_user_id = $1 AND ot.status = 'pending' AND ot.expires_at > NOW()
+`
+
+type ListPendingTransfersWithDetailsByUserRow struct {
+	ID          uuid.UUID `json:"id"`
+	ProfileID   uuid.UUID `json:"profile_id"`
+	FromUserID  uuid.UUID `json:"from_user_id"`
+	ToUserID    uuid.UUID `json:"to_user_id"`
+	Status      string    `json:"status"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProfileName string    `json:"profile_name"`
+	FromName    string    `json:"from_name"`
+	ToName      string    `json:"to_name"`
+}
+
+func (q *Queries) ListPendingTransfersWithDetailsByUser(ctx context.Context, toUserID uuid.UUID) ([]ListPendingTransfersWithDetailsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingTransfersWithDetailsByUser, toUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingTransfersWithDetailsByUserRow{}
+	for rows.Next() {
+		var i ListPendingTransfersWithDetailsByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProfileID,
+			&i.FromUserID,
+			&i.ToUserID,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ProfileName,
+			&i.FromName,
+			&i.ToName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateOwnershipTransferStatus = `-- name: UpdateOwnershipTransferStatus :one
 UPDATE ownership_transfers
 SET status = $2, updated_at = NOW()

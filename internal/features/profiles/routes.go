@@ -20,7 +20,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
 	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo)
 	transferRepo := repository.NewOwnershipTransferRepository(queries, dbConn)
-	transferSvc := profileService.NewOwnershipTransferService(profileRepo, transferRepo, permChecker)
+	transferSvc := profileService.NewOwnershipTransferService(profileRepo, transferRepo)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")

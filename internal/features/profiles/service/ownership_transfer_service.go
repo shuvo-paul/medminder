@@ -18,6 +18,7 @@ type OwnershipTransferDTO struct {
 	FromUserID  uuid.UUID
 	FromName    string
 	ToUserID    uuid.UUID
+	ToName      string
 	Status      string
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
@@ -38,19 +39,18 @@ type OwnershipTransferService interface {
 type ownershipTransferService struct {
 	profileRepo  repository.ProfileRepository
 	transferRepo repository.OwnershipTransferRepository
-	permChecker  PermissionChecker
 }
 
-func NewOwnershipTransferService(profileRepo repository.ProfileRepository, transferRepo repository.OwnershipTransferRepository, permChecker PermissionChecker) OwnershipTransferService {
+func NewOwnershipTransferService(profileRepo repository.ProfileRepository, transferRepo repository.OwnershipTransferRepository) OwnershipTransferService {
 	return &ownershipTransferService{
 		profileRepo:  profileRepo,
 		transferRepo: transferRepo,
-		permChecker:  permChecker,
 	}
 }
 
 func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profileID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID) (*OwnershipTransferResult, error) {
-	if _, err := s.profileRepo.GetProfileByID(ctx, profileID); err != nil {
+	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrProfileNotFound
 		}
@@ -104,7 +104,12 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 		return nil, err
 	}
 
-	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
+	fromUser, err := s.profileRepo.GetUserByID(ctx, fromUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	toUser, err := s.profileRepo.GetUserByID(ctx, toUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +120,9 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 			ProfileID:   transfer.ProfileID,
 			ProfileName: profile.Name,
 			FromUserID:  transfer.FromUserID,
+			FromName:    fromUser.DisplayName,
 			ToUserID:    transfer.ToUserID,
+			ToName:      toUser.DisplayName,
 			Status:      transfer.Status,
 			ExpiresAt:   transfer.ExpiresAt,
 			CreatedAt:   transfer.CreatedAt,
@@ -124,25 +131,22 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 }
 
 func (s *ownershipTransferService) ListPendingTransfers(ctx context.Context, userID uuid.UUID) ([]OwnershipTransferResult, error) {
-	transfers, err := s.transferRepo.ListPendingTransfersByUser(ctx, userID)
+	transfers, err := s.transferRepo.ListPendingTransfersWithDetailsByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	var results []OwnershipTransferResult
 	for _, t := range transfers {
-		profile, err := s.profileRepo.GetProfileByID(ctx, t.ProfileID)
-		if err != nil {
-			return nil, err
-		}
-
 		results = append(results, OwnershipTransferResult{
 			Transfer: OwnershipTransferDTO{
 				ID:          t.ID,
 				ProfileID:   t.ProfileID,
-				ProfileName: profile.Name,
+				ProfileName: t.ProfileName,
 				FromUserID:  t.FromUserID,
+				FromName:    t.FromName,
 				ToUserID:    t.ToUserID,
+				ToName:      t.ToName,
 				Status:      t.Status,
 				ExpiresAt:   t.ExpiresAt,
 				CreatedAt:   t.CreatedAt,
@@ -241,6 +245,14 @@ func (s *ownershipTransferService) DeclineTransfer(ctx context.Context, transfer
 		return ErrTransferNotFound
 	}
 
+	if transfer.Status != "pending" {
+		return ErrTransferNotPending
+	}
+
+	if transfer.ExpiresAt.Before(time.Now()) {
+		return ErrTransferExpired
+	}
+
 	_, err = s.transferRepo.UpdateTransferStatus(ctx, transferID, "declined")
 	return err
 }
@@ -258,7 +270,15 @@ func (s *ownershipTransferService) CancelTransfer(ctx context.Context, transferI
 		return ErrTransferNotInitiator
 	}
 
-	_, err = s.transferRepo.UpdateTransferStatus(ctx, transferID, "declined")
+	if transfer.Status != "pending" {
+		return ErrTransferNotPending
+	}
+
+	if transfer.ExpiresAt.Before(time.Now()) {
+		return ErrTransferExpired
+	}
+
+	_, err = s.transferRepo.UpdateTransferStatus(ctx, transferID, "cancelled")
 	return err
 }
 

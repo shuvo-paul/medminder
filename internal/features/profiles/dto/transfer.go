@@ -13,6 +13,7 @@ type OwnershipTransferDTO struct {
 	FromUserID  uuid.UUID `json:"from_user_id"`
 	FromName    string    `json:"from_name"`
 	ToUserID    uuid.UUID `json:"to_user_id"`
+	ToName      string    `json:"to_name"`
 	Status      string    `json:"status"`
 	ExpiresAt   time.Time `json:"expires_at"`
 	CreatedAt   time.Time `json:"created_at"`

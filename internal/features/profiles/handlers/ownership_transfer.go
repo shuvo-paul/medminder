@@ -175,6 +175,7 @@ func toOwnershipTransferDTO(t service.OwnershipTransferDTO) dto.OwnershipTransfe
 		FromUserID:  t.FromUserID,
 		FromName:    t.FromName,
 		ToUserID:    t.ToUserID,
+		ToName:      t.ToName,
 		Status:      t.Status,
 		ExpiresAt:   t.ExpiresAt,
 		CreatedAt:   t.CreatedAt,
