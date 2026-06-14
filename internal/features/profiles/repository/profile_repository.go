@@ -20,7 +20,9 @@ type ProfileRepository interface {
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
 	GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
 	GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error)
+	ListProfilePermissionsByProfile(ctx context.Context, profileID uuid.UUID) ([]db.ProfilePermission, error)
 	ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error)
+	DeleteProfilePermission(ctx context.Context, id uuid.UUID) error
 	CreateInvitation(ctx context.Context, profileID uuid.UUID, sharedWithUserID uuid.UUID, grantedByUserID uuid.UUID, permissions json.RawMessage, expiresAt time.Time) (db.ProfilePermission, error)
 	AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
 	UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error)
@@ -105,6 +107,14 @@ func (r *profileRepository) ListProfilesByUser(ctx context.Context, userID uuid.
 
 func (r *profileRepository) ListProfilePermissionsByUser(ctx context.Context, userID uuid.UUID) ([]db.ProfilePermission, error) {
 	return r.queries.ListProfilePermissionsByUser(ctx, userID)
+}
+
+func (r *profileRepository) ListProfilePermissionsByProfile(ctx context.Context, profileID uuid.UUID) ([]db.ProfilePermission, error) {
+	return r.queries.ListProfilePermissionsByProfile(ctx, profileID)
+}
+
+func (r *profileRepository) DeleteProfilePermission(ctx context.Context, id uuid.UUID) error {
+	return r.queries.DeleteProfilePermission(ctx, id)
 }
 
 func (r *profileRepository) UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {

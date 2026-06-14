@@ -39,6 +39,8 @@ type AuthService interface {
 	Logout(ctx context.Context, userID uuid.UUID) error
 	SetPassword(ctx context.Context, userID uuid.UUID, password string) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
+	VerifyPassword(ctx context.Context, userID uuid.UUID, password string) error
+	DeleteAccount(ctx context.Context, userID uuid.UUID) error
 }
 
 type authService struct {
@@ -182,6 +184,36 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 
 	if err := s.userRepo.UpdatePassword(ctx, userID.String(), string(hashedPassword)); err != nil {
 		return fmt.Errorf("updating password: %w", err)
+	}
+
+	return nil
+}
+
+func (s *authService) VerifyPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	user, err := s.userRepo.GetUserByID(ctx, userID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("getting user: %w", err)
+	}
+
+	if user.PasswordHash.Valid && user.PasswordHash.String != "" {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)); err != nil {
+			return ErrWrongPassword
+		}
+	}
+
+	return nil
+}
+
+func (s *authService) DeleteAccount(ctx context.Context, userID uuid.UUID) error {
+	if err := s.tokenRepo.DeleteUserRefreshTokens(ctx, userID); err != nil {
+		return fmt.Errorf("deleting refresh tokens: %w", err)
+	}
+
+	if err := s.userRepo.DeleteUser(ctx, userID); err != nil {
+		return fmt.Errorf("deleting user: %w", err)
 	}
 
 	return nil

@@ -12,9 +12,10 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	profileService "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
 
-func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepository auditRepo.AuditRepository, jwtSecret string, emailClient email.EmailClient, frontendURL string) {
+func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepository auditRepo.AuditRepository, jwtSecret string, emailClient email.EmailClient, frontendURL string, profileSvc profileService.ProfileService) {
 	// Repos (used to construct services)
 	userRepo := repository.NewUserRepository(queries)
 	tokenRepo := repository.NewRefreshTokenRepository(queries)
@@ -162,4 +163,16 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, auditRepo
 			{"bearer": {}},
 		},
 	}, handlers.ChangePasswordHandler(authSvc, tokenSvc))
+
+	// Delete account (authenticated) — requires password confirmation
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-account",
+		Method:      http.MethodDelete,
+		Path:        "/api/auth/account",
+		Summary:     "Delete the authenticated user's account",
+		Tags:        []string{"auth"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, handlers.DeleteAccountHandler(authSvc, profileSvc, tokenSvc))
 }

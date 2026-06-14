@@ -22,6 +22,8 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess"
 	"github.com/shuvo-paul/medminder/internal/features/profiles"
+	profileRepo "github.com/shuvo-paul/medminder/internal/features/profiles/repository"
+	profileSvc "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
@@ -77,7 +79,12 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	emailClient := email.NewEmailClient(cfg.Email)
 	email.StartEmailQueue(emailClient, 3, slog.Default())
 
-	auth.RegisterRoutes(api, dbConn, queries, auditRepo, cfg.JWT.Secret, emailClient, cfg.FrontendURL)
+	profileRepoInstance := profileRepo.NewProfileRepository(queries, dbConn)
+	scheduleRepoInstance := profileRepo.NewDoseScheduleRepository(queries)
+	permChecker := profileSvc.NewPermissionChecker(queries)
+	profileSvcInstance := profileSvc.NewProfileService(profileRepoInstance, scheduleRepoInstance, permChecker)
+
+	auth.RegisterRoutes(api, dbConn, queries, auditRepo, cfg.JWT.Secret, emailClient, cfg.FrontendURL, profileSvcInstance)
 
 	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
 	profiles.RegisterRoutes(api, dbConn, queries, tokenSvc)

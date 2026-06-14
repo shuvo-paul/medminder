@@ -46,6 +46,7 @@ type ProfileService interface {
 	ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error)
 	UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*ProfileResult, error)
 	DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error
+	HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error
 }
 
 type profileService struct {
@@ -204,6 +205,50 @@ func (s *profileService) DeleteProfile(ctx context.Context, profileID uuid.UUID,
 	}
 
 	return s.profileRepo.DeleteProfile(ctx, profileID)
+}
+
+func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error {
+	permissions, err := s.profileRepo.ListProfilePermissionsByUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	for _, perm := range permissions {
+		profileID := perm.ProfileID
+
+		if HasPermissionInJSONB(perm.Permissions, "profile:owner") {
+			profilePerms, err := s.profileRepo.ListProfilePermissionsByProfile(ctx, profileID)
+			if err != nil {
+				return err
+			}
+
+			hasOtherAdmin := false
+			for _, pp := range profilePerms {
+				if pp.SharedWithUserID != userID &&
+					pp.Status == "accepted" &&
+					HasPermissionInJSONB(pp.Permissions, "profile:admin") {
+					hasOtherAdmin = true
+					break
+				}
+			}
+
+			if hasOtherAdmin {
+				if err := s.profileRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
+					return err
+				}
+			} else {
+				if err := s.profileRepo.DeleteProfile(ctx, profileID); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := s.profileRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO, isOwner bool) ProfileResult {
