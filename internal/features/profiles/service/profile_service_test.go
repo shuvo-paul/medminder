@@ -113,6 +113,19 @@ func (m *MockProfileRepository) GetUserByID(ctx context.Context, userID uuid.UUI
 	return args.Get(0).(db.User), args.Error(1)
 }
 
+func (m *MockProfileRepository) ListProfilePermissionsByProfile(ctx context.Context, profileID uuid.UUID) ([]db.ProfilePermission, error) {
+	args := m.Called(ctx, profileID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) DeleteProfilePermission(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 type MockDoseScheduleRepository struct {
 	mock.Mock
 }

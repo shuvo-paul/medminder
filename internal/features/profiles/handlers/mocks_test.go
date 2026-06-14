@@ -51,6 +51,11 @@ func (m *MockProfileService) DeleteProfile(ctx context.Context, profileID uuid.U
 	return args.Error(0)
 }
 
+func (m *MockProfileService) HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
 type MockDoseScheduleService struct {
 	mock.Mock
 }

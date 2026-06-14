@@ -107,6 +107,11 @@ func (m *MockOAuthUserRepository) UpdateUserEmail(ctx context.Context, id uuid.U
 	return args.Error(0)
 }
 
+func (m *MockOAuthUserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // MockAuditRepository is a mock for the audit log repository.
 type MockAuditRepository struct {
 	mock.Mock

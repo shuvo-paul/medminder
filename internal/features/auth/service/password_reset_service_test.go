@@ -23,6 +23,7 @@ type MockPRUserRepository struct {
 	CreateUserFn      func(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error)
 	VerifyEmailFn     func(ctx context.Context, id uuid.UUID) error
 	UpdateUserEmailFn func(ctx context.Context, id uuid.UUID, email string) error
+	DeleteUserFn      func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *MockPRUserRepository) CreateUser(ctx context.Context, email, displayName, passwordHash string, emailVerified bool) (db.CreateUserRow, error) {
@@ -63,6 +64,13 @@ func (m *MockPRUserRepository) VerifyEmail(ctx context.Context, id uuid.UUID) er
 func (m *MockPRUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error {
 	if m.UpdateUserEmailFn != nil {
 		return m.UpdateUserEmailFn(ctx, id, email)
+	}
+	return nil
+}
+
+func (m *MockPRUserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	if m.DeleteUserFn != nil {
+		return m.DeleteUserFn(ctx, id)
 	}
 	return nil
 }

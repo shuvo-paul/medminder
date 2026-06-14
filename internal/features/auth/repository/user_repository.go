@@ -15,6 +15,7 @@ type UserRepository interface {
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
 	VerifyEmail(ctx context.Context, id uuid.UUID) error
 	UpdateUserEmail(ctx context.Context, id uuid.UUID, email string) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
 type userRepository struct {
@@ -58,4 +59,8 @@ func (r *userRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, emai
 		ID:    id,
 		Email: email,
 	})
+}
+
+func (r *userRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	return r.queries.DeleteUser(ctx, id)
 }

@@ -54,6 +54,11 @@ func (m *MockUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, 
 	return args.Error(0)
 }
 
+func (m *MockUserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // MockRefreshTokenRepository mocks repository.RefreshTokenRepository
 type MockRefreshTokenRepository struct {
 	mock.Mock

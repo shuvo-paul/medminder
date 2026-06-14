@@ -9,6 +9,7 @@ import (
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	profilesvc "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 	"github.com/stretchr/testify/mock"
 )
@@ -45,6 +46,16 @@ func (m *MockAuthService) SetPassword(ctx context.Context, userID uuid.UUID, pas
 
 func (m *MockAuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
 	args := m.Called(ctx, userID, currentPassword, newPassword)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) VerifyPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	args := m.Called(ctx, userID, password)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) DeleteAccount(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
 	return args.Error(0)
 }
 
@@ -251,6 +262,11 @@ func (m *MockUserRepository) UpdateUserEmail(ctx context.Context, id uuid.UUID, 
 	return args.Error(0)
 }
 
+func (m *MockUserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // MockAuditRepository is a mock for the audit log repository.
 type MockEmailChangeService struct {
 	mock.Mock
@@ -285,5 +301,51 @@ type MockAuditRepository struct {
 
 func (m *MockAuditRepository) LogEvent(ctx context.Context, eventType string, userID uuid.NullUUID, ipAddress, userAgent string, metadata map[string]string) error {
 	args := m.Called(ctx, eventType, userID, ipAddress, userAgent, metadata)
+	return args.Error(0)
+}
+
+type MockProfileService struct {
+	mock.Mock
+}
+
+func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []profilesvc.DoseScheduleInput) (*profilesvc.ProfileResult, error) {
+	args := m.Called(ctx, userID, name, dateOfBirth, timezone, schedules)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+}
+
+func (m *MockProfileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*profilesvc.ProfileResult, error) {
+	args := m.Called(ctx, profileID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+}
+
+func (m *MockProfileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]profilesvc.ProfileResult, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]profilesvc.ProfileResult), args.Error(1)
+}
+
+func (m *MockProfileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*profilesvc.ProfileResult, error) {
+	args := m.Called(ctx, profileID, userID, name, dateOfBirth, timezone)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+}
+
+func (m *MockProfileService) DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, profileID, userID)
+	return args.Error(0)
+}
+
+func (m *MockProfileService) HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
 	return args.Error(0)
 }

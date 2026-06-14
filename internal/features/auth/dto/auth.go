@@ -63,3 +63,16 @@ type ChangePasswordOutput struct {
 		Message string `json:"message"`
 	}
 }
+
+type DeleteAccountInput struct {
+	Authorization string `header:"Authorization"`
+	Body          struct {
+		Password string `json:"password" minLength:"1"`
+	}
+}
+
+type DeleteAccountOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}

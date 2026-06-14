@@ -33,6 +33,19 @@ func NewPermissionCheckerWithFunc(getProfilePermission GetProfilePermissionFunc)
 	}
 }
 
+func HasPermissionInJSONB(permissions json.RawMessage, target string) bool {
+	var perms []string
+	if err := json.Unmarshal(permissions, &perms); err != nil {
+		return false
+	}
+	for _, p := range perms {
+		if p == target {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *permissionChecker) HasPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permission string) (bool, error) {
 	pp, err := c.getProfilePermission(ctx, db.GetProfilePermissionParams{
 		ProfileID:        profileID,
