@@ -103,6 +103,16 @@ func (m *MockProfileRepository) UserExists(ctx context.Context, userID uuid.UUID
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockProfileRepository) UpdateProfilePermissionByProfileAndUser(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) (db.ProfilePermission, error) {
+	args := m.Called(ctx, profileID, userID, permissions)
+	return args.Get(0).(db.ProfilePermission), args.Error(1)
+}
+
+func (m *MockProfileRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (db.User, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(db.User), args.Error(1)
+}
+
 type MockDoseScheduleRepository struct {
 	mock.Mock
 }

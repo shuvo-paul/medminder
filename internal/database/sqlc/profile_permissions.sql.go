@@ -280,6 +280,36 @@ func (q *Queries) UpdateProfilePermissionPermissions(ctx context.Context, arg Up
 	return i, err
 }
 
+const updateProfilePermissionPermissionsByProfileAndUser = `-- name: UpdateProfilePermissionPermissionsByProfileAndUser :one
+UPDATE profile_permissions
+SET permissions = $3, updated_at = NOW()
+WHERE profile_id = $1 AND shared_with_user_id = $2
+RETURNING id, profile_id, shared_with_user_id, granted_by_user_id, permissions, status, expires_at, created_at, updated_at
+`
+
+type UpdateProfilePermissionPermissionsByProfileAndUserParams struct {
+	ProfileID        uuid.UUID       `json:"profile_id"`
+	SharedWithUserID uuid.UUID       `json:"shared_with_user_id"`
+	Permissions      json.RawMessage `json:"permissions"`
+}
+
+func (q *Queries) UpdateProfilePermissionPermissionsByProfileAndUser(ctx context.Context, arg UpdateProfilePermissionPermissionsByProfileAndUserParams) (ProfilePermission, error) {
+	row := q.db.QueryRowContext(ctx, updateProfilePermissionPermissionsByProfileAndUser, arg.ProfileID, arg.SharedWithUserID, arg.Permissions)
+	var i ProfilePermission
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.SharedWithUserID,
+		&i.GrantedByUserID,
+		&i.Permissions,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateProfilePermissionStatus = `-- name: UpdateProfilePermissionStatus :one
 UPDATE profile_permissions
 SET status = $2, updated_at = NOW()

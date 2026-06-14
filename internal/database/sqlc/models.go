@@ -73,6 +73,17 @@ type OauthAuthorizationCode struct {
 	ProviderEmailVerified bool          `json:"provider_email_verified"`
 }
 
+type OwnershipTransfer struct {
+	ID         uuid.UUID `json:"id"`
+	ProfileID  uuid.UUID `json:"profile_id"`
+	FromUserID uuid.UUID `json:"from_user_id"`
+	ToUserID   uuid.UUID `json:"to_user_id"`
+	Status     string    `json:"status"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 type PasswordResetToken struct {
 	ID        uuid.UUID    `json:"id"`
 	UserID    uuid.UUID    `json:"user_id"`
