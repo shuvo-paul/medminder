@@ -20,6 +20,7 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/audit/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	"github.com/shuvo-paul/medminder/internal/features/guestaccess"
 	"github.com/shuvo-paul/medminder/internal/features/profiles"
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
@@ -31,6 +32,10 @@ const (
 
 	// apiRate is the per-IP per-minute request limit for general API endpoints.
 	apiRate = 100
+
+	// guestRate is the per-IP per-minute request limit for guest access endpoints
+	// (token-based read-only data access).
+	guestRate = 60
 
 	// oauthRate is the per-IP per-minute request limit for OAuth endpoints
 	// (initiate, callback, token exchange, link init).
@@ -44,6 +49,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	authLimiter := ratelimit.New(authRate, rateLimitWindow)
 	apiLimiter := ratelimit.New(apiRate, rateLimitWindow)
 	oauthLimiter := ratelimit.New(oauthRate, rateLimitWindow)
+	guestLimiter := ratelimit.New(guestRate, rateLimitWindow)
 
 	router := chi.NewRouter()
 	router.Use(chiMiddleware.RealIP)
@@ -59,8 +65,9 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	router.Use(middleware.CORSMiddleware([]string{cfg.FrontendURL}))
 
 	// Selective rate limiting: auth gets strict, OAuth gets moderate,
-	// general API gets moderate, static assets and infrastructure are exempt.
-	router.Use(rateLimitByPath(authLimiter, oauthLimiter, apiLimiter))
+	// general API gets moderate, guest endpoints get strict, static assets
+	// and infrastructure are exempt.
+	router.Use(rateLimitByPath(authLimiter, oauthLimiter, apiLimiter, guestLimiter))
 
 	api := setupHuma(router)
 
@@ -74,6 +81,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 
 	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
 	profiles.RegisterRoutes(api, dbConn, queries, tokenSvc)
+	guestaccess.RegisterRoutes(api, queries, tokenSvc)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)
@@ -89,6 +97,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 		authLimiter.Stop()
 		oauthLimiter.Stop()
 		apiLimiter.Stop()
+		guestLimiter.Stop()
 	}
 
 	return router, cleanup, nil
@@ -102,7 +111,7 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 //   - /api/*              → moderate limit (general API usage)
 //   - /api/healthz, /api/openapi.json, /api/docs/* → exempt (infrastructure)
 //   - all other paths (SPA, service worker) → exempt (static assets)
-func rateLimitByPath(authLimiter, oauthLimiter, apiLimiter *ratelimit.Limiter) func(http.Handler) http.Handler {
+func rateLimitByPath(authLimiter, oauthLimiter, apiLimiter, guestLimiter *ratelimit.Limiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
@@ -116,6 +125,12 @@ func rateLimitByPath(authLimiter, oauthLimiter, apiLimiter *ratelimit.Limiter) f
 			// Exempt: infrastructure endpoints (health check, OpenAPI spec, docs UI).
 			if path == "/api/healthz" || path == "/api/openapi.json" || strings.HasPrefix(path, "/api/docs") {
 				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Guest endpoints: strict limit (60 req/min per IP).
+			if strings.HasPrefix(path, "/api/guest/") {
+				guestLimiter.Middleware(next).ServeHTTP(w, r)
 				return
 			}
 
