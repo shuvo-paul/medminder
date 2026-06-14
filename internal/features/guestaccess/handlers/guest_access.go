@@ -6,28 +6,15 @@ import (
 	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/dto"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/service"
+	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
-type TokenServiceInterface interface {
-	ValidateAccessToken(tokenString string) (jwt.MapClaims, error)
-}
-
-type PermissionChecker interface {
-	HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error)
-}
-
-func CreateGuestAccessHandler(svc service.GuestAccessService, tokenSvc TokenServiceInterface) func(context.Context, *dto.CreateGuestAccessInput) (*dto.CreateGuestAccessOutput, error) {
+func CreateGuestAccessHandler(svc service.GuestAccessService) func(context.Context, *dto.CreateGuestAccessInput) (*dto.CreateGuestAccessOutput, error) {
 	return func(ctx context.Context, input *dto.CreateGuestAccessInput) (*dto.CreateGuestAccessOutput, error) {
-		_, err := extractUserIDFromAuth(input.Authorization, tokenSvc)
-		if err != nil {
-			return nil, err
-		}
-
 		profileID, err := uuid.Parse(input.ID)
 		if err != nil {
 			return nil, huma.Error400BadRequest("Invalid profile ID", err)
@@ -62,13 +49,8 @@ func CreateGuestAccessHandler(svc service.GuestAccessService, tokenSvc TokenServ
 	}
 }
 
-func ListGuestAccessTokensHandler(svc service.GuestAccessService, tokenSvc TokenServiceInterface) func(context.Context, *dto.ListGuestAccessTokensInput) (*dto.ListGuestAccessTokensOutput, error) {
+func ListGuestAccessTokensHandler(svc service.GuestAccessService) func(context.Context, *dto.ListGuestAccessTokensInput) (*dto.ListGuestAccessTokensOutput, error) {
 	return func(ctx context.Context, input *dto.ListGuestAccessTokensInput) (*dto.ListGuestAccessTokensOutput, error) {
-		_, err := extractUserIDFromAuth(input.Authorization, tokenSvc)
-		if err != nil {
-			return nil, err
-		}
-
 		profileID, err := uuid.Parse(input.ID)
 		if err != nil {
 			return nil, huma.Error400BadRequest("Invalid profile ID", err)
@@ -94,11 +76,11 @@ func ListGuestAccessTokensHandler(svc service.GuestAccessService, tokenSvc Token
 	}
 }
 
-func RevokeGuestAccessHandler(svc service.GuestAccessService, tokenSvc TokenServiceInterface, permChecker PermissionChecker) func(context.Context, *dto.RevokeGuestAccessInput) (*dto.RevokeGuestAccessOutput, error) {
+func RevokeGuestAccessHandler(svc service.GuestAccessService) func(context.Context, *dto.RevokeGuestAccessInput) (*dto.RevokeGuestAccessOutput, error) {
 	return func(ctx context.Context, input *dto.RevokeGuestAccessInput) (*dto.RevokeGuestAccessOutput, error) {
-		userID, err := extractUserIDFromAuth(input.Authorization, tokenSvc)
-		if err != nil {
-			return nil, err
+		userID := middleware.UserIDFromContext(ctx)
+		if userID == uuid.Nil {
+			return nil, huma.Error401Unauthorized("Invalid or missing user ID", nil)
 		}
 
 		tokenID, err := uuid.Parse(input.TokenID)
@@ -156,7 +138,6 @@ func GuestListMedicationsHandler(authSvc GuestAuthService, scheduleRepo DoseSche
 		for i, s := range schedules {
 			resp.Body.Medications[i] = dto.GuestMedicationDTO{
 				ID:        s.ID,
-				ProfileID: s.ProfileID,
 				Name:      s.Name,
 				Time:      s.Time.Format("15:04"),
 				CreatedAt: s.CreatedAt,
@@ -201,7 +182,6 @@ func GuestGetReminderHandler(authSvc GuestAuthService, scheduleRepo DoseSchedule
 		resp := &dto.GuestReminderOutput{}
 		resp.Body.Reminder = dto.GuestReminderDTO{
 			ID:        schedule.ID,
-			ProfileID: schedule.ProfileID,
 			Name:      schedule.Name,
 			Time:      schedule.Time.Format("15:04"),
 			CreatedAt: schedule.CreatedAt,
@@ -218,32 +198,4 @@ func hasPermission(permissions []string, required string) bool {
 		}
 	}
 	return false
-}
-
-func extractUserIDFromAuth(authHeader string, tokenSvc TokenServiceInterface) (uuid.UUID, error) {
-	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid authorization header", nil)
-	}
-	tokenString := authHeader[7:]
-
-	claims, err := tokenSvc.ValidateAccessToken(tokenString)
-	if err != nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid or expired access token", err)
-	}
-
-	userIDStr, ok := claims["sub"].(string)
-	if !ok {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid access token", nil)
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID in token", nil)
-	}
-
-	if userID == uuid.Nil {
-		return uuid.Nil, huma.Error401Unauthorized("Invalid user ID", nil)
-	}
-
-	return userID, nil
 }

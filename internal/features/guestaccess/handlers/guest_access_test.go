@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/dto"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/service"
+	"github.com/shuvo-paul/medminder/internal/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -49,18 +49,6 @@ func (m *MockGuestAccessService) Authenticate(ctx context.Context, rawToken stri
 	return args.Get(0).(*service.AuthenticatedToken), args.Error(1)
 }
 
-type MockTokenService struct {
-	mock.Mock
-}
-
-func (m *MockTokenService) ValidateAccessToken(tokenString string) (jwt.MapClaims, error) {
-	args := m.Called(tokenString)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(jwt.MapClaims), args.Error(1)
-}
-
 type MockDoseScheduleRepository struct {
 	mock.Mock
 }
@@ -78,27 +66,12 @@ func (m *MockDoseScheduleRepository) GetDoseScheduleByID(ctx context.Context, id
 	return args.Get(0).(db.DoseSchedule), args.Error(1)
 }
 
-type MockPermissionChecker struct {
-	mock.Mock
-}
-
-func (m *MockPermissionChecker) HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error) {
-	args := m.Called(ctx, profileID, userID, permissions)
-	return args.Bool(0), args.Error(1)
-}
-
 func TestCreateGuestAccessHandler_Success(t *testing.T) {
 	mockSvc := new(MockGuestAccessService)
-	mockTokenSvc := new(MockTokenService)
 
-	userID := uuid.UUID{1}
 	profileID := uuid.New()
 	tokenID := uuid.New()
 	expiresAt := time.Now().AddDate(0, 0, 30)
-
-	mockTokenSvc.On("ValidateAccessToken", "valid-token").Return(jwt.MapClaims{
-		"sub": userID.String(),
-	}, nil)
 
 	mockSvc.On("CreateToken", mock.Anything, profileID, "", mock.Anything, 30).Return(&service.TokenResult{
 		ID:        tokenID,
@@ -106,10 +79,9 @@ func TestCreateGuestAccessHandler_Success(t *testing.T) {
 		ExpiresAt: expiresAt,
 	}, nil)
 
-	handler := handlers.CreateGuestAccessHandler(mockSvc, mockTokenSvc)
+	handler := handlers.CreateGuestAccessHandler(mockSvc)
 
 	input := &dto.CreateGuestAccessInput{}
-	input.Authorization = "Bearer valid-token"
 	input.ID = profileID.String()
 
 	resp, err := handler(context.Background(), input)
@@ -120,44 +92,20 @@ func TestCreateGuestAccessHandler_Success(t *testing.T) {
 	assert.Equal(t, "abc123", resp.Body.Token)
 }
 
-func TestCreateGuestAccessHandler_InvalidToken(t *testing.T) {
-	mockSvc := new(MockGuestAccessService)
-	mockTokenSvc := new(MockTokenService)
-
-	mockTokenSvc.On("ValidateAccessToken", "invalid-token").Return(nil, assert.AnError)
-
-	handler := handlers.CreateGuestAccessHandler(mockSvc, mockTokenSvc)
-
-	input := &dto.CreateGuestAccessInput{}
-	input.Authorization = "Bearer invalid-token"
-	input.ID = uuid.New().String()
-
-	_, err := handler(context.Background(), input)
-
-	assert.Error(t, err)
-}
-
 func TestListGuestAccessTokensHandler_Success(t *testing.T) {
 	mockSvc := new(MockGuestAccessService)
-	mockTokenSvc := new(MockTokenService)
 
-	userID := uuid.UUID{1}
 	profileID := uuid.New()
 	now := time.Now()
-
-	mockTokenSvc.On("ValidateAccessToken", "valid-token").Return(jwt.MapClaims{
-		"sub": userID.String(),
-	}, nil)
 
 	mockSvc.On("ListTokens", mock.Anything, profileID).Return([]service.TokenResult{
 		{ID: uuid.New(), Label: "token-1", ExpiresAt: now.AddDate(0, 0, 30), CreatedAt: now},
 		{ID: uuid.New(), Label: "token-2", ExpiresAt: now.AddDate(0, 0, 7), CreatedAt: now},
 	}, nil)
 
-	handler := handlers.ListGuestAccessTokensHandler(mockSvc, mockTokenSvc)
+	handler := handlers.ListGuestAccessTokensHandler(mockSvc)
 
 	input := &dto.ListGuestAccessTokensInput{}
-	input.Authorization = "Bearer valid-token"
 	input.ID = profileID.String()
 
 	resp, err := handler(context.Background(), input)
@@ -168,25 +116,19 @@ func TestListGuestAccessTokensHandler_Success(t *testing.T) {
 
 func TestRevokeGuestAccessHandler_Success(t *testing.T) {
 	mockSvc := new(MockGuestAccessService)
-	mockTokenSvc := new(MockTokenService)
-	mockPermChecker := new(MockPermissionChecker)
 
 	userID := uuid.UUID{1}
 	tokenID := uuid.New()
 
-	mockTokenSvc.On("ValidateAccessToken", "valid-token").Return(jwt.MapClaims{
-		"sub": userID.String(),
-	}, nil)
-
 	mockSvc.On("RevokeToken", mock.Anything, tokenID, userID).Return(nil)
 
-	handler := handlers.RevokeGuestAccessHandler(mockSvc, mockTokenSvc, mockPermChecker)
+	handler := handlers.RevokeGuestAccessHandler(mockSvc)
 
 	input := &dto.RevokeGuestAccessInput{}
-	input.Authorization = "Bearer valid-token"
 	input.TokenID = tokenID.String()
 
-	resp, err := handler(context.Background(), input)
+	ctx := middleware.ContextWithUserID(context.Background(), userID)
+	resp, err := handler(ctx, input)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "Guest access token revoked successfully", resp.Body.Message)
@@ -194,23 +136,30 @@ func TestRevokeGuestAccessHandler_Success(t *testing.T) {
 
 func TestRevokeGuestAccessHandler_NotFound(t *testing.T) {
 	mockSvc := new(MockGuestAccessService)
-	mockTokenSvc := new(MockTokenService)
-	mockPermChecker := new(MockPermissionChecker)
 
 	userID := uuid.UUID{1}
 	tokenID := uuid.New()
 
-	mockTokenSvc.On("ValidateAccessToken", "valid-token").Return(jwt.MapClaims{
-		"sub": userID.String(),
-	}, nil)
-
 	mockSvc.On("RevokeToken", mock.Anything, tokenID, userID).Return(service.ErrGuestTokenNotFound)
 
-	handler := handlers.RevokeGuestAccessHandler(mockSvc, mockTokenSvc, mockPermChecker)
+	handler := handlers.RevokeGuestAccessHandler(mockSvc)
 
 	input := &dto.RevokeGuestAccessInput{}
-	input.Authorization = "Bearer valid-token"
 	input.TokenID = tokenID.String()
+
+	ctx := middleware.ContextWithUserID(context.Background(), userID)
+	_, err := handler(ctx, input)
+
+	assert.Error(t, err)
+}
+
+func TestRevokeGuestAccessHandler_MissingUserID(t *testing.T) {
+	mockSvc := new(MockGuestAccessService)
+
+	handler := handlers.RevokeGuestAccessHandler(mockSvc)
+
+	input := &dto.RevokeGuestAccessInput{}
+	input.TokenID = uuid.New().String()
 
 	_, err := handler(context.Background(), input)
 

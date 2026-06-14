@@ -61,7 +61,6 @@ type GuestMedicationInput struct {
 
 type GuestMedicationDTO struct {
 	ID        uuid.UUID `json:"id"`
-	ProfileID uuid.UUID `json:"profile_id"`
 	Name      string    `json:"name"`
 	Time      string    `json:"time"`
 	CreatedAt time.Time `json:"created_at"`
@@ -81,7 +80,6 @@ type GuestReminderInput struct {
 
 type GuestReminderDTO struct {
 	ID        uuid.UUID `json:"id"`
-	ProfileID uuid.UUID `json:"profile_id"`
 	Name      string    `json:"name"`
 	Time      string    `json:"time"`
 	CreatedAt time.Time `json:"created_at"`

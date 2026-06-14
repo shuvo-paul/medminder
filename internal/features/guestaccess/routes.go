@@ -31,7 +31,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, tokenSvc authService.Toke
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.CreateGuestAccessHandler(guestSvc, tokenSvc))
+	}, handlers.CreateGuestAccessHandler(guestSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "list-guest-access-tokens",
@@ -43,7 +43,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, tokenSvc authService.Toke
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.ListGuestAccessTokensHandler(guestSvc, tokenSvc))
+	}, handlers.ListGuestAccessTokensHandler(guestSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "revoke-guest-access",
@@ -54,7 +54,7 @@ func RegisterRoutes(api huma.API, queries *db.Queries, tokenSvc authService.Toke
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.RevokeGuestAccessHandler(guestSvc, tokenSvc, permChecker))
+	}, handlers.RevokeGuestAccessHandler(guestSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "guest-list-medications",
