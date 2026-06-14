@@ -85,6 +85,7 @@ func TestHumaRequireProfilePermission_Allowed(t *testing.T) {
 		"profile:read",
 	)(mockCtx, func(ctx huma.Context) {
 		nextCalled = true
+		assert.Equal(t, userID, middleware.UserIDFromContext(ctx.Context()), "userID should be stored in context")
 	})
 
 	assert.True(t, nextCalled, "next should be called when permission is granted")

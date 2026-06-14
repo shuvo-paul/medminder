@@ -49,6 +49,17 @@ type EmailVerificationToken struct {
 	ExpiresAt time.Time    `json:"expires_at"`
 }
 
+type GuestAccessToken struct {
+	ID          uuid.UUID       `json:"id"`
+	ProfileID   uuid.UUID       `json:"profile_id"`
+	TokenHash   string          `json:"token_hash"`
+	Label       sql.NullString  `json:"label"`
+	Permissions json.RawMessage `json:"permissions"`
+	ExpiresAt   time.Time       `json:"expires_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	LastUsedAt  sql.NullTime    `json:"last_used_at"`
+}
+
 type OauthAccount struct {
 	ID             uuid.UUID    `json:"id"`
 	UserID         uuid.UUID    `json:"user_id"`

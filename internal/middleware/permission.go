@@ -33,6 +33,10 @@ func UserIDFromContext(ctx context.Context) uuid.UUID {
 	return uuid.Nil
 }
 
+func ContextWithUserID(ctx context.Context, userID uuid.UUID) context.Context {
+	return context.WithValue(ctx, ctxKeyUserID, userID)
+}
+
 func HumaRequireProfilePermission(checker PermissionChecker, tokenValidator TokenValidator, permissions ...string) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		profileIDStr := ctx.Param("id")
@@ -65,6 +69,7 @@ func HumaRequireProfilePermission(checker PermissionChecker, tokenValidator Toke
 			return
 		}
 
+		ctx = huma.WithValue(ctx, ctxKeyUserID, userID)
 		next(ctx)
 	}
 }
