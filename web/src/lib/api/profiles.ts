@@ -27,7 +27,6 @@ export interface DoseScheduleDTO {
 
 export interface ProfileDTO {
 	id: string;
-	owner_user_id: string;
 	name: string;
 	date_of_birth: string | null;
 	timezone: string;
