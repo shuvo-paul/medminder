@@ -223,21 +223,21 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.2.2 Profile Ownership
 
-- [ ] **REQ-PROF-009**: The user who creates a profile is its owner. The owner holds `profile:admin` permission and cannot have it revoked except by transferring ownership.
-- [ ] **REQ-PROF-010**: A profile has exactly one owner at any time. Ownership is transferred via `POST /api/profiles/{id}/transfer-ownership`, which requires the current owner to specify the new owner (who must already have `profile:admin` permission on the profile).
-- [ ] **REQ-PROF-011**: Upon ownership transfer, the previous owner retains their existing permissions but loses exclusive ownership status.
+- [x] **REQ-PROF-009**: The user who creates a profile is its owner. The owner holds `profile:admin` permission and cannot have it revoked except by transferring ownership.
+- [x] **REQ-PROF-010**: A profile has exactly one owner at any time. Ownership is transferred by initiating a transfer via `POST /api/profiles/{id}/transfer-ownership`, which creates a pending transfer. The new owner must accept via `POST /api/transfers/{id}/accept`. The new owner must already have `profile:admin` permission on the profile. The previous owner retains their existing permissions but loses `profile:owner` status.
+- [x] **REQ-PROF-011**: Upon ownership transfer, the previous owner retains their existing permissions but loses exclusive ownership status.
 - [ ] **REQ-PROF-012**: If a profile owner deletes their account and the profile has no other `profile:admin` user, the profile is deleted (see REQ-AUTH-020).
 
 #### 3.2.3 Profile Sharing
 
-- [ ] **REQ-PROF-005**: Users with `profile:share` or `profile:admin` permission shall be able to share profiles with other registered users.
-- [ ] **REQ-PROF-005b**: Sharing with a registered user shall create a pending invitation.
-- [ ] **REQ-PROF-005c**: Users shall be able to set invitation expiration when sharing: 1, 3, or 7 days.
-- [ ] **REQ-PROF-005d**: Invited users shall be able to view their pending profile invitations.
-- [ ] **REQ-PROF-005e**: Invited users shall be able to accept or decline profile invitations.
-- [ ] **REQ-PROF-005f**: Expired invitations shall be automatically removed. The inviting user may re-invite.
-- [ ] **REQ-PROF-005g**: Profile access shall only be granted after the invitation is accepted.
-- [ ] **REQ-PROF-006**: Users shall be able to specify granular permissions for shared profiles. Available permissions:
+- [x] **REQ-PROF-005**: Users with `profile:share` or `profile:admin` permission shall be able to share profiles with other registered users.
+- [x] **REQ-PROF-005b**: Sharing with a registered user shall create a pending invitation.
+- [x] **REQ-PROF-005c**: Users shall be able to set invitation expiration when sharing: 1, 3, or 7 days.
+- [x] **REQ-PROF-005d**: Invited users shall be able to view their pending profile invitations.
+- [x] **REQ-PROF-005e**: Invited users shall be able to accept or decline profile invitations.
+- [x] **REQ-PROF-005f**: Expired invitations shall be automatically removed. The inviting user may re-invite.
+- [x] **REQ-PROF-005g**: Profile access shall only be granted after the invitation is accepted.
+- [x] **REQ-PROF-006**: Users shall be able to specify granular permissions for shared profiles. Available permissions:
   - `medication:read`: View medications and their details
   - `medication:write`: Add, edit, and delete medications
   - `reminder:read`: View reminders and schedules
@@ -250,16 +250,16 @@ The system shall support OAuth 2.0 authentication with multiple providers.
   - `profile:write`: Edit profile details
   - `profile:share`: Share profile with other users and manage invitations
   - `profile:admin`: Full control including revoking access, transferring ownership, and deleting the profile
-- [ ] **REQ-PROF-007**: Users with `profile:share` or `profile:admin` permission shall be able to view all users with access to a profile.
-- [ ] **REQ-PROF-008**: Users with `profile:admin` permission shall be able to revoke shared access.
+- [x] **REQ-PROF-007**: Users with `profile:share` or `profile:admin` permission shall be able to view all users with access to a profile.
+- [x] **REQ-PROF-008**: Users with `profile:admin` permission shall be able to revoke shared access.
 
 #### 3.2.4 Guest Access
 
-- [ ] **REQ-PROF-013**: Users with `profile:admin` permission shall be able to generate a guest access link for a profile.
-- [ ] **REQ-PROF-014**: Guest access links shall use a cryptographically random token valid for 30 days.
-- [ ] **REQ-PROF-014b**: Users with `profile:admin` permission shall be able to manually revoke guest access before expiration via `DELETE /api/profiles/{id}/share/guest/{tokenId}`.
-- [ ] **REQ-PROF-015**: Anyone with the guest access link shall be able to access the profile with `medication:read`, `reminder:read`, `dose:read`, and `prescription:read` permissions without needing a user account.
-- [ ] **REQ-PROF-015b**: Guest access endpoints shall be rate-limited to 60 requests per minute per IP.
+- [x] **REQ-PROF-013**: Users with `profile:admin` permission shall be able to generate a guest access link for a profile.
+- [x] **REQ-PROF-014**: Guest access links shall use a cryptographically random token valid for 30 days.
+- [x] **REQ-PROF-014b**: Users with `profile:admin` permission shall be able to manually revoke guest access before expiration via `DELETE /api/guest-access/{tokenId}`.
+- [x] **REQ-PROF-015**: Anyone with the guest access link shall be able to access the profile with `medication:read`, `reminder:read`, `dose:read`, and `prescription:read` permissions without needing a user account.
+- [x] **REQ-PROF-015b**: Guest access endpoints shall be rate-limited to 60 requests per minute per IP.
 
 > **Note**: Guest access provides instant read-only access and does not require invitation acceptance (unlike registered user profile sharing in Section 3.2.3).
 
@@ -311,10 +311,10 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 #### 3.3.6 Dose Schedules
 
-- [ ] **REQ-MED-023**: Users shall be able to create dose schedules for a profile (e.g., "Breakfast", "Lunch", "Dinner", "Bedtime").
-- [ ] **REQ-MED-024**: Each dose schedule shall have a name and a wall-clock time in the profile's timezone (e.g., "Breakfast" at 08:00).
-- [ ] **REQ-MED-025**: Users shall be able to view all dose schedules for a profile.
-- [ ] **REQ-MED-026**: Users shall be able to update a dose schedule's name and time.
+- [x] **REQ-MED-023**: Users shall be able to create dose schedules for a profile (e.g., "Breakfast", "Lunch", "Dinner", "Bedtime").
+- [x] **REQ-MED-024**: Each dose schedule shall have a name and a wall-clock time in the profile's timezone (e.g., "Breakfast" at 08:00).
+- [x] **REQ-MED-025**: Users shall be able to view all dose schedules for a profile.
+- [x] **REQ-MED-026**: Users shall be able to update a dose schedule's name and time.
 - [ ] **REQ-MED-027**: Users shall be able to delete a dose schedule. Medications linked to a deleted schedule shall have their frequency type changed to `daily` with the schedule's time preserved, so no reminder data is lost.
 - [ ] **REQ-MED-028**: When a medication is linked to a schedule, it shall automatically receive reminders at that schedule's time.
 - [ ] **REQ-MED-029**: Users shall be able to link a medication to a schedule or set a custom reminder time (not tied to any schedule).
@@ -564,17 +564,17 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ### 4.2 Security
 
-- [ ] **REQ-SEC-001**: All passwords shall be hashed using bcrypt with cost factor 12.
-- [ ] **REQ-SEC-002**: All API endpoints shall require authentication except: `/healthz`, `/api/auth/register`, `/api/auth/login`, `/api/auth/oauth/{provider}`, `/api/auth/oauth/{provider}/callback`, `/api/auth/oauth/token`, `/api/auth/refresh`, `/api/auth/email/verify`, `/api/auth/password/reset/request`, `/api/auth/password/reset/confirm`.
+- [x] **REQ-SEC-001**: All passwords shall be hashed using bcrypt with cost factor 12.
+- [x] **REQ-SEC-002**: All API endpoints shall require authentication except: `/healthz`, `/api/auth/register`, `/api/auth/login`, `/api/auth/oauth/{provider}`, `/api/auth/oauth/{provider}/callback`, `/api/auth/oauth/token`, `/api/auth/refresh`, `/api/auth/email/verify`, `/api/auth/password/reset/request`, `/api/auth/password/reset/confirm`.
 - [ ] **REQ-SEC-003**: All data in transit shall be encrypted using TLS 1.2 or higher.
-- [ ] **REQ-SEC-004**: JWT tokens shall include expiration claims and be validated on every authenticated request.
+- [x] **REQ-SEC-004**: JWT tokens shall include expiration claims and be validated on every authenticated request.
 - [ ] **REQ-SEC-005**: Guest access tokens shall be cryptographically random (minimum 32 bytes) and stored hashed in the database.
 - [ ] **REQ-SEC-006**: The system shall implement rate limiting:
   - Auth endpoints: 100 requests per minute per IP
   - Password reset request: 5 requests per hour per IP (to prevent email spam)
   - Guest access endpoints: 60 requests per minute per IP
   - All other endpoints: 300 requests per minute per authenticated user
-- [ ] **REQ-SEC-007**: The system shall log all authentication events (login, logout, password reset, failed login attempts, OAuth connections) for audit purposes in an `audit_logs` table.
+- [x] **REQ-SEC-007**: The system shall log all authentication events (login, logout, password reset, failed login attempts, OAuth connections) for audit purposes in an `audit_logs` table.
 - [ ] **REQ-SEC-008**: All API requests shall include a `X-Request-ID` header (server-generated if not provided by client) for traceability.
 - [ ] **REQ-SEC-009**: The server shall generate and securely store a VAPID key pair (EC P-256) at startup if one does not exist. The private key shall never be exposed via any API endpoint. The public key is exposed via `GET /api/push/vapid-public-key`.
 - [ ] **REQ-SEC-010**: AI provider API keys shall be encrypted using AES-256-GCM before storage. The encryption key shall be loaded from server configuration and shall never be stored in the database.
@@ -582,19 +582,19 @@ The system shall support OAuth 2.0 authentication with multiple providers.
 
 ### 4.3 Validation
 
-- [ ] **REQ-VAL-001**: Email addresses shall be validated for proper format.
-- [ ] **REQ-VAL-002**: Passwords shall require minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, and 1 number.
-- [ ] **REQ-VAL-003**: Profile names shall be limited to 100 characters.
+- [x] **REQ-VAL-001**: Email addresses shall be validated for proper format.
+- [x] **REQ-VAL-002**: Passwords shall require minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, and 1 number.
+- [x] **REQ-VAL-003**: Profile names shall be limited to 100 characters.
 - [ ] **REQ-VAL-004**: Medication names shall be limited to 200 characters.
 - [ ] **REQ-VAL-005**: Dose notes shall be limited to 500 characters.
 - [ ] **REQ-VAL-006**: All user inputs shall be sanitized to prevent XSS and SQL injection.
-- [ ] **REQ-VAL-007**: Timezone values shall be validated against the IANA timezone database.
-- [ ] **REQ-VAL-008**: Display names shall be limited to 100 characters and may not be empty.
+- [x] **REQ-VAL-007**: Timezone values shall be validated against the IANA timezone database.
+- [x] **REQ-VAL-008**: Display names shall be limited to 100 characters and may not be empty.
 
 ### 4.4 Availability
 
 - [ ] **REQ-AVL-001**: The system shall maintain 99.9% uptime (excluding scheduled maintenance).
-- [ ] **REQ-AVL-002**: The system shall have a health check endpoint at `/healthz` that returns the database connectivity status.
+- [x] **REQ-AVL-002**: The system shall have a health check endpoint at `/healthz` that returns the database connectivity status.
 
 ### 4.5 Data Retention
 
@@ -646,15 +646,15 @@ Short-lived codes for the OAuth token exchange flow (REQ-OAUTH-004).
 
 ### 5.6 Profile
 
-- `id`, `owner_user_id` (FK → User), `name`, `avatar_url`, `date_of_birth`, `medical_conditions`, `timezone` (IANA identifier, e.g., `Asia/Dhaka`), `created_at`, `updated_at`
+- `id`, `name`, `avatar_url`, `date_of_birth`, `medical_conditions`, `timezone` (IANA identifier), `created_at`, `updated_at`
 
 ### 5.7 ProfilePermission
 
 - `id`, `profile_id` (FK → Profile), `shared_with_user_id` (FK → User), `permissions` (JSONB array of permission strings), `granted_by_user_id` (FK → User), `status` (`pending` | `accepted` | `declined`), `expires_at` (nullable — invitation expiry only; null after acceptance), `created_at`, `updated_at`
 
-### 5.8 ProfileLink (Guest Access)
+### 5.8 GuestAccessToken
 
-- `id`, `profile_id` (FK → Profile), `token_hash` (hashed token; the raw token is only returned once at creation), `expires_at`, `created_at`
+- `id`, `profile_id`, `token_hash` (hashed; raw token returned once at creation), `label`, `permissions` (JSONB), `expires_at`, `created_at`, `last_used_at`
 
 ### 5.9 DoseSchedule
 
@@ -720,6 +720,10 @@ Doctor-requested return visit recorded against a profile.
 
 - `id`, `profile_id` (FK → Profile), `prescriber_id` (FK → Prescriber, nullable), `prescription_id` (FK → Prescription, nullable), `scheduled_date` (date), `notes` (nullable text), `advance_notice_days` (integer, default 3), `status` (enum: `upcoming` | `completed` | `dismissed`), `alert_sent_at` (UTC timestamp, nullable — set when the alert is dispatched), `created_at`, `updated_at`
 
+### 5.23 OwnershipTransfer
+
+- `id`, `profile_id`, `from_user_id` (FK → User), `to_user_id` (FK → User), `status` (`pending` | `accepted` | `declined` | `expired`), `expires_at`, `created_at`, `updated_at`
+
 ### 5.16 MedicineDatabase
 
 Local copy of DGDA medicine data used for auto-suggestion.
@@ -765,16 +769,23 @@ All endpoints are prefixed with `/api/v1`. Authenticated endpoints require a val
 | GET | /api/profiles/{id} | Yes | Get profile details |
 | PUT | /api/profiles/{id} | Yes | Update profile (`profile:write`) |
 | DELETE | /api/profiles/{id} | Yes | Delete profile (`profile:admin`) |
-| POST | /api/profiles/{id}/transfer-ownership | Yes | Transfer profile ownership (`profile:admin`) |
+| POST | /api/profiles/{id}/transfer-ownership | Yes | Initiate ownership transfer (`profile:admin`) |
 | POST | /api/profiles/{id}/share | Yes | Share profile with user (`profile:share` or `profile:admin`) |
 | GET | /api/profiles/{id}/share | Yes | List users with profile access (`profile:share` or `profile:admin`) |
 | PUT | /api/profiles/{id}/share/{userId} | Yes | Update a user's permissions (`profile:admin`) |
 | DELETE | /api/profiles/{id}/share/{userId} | Yes | Revoke a user's access (`profile:admin`) |
 | POST | /api/profiles/{id}/share/guest | Yes | Generate guest access link (`profile:admin`) |
-| DELETE | /api/profiles/{id}/share/guest/{tokenId} | Yes | Revoke guest access token (`profile:admin`) |
+| DELETE | /api/guest-access/{tokenId} | Yes | Revoke guest access token (`profile:admin`) |
+| GET | /api/profiles/{id}/guest-access | Yes | List active guest access tokens (`profile:admin`) |
+| GET | /api/guest/{token}/medications | No | Guest: list medications |
+| GET | /api/guest/{token}/reminders/{id} | No | Guest: get reminder |
 | GET | /api/invitations | Yes | List pending invitations for current user |
 | POST | /api/invitations/{id}/accept | Yes | Accept profile invitation |
 | POST | /api/invitations/{id}/decline | Yes | Decline profile invitation |
+| GET | /api/transfers | Yes | List pending ownership transfers for current user |
+| POST | /api/transfers/{id}/accept | Yes | Accept ownership transfer |
+| POST | /api/transfers/{id}/decline | Yes | Decline ownership transfer |
+| DELETE | /api/transfers/{id} | Yes | Cancel pending ownership transfer |
 
 ### 6.3 Dose Schedules
 
