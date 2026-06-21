@@ -12,16 +12,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/repository"
+	profileService "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
 
 const (
 	DefaultExpiryDays  = 30
 	guestTokenByteSize = 32
 )
-
-type PermissionChecker interface {
-	HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error)
-}
 
 type GuestAccessService interface {
 	CreateToken(ctx context.Context, profileID uuid.UUID, label string, permissions []string, expiresInDays int) (*TokenResult, error)
@@ -47,10 +44,10 @@ type AuthenticatedToken struct {
 
 type guestAccessService struct {
 	repo        repository.GuestAccessRepository
-	permChecker PermissionChecker
+	permChecker profileService.PermissionChecker
 }
 
-func NewGuestAccessService(repo repository.GuestAccessRepository, permChecker PermissionChecker) GuestAccessService {
+func NewGuestAccessService(repo repository.GuestAccessRepository, permChecker profileService.PermissionChecker) GuestAccessService {
 	return &guestAccessService{
 		repo:        repo,
 		permChecker: permChecker,

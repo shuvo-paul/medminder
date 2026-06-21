@@ -203,7 +203,7 @@ func TestInitiateTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			svc := service.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 			tt.setup(profileRepo, transferRepo, nil)
 
 			fu := fromUserID
@@ -276,7 +276,7 @@ func TestListPendingTransfers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			svc := service.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 			tt.setup(profileRepo, transferRepo, nil)
 			results, err := svc.ListPendingTransfers(context.Background(), userID)
 			tt.expect(t, results, err)
@@ -438,7 +438,7 @@ func TestAcceptTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			svc := service.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 			tt.setup(profileRepo, transferRepo, nil)
 			err := svc.AcceptTransfer(context.Background(), transferID, toUserID)
 			tt.expect(t, err)
@@ -548,7 +548,7 @@ func TestDeclineTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			svc := service.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 			tt.setup(profileRepo, transferRepo, nil)
 			err := svc.DeclineTransfer(context.Background(), transferID, toUserID)
 			tt.expect(t, err)
@@ -664,7 +664,7 @@ func TestCancelTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			transferRepo := new(MockOwnershipTransferRepository)
-			svc := service.NewOwnershipTransferService(profileRepo, transferRepo)
+			svc := service.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 			tt.setup(profileRepo, transferRepo, nil)
 
 			err := svc.CancelTransfer(context.Background(), transferID, tt.actingUserID)

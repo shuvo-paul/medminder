@@ -52,6 +52,11 @@ type MockPermissionChecker struct {
 	mock.Mock
 }
 
+func (m *MockPermissionChecker) HasPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permission string) (bool, error) {
+	args := m.Called(ctx, profileID, userID, permission)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockPermissionChecker) HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error) {
 	args := m.Called(ctx, profileID, userID, permissions)
 	return args.Bool(0), args.Error(1)

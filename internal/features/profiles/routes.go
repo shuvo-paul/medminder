@@ -12,15 +12,14 @@ import (
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
-func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc authService.TokenServiceInterface) {
+func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc authService.TokenServiceInterface, permChecker profileService.PermissionChecker) {
 	profileRepo := repository.NewProfileRepository(queries, dbConn)
-	scheduleRepo := repository.NewDoseScheduleRepository(queries)
-	permChecker := profileService.NewPermissionChecker(queries)
-	profileSvc := profileService.NewProfileService(profileRepo, scheduleRepo, permChecker)
-	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleRepo)
-	invitationSvc := profileService.NewInvitationService(profileRepo, scheduleRepo)
+	scheduleQuerier := profileService.NewDoseScheduleQuerier(queries)
+	profileSvc := profileService.NewProfileService(profileRepo, profileRepo, scheduleQuerier, permChecker)
+	scheduleSvc := profileService.NewDoseScheduleService(profileRepo, scheduleQuerier)
+	invitationSvc := profileService.NewInvitationService(profileRepo, profileRepo, profileRepo, scheduleQuerier)
 	transferRepo := repository.NewOwnershipTransferRepository(queries, dbConn)
-	transferSvc := profileService.NewOwnershipTransferService(profileRepo, transferRepo)
+	transferSvc := profileService.NewOwnershipTransferService(profileRepo, profileRepo, profileRepo, transferRepo)
 
 	readPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:read", "profile:owner")
 	writePerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:write", "profile:owner")
@@ -95,7 +94,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.ListSchedulesHandler(scheduleSvc, profileSvc, tokenSvc))
+	}, handlers.ListSchedulesHandler(scheduleSvc, tokenSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "create-schedule",
@@ -107,7 +106,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.CreateScheduleHandler(scheduleSvc, profileSvc, tokenSvc))
+	}, handlers.CreateScheduleHandler(scheduleSvc, tokenSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "get-schedule",
@@ -119,7 +118,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.GetScheduleHandler(scheduleSvc, profileSvc, tokenSvc))
+	}, handlers.GetScheduleHandler(scheduleSvc, tokenSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "update-schedule",
@@ -131,7 +130,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.UpdateScheduleHandler(scheduleSvc, profileSvc, tokenSvc))
+	}, handlers.UpdateScheduleHandler(scheduleSvc, tokenSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "delete-schedule",
@@ -143,7 +142,7 @@ func RegisterRoutes(api huma.API, dbConn *sql.DB, queries *db.Queries, tokenSvc 
 		Security: []map[string][]string{
 			{"bearer": {}},
 		},
-	}, handlers.DeleteScheduleHandler(scheduleSvc, profileSvc, tokenSvc))
+	}, handlers.DeleteScheduleHandler(scheduleSvc, tokenSvc))
 
 	huma.Register(api, huma.Operation{
 		OperationID: "share-profile",

@@ -7,9 +7,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/dto"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/service"
+	profileService "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
@@ -105,16 +105,11 @@ func RevokeGuestAccessHandler(svc service.GuestAccessService) func(context.Conte
 	}
 }
 
-type DoseScheduleRepository interface {
-	ListDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) ([]db.DoseSchedule, error)
-	GetDoseScheduleByID(ctx context.Context, id uuid.UUID) (db.DoseSchedule, error)
-}
-
 type GuestAuthService interface {
 	Authenticate(ctx context.Context, rawToken string) (*service.AuthenticatedToken, error)
 }
 
-func GuestListMedicationsHandler(authSvc GuestAuthService, scheduleRepo DoseScheduleRepository) func(context.Context, *dto.GuestMedicationInput) (*dto.GuestMedicationsOutput, error) {
+func GuestListMedicationsHandler(authSvc GuestAuthService, scheduleRepo profileService.DoseScheduleQuerier) func(context.Context, *dto.GuestMedicationInput) (*dto.GuestMedicationsOutput, error) {
 	return func(ctx context.Context, input *dto.GuestMedicationInput) (*dto.GuestMedicationsOutput, error) {
 		authToken, err := authSvc.Authenticate(ctx, input.Token)
 		if err != nil {
@@ -148,7 +143,7 @@ func GuestListMedicationsHandler(authSvc GuestAuthService, scheduleRepo DoseSche
 	}
 }
 
-func GuestGetReminderHandler(authSvc GuestAuthService, scheduleRepo DoseScheduleRepository) func(context.Context, *dto.GuestReminderInput) (*dto.GuestReminderOutput, error) {
+func GuestGetReminderHandler(authSvc GuestAuthService, scheduleRepo profileService.DoseScheduleQuerier) func(context.Context, *dto.GuestReminderInput) (*dto.GuestReminderOutput, error) {
 	return func(ctx context.Context, input *dto.GuestReminderInput) (*dto.GuestReminderOutput, error) {
 		authToken, err := authSvc.Authenticate(ctx, input.Token)
 		if err != nil {
