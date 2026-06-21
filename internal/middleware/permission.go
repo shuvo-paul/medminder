@@ -3,28 +3,17 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/common/auth"
+	profileService "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
 
 const (
 	ctxKeyUserID ctxKey = "user_id"
 )
-
-var errUnauthorized = errors.New("unauthorized")
-
-type PermissionChecker interface {
-	HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error)
-}
-
-type TokenValidator interface {
-	ValidateAccessToken(tokenString string) (jwt.MapClaims, error)
-}
 
 func UserIDFromContext(ctx context.Context) uuid.UUID {
 	if v, ok := ctx.Value(ctxKeyUserID).(uuid.UUID); ok {
@@ -37,7 +26,7 @@ func ContextWithUserID(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, ctxKeyUserID, userID)
 }
 
-func HumaRequireProfilePermission(checker PermissionChecker, tokenValidator TokenValidator, permissions ...string) func(huma.Context, func(huma.Context)) {
+func HumaRequireProfilePermission(checker profileService.PermissionChecker, tokenValidator auth.TokenValidator, permissions ...string) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		profileIDStr := ctx.Param("id")
 		if profileIDStr == "" {
@@ -52,7 +41,7 @@ func HumaRequireProfilePermission(checker PermissionChecker, tokenValidator Toke
 		}
 
 		authHeader := ctx.Header("Authorization")
-		userID, err := extractUserIDFromHeader(authHeader, tokenValidator)
+		userID, err := auth.ExtractUserID(authHeader, tokenValidator)
 		if err != nil {
 			writeHumaError(ctx, http.StatusUnauthorized, "Invalid or expired access token")
 			return
@@ -72,30 +61,6 @@ func HumaRequireProfilePermission(checker PermissionChecker, tokenValidator Toke
 		ctx = huma.WithValue(ctx, ctxKeyUserID, userID)
 		next(ctx)
 	}
-}
-
-func extractUserIDFromHeader(authHeader string, validator TokenValidator) (uuid.UUID, error) {
-	if len(authHeader) < 7 || !strings.HasPrefix(authHeader, "Bearer ") {
-		return uuid.Nil, errUnauthorized
-	}
-
-	tokenString := authHeader[7:]
-	claims, err := validator.ValidateAccessToken(tokenString)
-	if err != nil {
-		return uuid.Nil, errUnauthorized
-	}
-
-	userIDStr, ok := claims["sub"].(string)
-	if !ok {
-		return uuid.Nil, errUnauthorized
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil || userID == uuid.Nil {
-		return uuid.Nil, errUnauthorized
-	}
-
-	return userID, nil
 }
 
 func writeHumaError(ctx huma.Context, status int, detail string) {
