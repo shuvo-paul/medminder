@@ -6,15 +6,16 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/common/auth"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
 
-func ShareProfileHandler(svc service.InvitationService, tokenSvc TokenServiceInterface) func(context.Context, *dto.ShareProfileInput) (*dto.ShareProfileOutput, error) {
+func ShareProfileHandler(svc service.InvitationService, tokenSvc auth.TokenValidator) func(context.Context, *dto.ShareProfileInput) (*dto.ShareProfileOutput, error) {
 	return func(ctx context.Context, input *dto.ShareProfileInput) (*dto.ShareProfileOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		profileID, err := uuid.Parse(input.ID)
@@ -52,11 +53,11 @@ func ShareProfileHandler(svc service.InvitationService, tokenSvc TokenServiceInt
 	}
 }
 
-func ListInvitationsHandler(svc service.InvitationService, tokenSvc TokenServiceInterface) func(context.Context, *dto.ListInvitationsInput) (*dto.ListInvitationsOutput, error) {
+func ListInvitationsHandler(svc service.InvitationService, tokenSvc auth.TokenValidator) func(context.Context, *dto.ListInvitationsInput) (*dto.ListInvitationsOutput, error) {
 	return func(ctx context.Context, input *dto.ListInvitationsInput) (*dto.ListInvitationsOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		results, err := svc.ListInvitations(ctx, userID)
@@ -73,11 +74,11 @@ func ListInvitationsHandler(svc service.InvitationService, tokenSvc TokenService
 	}
 }
 
-func AcceptInvitationHandler(svc service.InvitationService, tokenSvc TokenServiceInterface) func(context.Context, *dto.AcceptInvitationInput) (*dto.AcceptInvitationOutput, error) {
+func AcceptInvitationHandler(svc service.InvitationService, tokenSvc auth.TokenValidator) func(context.Context, *dto.AcceptInvitationInput) (*dto.AcceptInvitationOutput, error) {
 	return func(ctx context.Context, input *dto.AcceptInvitationInput) (*dto.AcceptInvitationOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		invitationID, err := uuid.Parse(input.InvitationID)
@@ -100,17 +101,17 @@ func AcceptInvitationHandler(svc service.InvitationService, tokenSvc TokenServic
 		}
 
 		resp := &dto.AcceptInvitationOutput{}
-		resp.Body.Profile = toProfileDTO(result.Profile)
+		resp.Body.Profile = result.Profile
 		resp.Body.Permissions = result.Permissions
 		return resp, nil
 	}
 }
 
-func DeclineInvitationHandler(svc service.InvitationService, tokenSvc TokenServiceInterface) func(context.Context, *dto.DeclineInvitationInput) (*dto.DeclineInvitationOutput, error) {
+func DeclineInvitationHandler(svc service.InvitationService, tokenSvc auth.TokenValidator) func(context.Context, *dto.DeclineInvitationInput) (*dto.DeclineInvitationOutput, error) {
 	return func(ctx context.Context, input *dto.DeclineInvitationInput) (*dto.DeclineInvitationOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		invitationID, err := uuid.Parse(input.InvitationID)
