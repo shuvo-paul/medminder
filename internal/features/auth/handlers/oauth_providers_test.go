@@ -670,7 +670,7 @@ func TestOAuthLinkInitHandler_MissingAuth(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Invalid authorization header")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestOAuthLinkInitHandler_InvalidToken(t *testing.T) {
@@ -713,4 +713,3 @@ func TestOAuthLinkInitHandler_ProviderNotFound(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "provider not found")
 }
-
