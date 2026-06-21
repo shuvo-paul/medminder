@@ -9,6 +9,7 @@ import (
 	db "github.com/shuvo-paul/medminder/internal/database/sqlc"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
+	profilesdto "github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	profilesvc "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/shuvo-paul/medminder/pkg/oauth"
 	"github.com/stretchr/testify/mock"
@@ -308,36 +309,36 @@ type MockProfileService struct {
 	mock.Mock
 }
 
-func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []profilesvc.DoseScheduleInput) (*profilesvc.ProfileResult, error) {
+func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []profilesvc.DoseScheduleInput) (*profilesdto.ProfileDTO, error) {
 	args := m.Called(ctx, userID, name, dateOfBirth, timezone, schedules)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+	return args.Get(0).(*profilesdto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*profilesvc.ProfileResult, error) {
+func (m *MockProfileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*profilesdto.ProfileDTO, error) {
 	args := m.Called(ctx, profileID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+	return args.Get(0).(*profilesdto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]profilesvc.ProfileResult, error) {
+func (m *MockProfileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]profilesdto.ProfileDTO, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]profilesvc.ProfileResult), args.Error(1)
+	return args.Get(0).([]profilesdto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*profilesvc.ProfileResult, error) {
+func (m *MockProfileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*profilesdto.ProfileDTO, error) {
 	args := m.Called(ctx, profileID, userID, name, dateOfBirth, timezone)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*profilesvc.ProfileResult), args.Error(1)
+	return args.Get(0).(*profilesdto.ProfileDTO), args.Error(1)
 }
 
 func (m *MockProfileService) DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error {

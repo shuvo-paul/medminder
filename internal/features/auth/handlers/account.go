@@ -6,16 +6,17 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/shuvo-paul/medminder/internal/common/auth"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 	profilesvc "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
 
-func DeleteAccountHandler(authSvc service.AuthService, profileSvc profilesvc.ProfileService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.DeleteAccountInput) (*dto.DeleteAccountOutput, error) {
+func DeleteAccountHandler(authSvc service.AuthService, profileSvc profilesvc.ProfileService, tokenSvc auth.TokenValidator) func(context.Context, *dto.DeleteAccountInput) (*dto.DeleteAccountOutput, error) {
 	return func(ctx context.Context, input *dto.DeleteAccountInput) (*dto.DeleteAccountOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		if err := authSvc.VerifyPassword(ctx, userID, input.Body.Password); err != nil {

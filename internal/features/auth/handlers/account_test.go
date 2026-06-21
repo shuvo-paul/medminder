@@ -61,7 +61,7 @@ func TestDeleteAccount_InvalidHeader(t *testing.T) {
 	_, err := handler(context.Background(), input)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid authorization header")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestDeleteAccount_WrongPassword(t *testing.T) {
