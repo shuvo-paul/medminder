@@ -30,17 +30,15 @@ func TestCreateProfile_Success(t *testing.T) {
 		{Name: "Morning", Time: "08:00"},
 	}
 
-	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&service.ProfileResult{
-		Profile: service.ProfileDTO{
-			ID:          profileID,
-			Name:        "Test Profile",
-			DateOfBirth: func() *string { s := "1990-01-15"; return &s }(),
-			Timezone:    "America/New_York",
-			CreatedAt:   now,
-			UpdatedAt:   now,
-			Schedules: []service.DoseScheduleDTO{
-				{ID: uuid.New(), ProfileID: profileID, Name: "Morning", Time: "08:00", CreatedAt: now, UpdatedAt: now},
-			},
+	mockSvc.On("CreateProfile", mock.Anything, userID, "Test Profile", mock.Anything, "America/New_York", schedules).Return(&dto.ProfileDTO{
+		ID:          profileID,
+		Name:        "Test Profile",
+		DateOfBirth: func() *string { s := "1990-01-15"; return &s }(),
+		Timezone:    "America/New_York",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Schedules: []dto.DoseScheduleDTO{
+			{ID: uuid.New(), ProfileID: profileID, Name: "Morning", Time: "08:00", CreatedAt: now, UpdatedAt: now},
 		},
 	}, nil)
 
@@ -121,15 +119,13 @@ func TestListProfiles_Success(t *testing.T) {
 		"sub": userID.String(),
 	}, nil)
 
-	mockSvc.On("ListProfiles", mock.Anything, userID).Return([]service.ProfileResult{
+	mockSvc.On("ListProfiles", mock.Anything, userID).Return([]dto.ProfileDTO{
 		{
-			Profile: service.ProfileDTO{
-				ID:        profileID,
-				Name:      "Profile 1",
-				Timezone:  "UTC",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
+			ID:        profileID,
+			Name:      "Profile 1",
+			Timezone:  "UTC",
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}, nil)
 
@@ -158,14 +154,12 @@ func TestGetProfile_Success(t *testing.T) {
 		"sub": userID.String(),
 	}, nil)
 
-	mockSvc.On("GetProfile", mock.Anything, profileID, userID).Return(&service.ProfileResult{
-		Profile: service.ProfileDTO{
-			ID:        profileID,
-			Name:      "Test Profile",
-			Timezone:  "UTC",
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
+	mockSvc.On("GetProfile", mock.Anything, profileID, userID).Return(&dto.ProfileDTO{
+		ID:        profileID,
+		Name:      "Test Profile",
+		Timezone:  "UTC",
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil)
 
 	handler := handlers.GetProfileHandler(mockSvc, mockTokenSvc)
@@ -220,14 +214,12 @@ func TestUpdateProfile_Success(t *testing.T) {
 		"sub": userID.String(),
 	}, nil)
 
-	mockSvc.On("UpdateProfile", mock.Anything, profileID, userID, &newName, mock.Anything, (*string)(nil)).Return(&service.ProfileResult{
-		Profile: service.ProfileDTO{
-			ID:        profileID,
-			Name:      "Updated Profile",
-			Timezone:  "UTC",
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
+	mockSvc.On("UpdateProfile", mock.Anything, profileID, userID, &newName, mock.Anything, (*string)(nil)).Return(&dto.ProfileDTO{
+		ID:        profileID,
+		Name:      "Updated Profile",
+		Timezone:  "UTC",
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil)
 
 	handler := handlers.UpdateProfileHandler(mockSvc, mockTokenSvc)

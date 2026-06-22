@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/shuvo-paul/medminder/internal/common/auth"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
@@ -62,11 +63,11 @@ func RegisterPasswordResetRoutes(api huma.API, deps PasswordResetDeps) {
 	})
 }
 
-func SetPasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
+func SetPasswordHandler(authSvc service.AuthService, tokenSvc auth.TokenValidator) func(context.Context, *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
 	return func(ctx context.Context, input *dto.SetPasswordInput) (*dto.SetPasswordOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		if err := ValidatePassword(input.Body.Password); err != nil {
@@ -85,11 +86,11 @@ func SetPasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServi
 	}
 }
 
-func ChangePasswordHandler(authSvc service.AuthService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
+func ChangePasswordHandler(authSvc service.AuthService, tokenSvc auth.TokenValidator) func(context.Context, *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
 	return func(ctx context.Context, input *dto.ChangePasswordInput) (*dto.ChangePasswordOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		if err := ValidatePassword(input.Body.NewPassword); err != nil {

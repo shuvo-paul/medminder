@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/common/auth"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/service"
 )
@@ -18,11 +19,11 @@ type OwnershipTransferServiceInterface interface {
 	CancelTransfer(ctx context.Context, transferID uuid.UUID, userID uuid.UUID) error
 }
 
-func InitiateTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenServiceInterface) func(context.Context, *dto.InitiateTransferInput) (*dto.InitiateTransferOutput, error) {
+func InitiateTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc auth.TokenValidator) func(context.Context, *dto.InitiateTransferInput) (*dto.InitiateTransferOutput, error) {
 	return func(ctx context.Context, input *dto.InitiateTransferInput) (*dto.InitiateTransferOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		profileID, err := uuid.Parse(input.ID)
@@ -56,11 +57,11 @@ func InitiateTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc Tok
 	}
 }
 
-func ListTransfersHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenServiceInterface) func(context.Context, *dto.ListTransfersInput) (*dto.ListTransfersOutput, error) {
+func ListTransfersHandler(svc OwnershipTransferServiceInterface, tokenSvc auth.TokenValidator) func(context.Context, *dto.ListTransfersInput) (*dto.ListTransfersOutput, error) {
 	return func(ctx context.Context, input *dto.ListTransfersInput) (*dto.ListTransfersOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		results, err := svc.ListPendingTransfers(ctx, userID)
@@ -77,11 +78,11 @@ func ListTransfersHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenS
 	}
 }
 
-func AcceptTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenServiceInterface) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
+func AcceptTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc auth.TokenValidator) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
 	return func(ctx context.Context, input *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		transferID, err := uuid.Parse(input.TransferID)
@@ -112,11 +113,11 @@ func AcceptTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc Token
 	}
 }
 
-func DeclineTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenServiceInterface) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
+func DeclineTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc auth.TokenValidator) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
 	return func(ctx context.Context, input *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		transferID, err := uuid.Parse(input.TransferID)
@@ -138,11 +139,11 @@ func DeclineTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc Toke
 	}
 }
 
-func CancelTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc TokenServiceInterface) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
+func CancelTransferHandler(svc OwnershipTransferServiceInterface, tokenSvc auth.TokenValidator) func(context.Context, *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
 	return func(ctx context.Context, input *dto.TransferActionInput) (*dto.TransferActionOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		transferID, err := uuid.Parse(input.TransferID)

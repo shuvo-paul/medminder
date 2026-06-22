@@ -64,6 +64,10 @@ type mockPermissionChecker struct {
 	err     error
 }
 
+func (m *mockPermissionChecker) HasPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permission string) (bool, error) {
+	return m.allowed, m.err
+}
+
 func (m *mockPermissionChecker) HasAnyPermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions []string) (bool, error) {
 	return m.allowed, m.err
 }

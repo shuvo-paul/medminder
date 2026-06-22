@@ -38,12 +38,16 @@ type OwnershipTransferService interface {
 
 type ownershipTransferService struct {
 	profileRepo  repository.ProfileRepository
+	permRepo     repository.PermissionRepository
+	userRepo     repository.UserRepository
 	transferRepo repository.OwnershipTransferRepository
 }
 
-func NewOwnershipTransferService(profileRepo repository.ProfileRepository, transferRepo repository.OwnershipTransferRepository) OwnershipTransferService {
+func NewOwnershipTransferService(profileRepo repository.ProfileRepository, permRepo repository.PermissionRepository, userRepo repository.UserRepository, transferRepo repository.OwnershipTransferRepository) OwnershipTransferService {
 	return &ownershipTransferService{
 		profileRepo:  profileRepo,
+		permRepo:     permRepo,
+		userRepo:     userRepo,
 		transferRepo: transferRepo,
 	}
 }
@@ -61,7 +65,7 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 		return nil, ErrCannotTransferToSelf
 	}
 
-	exists, err := s.profileRepo.UserExists(ctx, toUserID)
+	exists, err := s.userRepo.UserExists(ctx, toUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +73,7 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 		return nil, ErrUserNotFound
 	}
 
-	pp, err := s.profileRepo.GetProfilePermission(ctx, profileID, toUserID)
+	pp, err := s.permRepo.GetProfilePermission(ctx, profileID, toUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNewOwnerNoAdminPermission
@@ -104,12 +108,12 @@ func (s *ownershipTransferService) InitiateTransfer(ctx context.Context, profile
 		return nil, err
 	}
 
-	fromUser, err := s.profileRepo.GetUserByID(ctx, fromUserID)
+	fromUser, err := s.userRepo.GetUserByID(ctx, fromUserID)
 	if err != nil {
 		return nil, err
 	}
 
-	toUser, err := s.profileRepo.GetUserByID(ctx, toUserID)
+	toUser, err := s.userRepo.GetUserByID(ctx, toUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +182,7 @@ func (s *ownershipTransferService) AcceptTransfer(ctx context.Context, transferI
 		return ErrTransferExpired
 	}
 
-	newOwnerPerm, err := s.profileRepo.GetProfilePermission(ctx, transfer.ProfileID, transfer.ToUserID)
+	newOwnerPerm, err := s.permRepo.GetProfilePermission(ctx, transfer.ProfileID, transfer.ToUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNewOwnerNoAdminPermission
@@ -201,7 +205,7 @@ func (s *ownershipTransferService) AcceptTransfer(ctx context.Context, transferI
 		return err
 	}
 
-	oldOwnerPerm, err := s.profileRepo.GetProfilePermission(ctx, transfer.ProfileID, transfer.FromUserID)
+	oldOwnerPerm, err := s.permRepo.GetProfilePermission(ctx, transfer.ProfileID, transfer.FromUserID)
 	if err != nil {
 		return err
 	}
@@ -217,11 +221,11 @@ func (s *ownershipTransferService) AcceptTransfer(ctx context.Context, transferI
 		return err
 	}
 
-	if _, err := s.profileRepo.UpdateProfilePermissionByProfileAndUser(ctx, transfer.ProfileID, transfer.FromUserID, oldPermsJSON); err != nil {
+	if _, err := s.permRepo.UpdateProfilePermissionByProfileAndUser(ctx, transfer.ProfileID, transfer.FromUserID, oldPermsJSON); err != nil {
 		return err
 	}
 
-	if _, err := s.profileRepo.UpdateProfilePermissionByProfileAndUser(ctx, transfer.ProfileID, transfer.ToUserID, newPermsJSON); err != nil {
+	if _, err := s.permRepo.UpdateProfilePermissionByProfileAndUser(ctx, transfer.ProfileID, transfer.ToUserID, newPermsJSON); err != nil {
 		return err
 	}
 

@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/shuvo-paul/medminder/internal/common/auth"
 	"github.com/shuvo-paul/medminder/internal/features/auth/dto"
 	"github.com/shuvo-paul/medminder/internal/features/auth/repository"
 	"github.com/shuvo-paul/medminder/internal/features/auth/service"
 )
 
-func RequestEmailChangeHandler(svc service.EmailChangeService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.RequestEmailChangeInput) (*dto.RequestEmailChangeOutput, error) {
+func RequestEmailChangeHandler(svc service.EmailChangeService, tokenSvc auth.TokenValidator) func(context.Context, *dto.RequestEmailChangeInput) (*dto.RequestEmailChangeOutput, error) {
 	return func(ctx context.Context, input *dto.RequestEmailChangeInput) (*dto.RequestEmailChangeOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, huma.Error401Unauthorized("Invalid or expired token", nil)
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		if input.Body.NewEmail == "" {
@@ -47,11 +48,11 @@ func RequestEmailChangeHandler(svc service.EmailChangeService, tokenSvc service.
 	}
 }
 
-func CancelEmailChangeHandler(svc service.EmailChangeService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.CancelEmailChangeInput) (*dto.CancelEmailChangeOutput, error) {
+func CancelEmailChangeHandler(svc service.EmailChangeService, tokenSvc auth.TokenValidator) func(context.Context, *dto.CancelEmailChangeInput) (*dto.CancelEmailChangeOutput, error) {
 	return func(ctx context.Context, input *dto.CancelEmailChangeInput) (*dto.CancelEmailChangeOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, huma.Error401Unauthorized("Invalid or expired token", nil)
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		if err := svc.CancelEmailChange(ctx, userID); err != nil {
@@ -91,11 +92,11 @@ func VerifyUpdatedEmailHandler(svc service.EmailChangeService) func(context.Cont
 	}
 }
 
-func GetPendingEmailChangeHandler(svc service.EmailChangeService, tokenSvc service.TokenServiceInterface) func(context.Context, *dto.GetPendingEmailChangeInput) (*dto.GetPendingEmailChangeOutput, error) {
+func GetPendingEmailChangeHandler(svc service.EmailChangeService, tokenSvc auth.TokenValidator) func(context.Context, *dto.GetPendingEmailChangeInput) (*dto.GetPendingEmailChangeOutput, error) {
 	return func(ctx context.Context, input *dto.GetPendingEmailChangeInput) (*dto.GetPendingEmailChangeOutput, error) {
-		userID, err := ExtractUserIDFromAuth(input.Authorization, tokenSvc)
+		userID, err := auth.ExtractUserID(input.Authorization, tokenSvc)
 		if err != nil {
-			return nil, huma.Error401Unauthorized("Invalid or expired token", nil)
+			return nil, huma.Error401Unauthorized("Invalid or expired access token", err)
 		}
 
 		newEmail, expiresAt, err := svc.GetPendingEmailChange(ctx, userID)

@@ -12,12 +12,15 @@ import (
 
 type ProfileRepository interface {
 	CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
-	CreateProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) error
 	CreateProfileWithPermission(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string, userID uuid.UUID, permissions json.RawMessage) (db.Profile, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (db.Profile, error)
 	ListProfilesByUser(ctx context.Context, userID uuid.UUID) ([]db.Profile, error)
 	UpdateProfile(ctx context.Context, id uuid.UUID, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error)
 	DeleteProfile(ctx context.Context, id uuid.UUID) error
+}
+
+type PermissionRepository interface {
+	CreateProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) error
 	GetProfilePermissionByID(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
 	GetProfilePermission(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (db.ProfilePermission, error)
 	ListProfilePermissionsByProfile(ctx context.Context, profileID uuid.UUID) ([]db.ProfilePermission, error)
@@ -27,6 +30,9 @@ type ProfileRepository interface {
 	AcceptProfilePermission(ctx context.Context, id uuid.UUID) (db.ProfilePermission, error)
 	UpdateProfilePermissionStatus(ctx context.Context, id uuid.UUID, status string) (db.ProfilePermission, error)
 	UpdateProfilePermissionByProfileAndUser(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, permissions json.RawMessage) (db.ProfilePermission, error)
+}
+
+type UserRepository interface {
 	UserExists(ctx context.Context, userID uuid.UUID) (bool, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (db.User, error)
 }
@@ -36,8 +42,8 @@ type profileRepository struct {
 	db      *sql.DB
 }
 
-func NewProfileRepository(queries *db.Queries, db *sql.DB) ProfileRepository {
-	return &profileRepository{queries: queries, db: db}
+func NewProfileRepository(queries *db.Queries, dbConn *sql.DB) *profileRepository {
+	return &profileRepository{queries: queries, db: dbConn}
 }
 
 func (r *profileRepository) CreateProfile(ctx context.Context, name string, dateOfBirth sql.NullTime, timezone string) (db.Profile, error) {

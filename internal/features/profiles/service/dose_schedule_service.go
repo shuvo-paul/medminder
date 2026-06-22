@@ -7,30 +7,80 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
+	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/repository"
 )
 
+type DoseScheduleQuerier interface {
+	CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, name string, t time.Time) (db.DoseSchedule, error)
+	GetDoseScheduleByID(ctx context.Context, id uuid.UUID) (db.DoseSchedule, error)
+	ListDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) ([]db.DoseSchedule, error)
+	UpdateDoseSchedule(ctx context.Context, id uuid.UUID, name string, t time.Time) (db.DoseSchedule, error)
+	DeleteDoseSchedule(ctx context.Context, id uuid.UUID) error
+	DeleteDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) error
+}
+
+type doseScheduleQueries struct {
+	q *db.Queries
+}
+
+func NewDoseScheduleQuerier(q *db.Queries) DoseScheduleQuerier {
+	return &doseScheduleQueries{q: q}
+}
+
+func (d *doseScheduleQueries) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, name string, t time.Time) (db.DoseSchedule, error) {
+	return d.q.CreateDoseSchedule(ctx, db.CreateDoseScheduleParams{
+		ProfileID: profileID,
+		Name:      name,
+		Time:      t,
+	})
+}
+
+func (d *doseScheduleQueries) GetDoseScheduleByID(ctx context.Context, id uuid.UUID) (db.DoseSchedule, error) {
+	return d.q.GetDoseScheduleByID(ctx, id)
+}
+
+func (d *doseScheduleQueries) ListDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) ([]db.DoseSchedule, error) {
+	return d.q.ListDoseSchedulesByProfile(ctx, profileID)
+}
+
+func (d *doseScheduleQueries) UpdateDoseSchedule(ctx context.Context, id uuid.UUID, name string, t time.Time) (db.DoseSchedule, error) {
+	return d.q.UpdateDoseSchedule(ctx, db.UpdateDoseScheduleParams{
+		ID:   id,
+		Name: name,
+		Time: t,
+	})
+}
+
+func (d *doseScheduleQueries) DeleteDoseSchedule(ctx context.Context, id uuid.UUID) error {
+	return d.q.DeleteDoseSchedule(ctx, id)
+}
+
+func (d *doseScheduleQueries) DeleteDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) error {
+	return d.q.DeleteDoseSchedulesByProfile(ctx, profileID)
+}
+
 type DoseScheduleService interface {
-	CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*DoseScheduleResult, error)
-	GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*DoseScheduleResult, error)
-	ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]DoseScheduleResult, error)
-	UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*DoseScheduleResult, error)
+	CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*dto.DoseScheduleDTO, error)
+	GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*dto.DoseScheduleDTO, error)
+	ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]dto.DoseScheduleDTO, error)
+	UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*dto.DoseScheduleDTO, error)
 	DeleteDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) error
 }
 
 type doseScheduleService struct {
 	profileRepo  repository.ProfileRepository
-	scheduleRepo repository.DoseScheduleRepository
+	scheduleRepo DoseScheduleQuerier
 }
 
-func NewDoseScheduleService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository) DoseScheduleService {
+func NewDoseScheduleService(profileRepo repository.ProfileRepository, scheduleRepo DoseScheduleQuerier) DoseScheduleService {
 	return &doseScheduleService{
 		profileRepo:  profileRepo,
 		scheduleRepo: scheduleRepo,
 	}
 }
 
-func (s *doseScheduleService) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*DoseScheduleResult, error) {
+func (s *doseScheduleService) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*dto.DoseScheduleDTO, error) {
 	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -49,11 +99,11 @@ func (s *doseScheduleService) CreateDoseSchedule(ctx context.Context, profileID 
 		return nil, err
 	}
 
-	result := toDoseScheduleResult(schedule)
+	result := toDoseScheduleDTO(schedule)
 	return &result, nil
 }
 
-func (s *doseScheduleService) GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*DoseScheduleResult, error) {
+func (s *doseScheduleService) GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*dto.DoseScheduleDTO, error) {
 	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -74,11 +124,11 @@ func (s *doseScheduleService) GetDoseSchedule(ctx context.Context, profileID uui
 		return nil, ErrScheduleNotFound
 	}
 
-	result := toDoseScheduleResult(schedule)
+	result := toDoseScheduleDTO(schedule)
 	return &result, nil
 }
 
-func (s *doseScheduleService) ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]DoseScheduleResult, error) {
+func (s *doseScheduleService) ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]dto.DoseScheduleDTO, error) {
 	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -92,10 +142,10 @@ func (s *doseScheduleService) ListDoseSchedules(ctx context.Context, profileID u
 		return nil, err
 	}
 
-	return toDoseScheduleResults(schedules), nil
+	return toDoseScheduleDTOs(schedules), nil
 }
 
-func (s *doseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*DoseScheduleResult, error) {
+func (s *doseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*dto.DoseScheduleDTO, error) {
 	_, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -135,7 +185,7 @@ func (s *doseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID 
 		return nil, err
 	}
 
-	result := toDoseScheduleResult(updated)
+	result := toDoseScheduleDTO(updated)
 	return &result, nil
 }
 
@@ -163,27 +213,21 @@ func (s *doseScheduleService) DeleteDoseSchedule(ctx context.Context, profileID 
 	return s.scheduleRepo.DeleteDoseSchedule(ctx, scheduleID)
 }
 
-type DoseScheduleResult struct {
-	Schedule DoseScheduleDTO
-}
-
-func toDoseScheduleResult(schedule db.DoseSchedule) DoseScheduleResult {
-	return DoseScheduleResult{
-		Schedule: DoseScheduleDTO{
-			ID:        schedule.ID,
-			ProfileID: schedule.ProfileID,
-			Name:      schedule.Name,
-			Time:      schedule.Time.Format("15:04"),
-			CreatedAt: schedule.CreatedAt,
-			UpdatedAt: schedule.UpdatedAt,
-		},
+func toDoseScheduleDTO(schedule db.DoseSchedule) dto.DoseScheduleDTO {
+	return dto.DoseScheduleDTO{
+		ID:        schedule.ID,
+		ProfileID: schedule.ProfileID,
+		Name:      schedule.Name,
+		Time:      schedule.Time.Format("15:04"),
+		CreatedAt: schedule.CreatedAt,
+		UpdatedAt: schedule.UpdatedAt,
 	}
 }
 
-func toDoseScheduleResults(schedules []db.DoseSchedule) []DoseScheduleResult {
-	results := make([]DoseScheduleResult, len(schedules))
+func toDoseScheduleDTOs(schedules []db.DoseSchedule) []dto.DoseScheduleDTO {
+	results := make([]dto.DoseScheduleDTO, len(schedules))
 	for i, s := range schedules {
-		results[i] = toDoseScheduleResult(s)
+		results[i] = toDoseScheduleDTO(s)
 	}
 	return results
 }

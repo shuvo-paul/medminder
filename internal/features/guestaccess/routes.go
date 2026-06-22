@@ -7,17 +7,15 @@ import (
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/handlers"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/repository"
 	"github.com/shuvo-paul/medminder/internal/features/guestaccess/service"
-	profileRepo "github.com/shuvo-paul/medminder/internal/features/profiles/repository"
 	profileService "github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/shuvo-paul/medminder/internal/middleware"
 )
 
-func RegisterRoutes(api huma.API, queries *db.Queries, tokenSvc authService.TokenServiceInterface) {
+func RegisterRoutes(api huma.API, queries *db.Queries, tokenSvc authService.TokenServiceInterface, permChecker profileService.PermissionChecker) {
 	guestRepo := repository.NewGuestAccessRepository(queries)
-	permChecker := profileService.NewPermissionChecker(queries)
 	guestSvc := service.NewGuestAccessService(guestRepo, permChecker)
 
-	doseScheduleRepo := profileRepo.NewDoseScheduleRepository(queries)
+	doseScheduleRepo := profileService.NewDoseScheduleQuerier(queries)
 
 	adminPerm := middleware.HumaRequireProfilePermission(permChecker, tokenSvc, "profile:admin", "profile:owner")
 

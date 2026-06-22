@@ -80,15 +80,14 @@ func New(distFS fs.FS, dbConn *sql.DB, cfg config.Config) (http.Handler, func(),
 	email.StartEmailQueue(emailClient, 3, slog.Default())
 
 	profileRepoInstance := profileRepo.NewProfileRepository(queries, dbConn)
-	scheduleRepoInstance := profileRepo.NewDoseScheduleRepository(queries)
 	permChecker := profileSvc.NewPermissionChecker(queries)
-	profileSvcInstance := profileSvc.NewProfileService(profileRepoInstance, scheduleRepoInstance, permChecker)
+	profileSvcInstance := profileSvc.NewProfileService(profileRepoInstance, profileRepoInstance, profileSvc.NewDoseScheduleQuerier(queries), permChecker)
 
 	auth.RegisterRoutes(api, dbConn, queries, auditRepo, cfg.JWT.Secret, emailClient, cfg.FrontendURL, profileSvcInstance)
 
 	tokenSvc := service.NewTokenService(cfg.JWT.Secret)
-	profiles.RegisterRoutes(api, dbConn, queries, tokenSvc)
-	guestaccess.RegisterRoutes(api, queries, tokenSvc)
+	profiles.RegisterRoutes(api, dbConn, queries, tokenSvc, permChecker)
+	guestaccess.RegisterRoutes(api, queries, tokenSvc, permChecker)
 
 	registerHealthRoute(api)
 	registerOpenAPIRoute(router, api)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
+	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/repository"
 )
 
@@ -16,54 +17,32 @@ type DoseScheduleInput struct {
 	Time string
 }
 
-type ProfileResult struct {
-	Profile ProfileDTO
-}
-
-type ProfileDTO struct {
-	ID          uuid.UUID
-	Name        string
-	DateOfBirth *string
-	Timezone    string
-	IsOwner     bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Schedules   []DoseScheduleDTO
-}
-
-type DoseScheduleDTO struct {
-	ID        uuid.UUID
-	ProfileID uuid.UUID
-	Name      string
-	Time      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
 type ProfileService interface {
-	CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error)
-	GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*ProfileResult, error)
-	ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error)
-	UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*ProfileResult, error)
+	CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*dto.ProfileDTO, error)
+	GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*dto.ProfileDTO, error)
+	ListProfiles(ctx context.Context, userID uuid.UUID) ([]dto.ProfileDTO, error)
+	UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*dto.ProfileDTO, error)
 	DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error
 	HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error
 }
 
 type profileService struct {
 	profileRepo  repository.ProfileRepository
-	scheduleRepo repository.DoseScheduleRepository
+	permRepo     repository.PermissionRepository
+	scheduleRepo DoseScheduleQuerier
 	permChecker  PermissionChecker
 }
 
-func NewProfileService(profileRepo repository.ProfileRepository, scheduleRepo repository.DoseScheduleRepository, permChecker PermissionChecker) ProfileService {
+func NewProfileService(profileRepo repository.ProfileRepository, permRepo repository.PermissionRepository, scheduleRepo DoseScheduleQuerier, permChecker PermissionChecker) ProfileService {
 	return &profileService{
 		profileRepo:  profileRepo,
+		permRepo:     permRepo,
 		scheduleRepo: scheduleRepo,
 		permChecker:  permChecker,
 	}
 }
 
-func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*ProfileResult, error) {
+func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []DoseScheduleInput) (*dto.ProfileDTO, error) {
 	if _, err := time.LoadLocation(timezone); err != nil {
 		return nil, ErrInvalidTimezone
 	}
@@ -94,11 +73,11 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, na
 		}
 	}
 
-	profileResult := toProfileResult(profile, []DoseScheduleDTO{}, true)
-	return &profileResult, nil
+	profileDTO := toProfileDTO(profile, []dto.DoseScheduleDTO{}, true)
+	return &profileDTO, nil
 }
 
-func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*ProfileResult, error) {
+func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*dto.ProfileDTO, error) {
 	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -117,17 +96,17 @@ func (s *profileService) GetProfile(ctx context.Context, profileID uuid.UUID, us
 		return nil, err
 	}
 
-	profileResult := toProfileResult(profile, toDoseScheduleDTOs(schedules), isOwner)
-	return &profileResult, nil
+	profileDTO := toProfileDTO(profile, toDTOs(schedules), isOwner)
+	return &profileDTO, nil
 }
 
-func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]ProfileResult, error) {
+func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]dto.ProfileDTO, error) {
 	profiles, err := s.profileRepo.ListProfilesByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	var results []ProfileResult
+	var results []dto.ProfileDTO
 	for _, profile := range profiles {
 		isOwner, err := s.permChecker.HasPermission(ctx, profile.ID, userID, "profile:owner")
 		if err != nil {
@@ -137,13 +116,13 @@ func (s *profileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, toProfileResult(profile, toDoseScheduleDTOs(schedules), isOwner))
+		results = append(results, toProfileDTO(profile, toDTOs(schedules), isOwner))
 	}
 
 	return results, nil
 }
 
-func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*ProfileResult, error) {
+func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*dto.ProfileDTO, error) {
 	profile, err := s.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -187,8 +166,8 @@ func (s *profileService) UpdateProfile(ctx context.Context, profileID uuid.UUID,
 		return nil, err
 	}
 
-	profileResult := toProfileResult(updated, toDoseScheduleDTOs(schedules), isOwner)
-	return &profileResult, nil
+	profileDTO := toProfileDTO(updated, toDTOs(schedules), isOwner)
+	return &profileDTO, nil
 }
 
 func (s *profileService) DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error {
@@ -208,7 +187,7 @@ func (s *profileService) DeleteProfile(ctx context.Context, profileID uuid.UUID,
 }
 
 func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.UUID) error {
-	permissions, err := s.profileRepo.ListProfilePermissionsByUser(ctx, userID)
+	permissions, err := s.permRepo.ListProfilePermissionsByUser(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -217,7 +196,7 @@ func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.
 		profileID := perm.ProfileID
 
 		if HasPermissionInJSONB(perm.Permissions, "profile:owner") {
-			profilePerms, err := s.profileRepo.ListProfilePermissionsByProfile(ctx, profileID)
+			profilePerms, err := s.permRepo.ListProfilePermissionsByProfile(ctx, profileID)
 			if err != nil {
 				return err
 			}
@@ -233,7 +212,7 @@ func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.
 			}
 
 			if hasOtherAdmin {
-				if err := s.profileRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
+				if err := s.permRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
 					return err
 				}
 			} else {
@@ -242,7 +221,7 @@ func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.
 				}
 			}
 		} else {
-			if err := s.profileRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
+			if err := s.permRepo.DeleteProfilePermission(ctx, perm.ID); err != nil {
 				return err
 			}
 		}
@@ -251,31 +230,29 @@ func (s *profileService) HandleAccountDeletion(ctx context.Context, userID uuid.
 	return nil
 }
 
-func toProfileResult(profile db.Profile, schedules []DoseScheduleDTO, isOwner bool) ProfileResult {
+func toProfileDTO(profile db.Profile, schedules []dto.DoseScheduleDTO, isOwner bool) dto.ProfileDTO {
 	var dob *string
 	if profile.DateOfBirth.Valid {
 		s := profile.DateOfBirth.Time.Format("2006-01-02")
 		dob = &s
 	}
 
-	return ProfileResult{
-		Profile: ProfileDTO{
-			ID:          profile.ID,
-			Name:        profile.Name,
-			DateOfBirth: dob,
-			Timezone:    profile.Timezone,
-			IsOwner:     isOwner,
-			CreatedAt:   profile.CreatedAt,
-			UpdatedAt:   profile.UpdatedAt,
-			Schedules:   schedules,
-		},
+	return dto.ProfileDTO{
+		ID:          profile.ID,
+		Name:        profile.Name,
+		DateOfBirth: dob,
+		Timezone:    profile.Timezone,
+		IsOwner:     isOwner,
+		CreatedAt:   profile.CreatedAt,
+		UpdatedAt:   profile.UpdatedAt,
+		Schedules:   schedules,
 	}
 }
 
-func toDoseScheduleDTOs(schedules []db.DoseSchedule) []DoseScheduleDTO {
-	result := make([]DoseScheduleDTO, len(schedules))
+func toDTOs(schedules []db.DoseSchedule) []dto.DoseScheduleDTO {
+	result := make([]dto.DoseScheduleDTO, len(schedules))
 	for i, s := range schedules {
-		result[i] = DoseScheduleDTO{
+		result[i] = dto.DoseScheduleDTO{
 			ID:        s.ID,
 			ProfileID: s.ProfileID,
 			Name:      s.Name,

@@ -378,7 +378,7 @@ func TestAcceptInvitationHandler_Success(t *testing.T) {
 	}, nil)
 
 	mockSvc.On("AcceptInvitation", mock.Anything, invitationID, userID).Return(&service.AcceptedProfileResult{
-		Profile: service.ProfileDTO{
+		Profile: dto.ProfileDTO{
 			ID:        profileID,
 			Name:      "Test Profile",
 			Timezone:  "UTC",

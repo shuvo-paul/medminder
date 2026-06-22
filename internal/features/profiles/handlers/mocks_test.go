@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/stretchr/testify/mock"
 )
@@ -14,36 +15,36 @@ type MockProfileService struct {
 	mock.Mock
 }
 
-func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []service.DoseScheduleInput) (*service.ProfileResult, error) {
+func (m *MockProfileService) CreateProfile(ctx context.Context, userID uuid.UUID, name string, dateOfBirth *time.Time, timezone string, schedules []service.DoseScheduleInput) (*dto.ProfileDTO, error) {
 	args := m.Called(ctx, userID, name, dateOfBirth, timezone, schedules)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.ProfileResult), args.Error(1)
+	return args.Get(0).(*dto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*service.ProfileResult, error) {
+func (m *MockProfileService) GetProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) (*dto.ProfileDTO, error) {
 	args := m.Called(ctx, profileID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.ProfileResult), args.Error(1)
+	return args.Get(0).(*dto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]service.ProfileResult, error) {
+func (m *MockProfileService) ListProfiles(ctx context.Context, userID uuid.UUID) ([]dto.ProfileDTO, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]service.ProfileResult), args.Error(1)
+	return args.Get(0).([]dto.ProfileDTO), args.Error(1)
 }
 
-func (m *MockProfileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*service.ProfileResult, error) {
+func (m *MockProfileService) UpdateProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name *string, dateOfBirth *time.Time, timezone *string) (*dto.ProfileDTO, error) {
 	args := m.Called(ctx, profileID, userID, name, dateOfBirth, timezone)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.ProfileResult), args.Error(1)
+	return args.Get(0).(*dto.ProfileDTO), args.Error(1)
 }
 
 func (m *MockProfileService) DeleteProfile(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) error {
@@ -60,36 +61,36 @@ type MockDoseScheduleService struct {
 	mock.Mock
 }
 
-func (m *MockDoseScheduleService) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*service.DoseScheduleResult, error) {
+func (m *MockDoseScheduleService) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, userID uuid.UUID, name string, timeStr string) (*dto.DoseScheduleDTO, error) {
 	args := m.Called(ctx, profileID, userID, name, timeStr)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.DoseScheduleResult), args.Error(1)
+	return args.Get(0).(*dto.DoseScheduleDTO), args.Error(1)
 }
 
-func (m *MockDoseScheduleService) GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*service.DoseScheduleResult, error) {
+func (m *MockDoseScheduleService) GetDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) (*dto.DoseScheduleDTO, error) {
 	args := m.Called(ctx, profileID, scheduleID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.DoseScheduleResult), args.Error(1)
+	return args.Get(0).(*dto.DoseScheduleDTO), args.Error(1)
 }
 
-func (m *MockDoseScheduleService) ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]service.DoseScheduleResult, error) {
+func (m *MockDoseScheduleService) ListDoseSchedules(ctx context.Context, profileID uuid.UUID, userID uuid.UUID) ([]dto.DoseScheduleDTO, error) {
 	args := m.Called(ctx, profileID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]service.DoseScheduleResult), args.Error(1)
+	return args.Get(0).([]dto.DoseScheduleDTO), args.Error(1)
 }
 
-func (m *MockDoseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*service.DoseScheduleResult, error) {
+func (m *MockDoseScheduleService) UpdateDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID, name *string, timeStr *string) (*dto.DoseScheduleDTO, error) {
 	args := m.Called(ctx, profileID, scheduleID, userID, name, timeStr)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.DoseScheduleResult), args.Error(1)
+	return args.Get(0).(*dto.DoseScheduleDTO), args.Error(1)
 }
 
 func (m *MockDoseScheduleService) DeleteDoseSchedule(ctx context.Context, profileID uuid.UUID, scheduleID uuid.UUID, userID uuid.UUID) error {

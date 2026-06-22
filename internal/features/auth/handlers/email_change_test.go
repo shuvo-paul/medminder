@@ -65,7 +65,7 @@ func TestRequestEmailChange_InvalidAuthHeader(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Invalid or expired token")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestRequestEmailChange_EmptyNewEmail(t *testing.T) {
@@ -254,7 +254,7 @@ func TestCancelEmailChange_InvalidAuthHeader(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Invalid or expired token")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestVerifyUpdatedEmail_Success(t *testing.T) {
@@ -383,7 +383,7 @@ func TestGetPendingEmailChange_InvalidAuthHeader(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Invalid or expired token")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestGetPendingEmailChange_NotFound(t *testing.T) {

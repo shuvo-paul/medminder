@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shuvo-paul/medminder/internal/database/sqlc"
+	"github.com/shuvo-paul/medminder/internal/features/profiles/dto"
 	"github.com/shuvo-paul/medminder/internal/features/profiles/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -171,7 +172,7 @@ func TestProfileService_Create(t *testing.T) {
 			timezone    string
 			schedules   []service.DoseScheduleInput
 		}
-		expect func(*testing.T, *service.ProfileResult, error)
+		expect func(*testing.T, *dto.ProfileDTO, error)
 	}{
 		{
 			name: "CreateProfile_Success",
@@ -212,12 +213,12 @@ func TestProfileService_Create(t *testing.T) {
 					{Name: "Morning", Time: "08:00"},
 				},
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
-				assert.Equal(t, "Test Profile", result.Profile.Name)
-				assert.Equal(t, "UTC", result.Profile.Timezone)
-				assert.True(t, result.Profile.IsOwner)
+				assert.Equal(t, "Test Profile", result.Name)
+				assert.Equal(t, "UTC", result.Timezone)
+				assert.True(t, result.IsOwner)
 			},
 		},
 		{
@@ -237,7 +238,7 @@ func TestProfileService_Create(t *testing.T) {
 				timezone:    "Invalid/Timezone",
 				schedules:   nil,
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.True(t, errors.Is(err, service.ErrInvalidTimezone))
 			},
@@ -262,7 +263,7 @@ func TestProfileService_Create(t *testing.T) {
 				timezone:    "UTC",
 				schedules:   nil,
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "db error")
 			},
@@ -274,7 +275,7 @@ func TestProfileService_Create(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewProfileService(profileRepo, profileRepo, scheduleRepo, permChecker)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.CreateProfile(context.Background(), tt.input.userID, tt.input.name, tt.input.dateOfBirth, tt.input.timezone, tt.input.schedules)
 			tt.expect(t, result, err)
@@ -290,7 +291,7 @@ func TestProfileService_Get(t *testing.T) {
 			profileID uuid.UUID
 			userID    uuid.UUID
 		}
-		expect func(*testing.T, *service.ProfileResult, error)
+		expect func(*testing.T, *dto.ProfileDTO, error)
 	}{
 		{
 			name: "GetProfile_Success",
@@ -316,10 +317,10 @@ func TestProfileService_Get(t *testing.T) {
 				profileID: uuid.New(),
 				userID:    uuid.UUID{1},
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
-				assert.False(t, result.Profile.IsOwner)
+				assert.False(t, result.IsOwner)
 			},
 		},
 		{
@@ -335,7 +336,7 @@ func TestProfileService_Get(t *testing.T) {
 				profileID: uuid.New(),
 				userID:    uuid.New(),
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.True(t, errors.Is(err, service.ErrProfileNotFound))
 			},
@@ -361,7 +362,7 @@ func TestProfileService_Get(t *testing.T) {
 				profileID: uuid.New(),
 				userID:    uuid.UUID{1},
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "permission db error")
 			},
@@ -373,7 +374,7 @@ func TestProfileService_Get(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewProfileService(profileRepo, profileRepo, scheduleRepo, permChecker)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.GetProfile(context.Background(), tt.input.profileID, tt.input.userID)
 			tt.expect(t, result, err)
@@ -386,7 +387,7 @@ func TestProfileService_List(t *testing.T) {
 		name   string
 		setup  func(*MockProfileRepository, *MockDoseScheduleRepository, *MockPermissionChecker)
 		input  uuid.UUID
-		expect func(*testing.T, []service.ProfileResult, error)
+		expect func(*testing.T, []dto.ProfileDTO, error)
 	}{
 		{
 			name: "ListProfiles_Success",
@@ -415,7 +416,7 @@ func TestProfileService_List(t *testing.T) {
 					Return([]db.DoseSchedule{}, nil).Maybe()
 			},
 			input: uuid.New(),
-			expect: func(t *testing.T, result []service.ProfileResult, err error) {
+			expect: func(t *testing.T, result []dto.ProfileDTO, err error) {
 				assert.NoError(t, err)
 				assert.Len(t, result, 2)
 			},
@@ -438,7 +439,7 @@ func TestProfileService_List(t *testing.T) {
 					Return(false, errors.New("permission db error"))
 			},
 			input: uuid.New(),
-			expect: func(t *testing.T, result []service.ProfileResult, err error) {
+			expect: func(t *testing.T, result []dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "permission db error")
 			},
@@ -450,7 +451,7 @@ func TestProfileService_List(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewProfileService(profileRepo, profileRepo, scheduleRepo, permChecker)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.ListProfiles(context.Background(), tt.input)
 			tt.expect(t, result, err)
@@ -468,7 +469,7 @@ func TestProfileService_Update(t *testing.T) {
 			name      *string
 			timezone  *string
 		}
-		expect func(*testing.T, *service.ProfileResult, error)
+		expect func(*testing.T, *dto.ProfileDTO, error)
 	}{
 		{
 			name: "UpdateProfile_Success",
@@ -508,7 +509,7 @@ func TestProfileService_Update(t *testing.T) {
 				name:      func() *string { s := "New Name"; return &s }(),
 				timezone:  func() *string { s := "UTC"; return &s }(),
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
 			},
@@ -539,7 +540,7 @@ func TestProfileService_Update(t *testing.T) {
 				name:      func() *string { s := "New Name"; return &s }(),
 				timezone:  nil,
 			},
-			expect: func(t *testing.T, result *service.ProfileResult, err error) {
+			expect: func(t *testing.T, result *dto.ProfileDTO, err error) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "permission db error")
 			},
@@ -551,7 +552,7 @@ func TestProfileService_Update(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewProfileService(profileRepo, profileRepo, scheduleRepo, permChecker)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			result, err := svc.UpdateProfile(context.Background(), tt.input.profileID, tt.input.userID, tt.input.name, nil, tt.input.timezone)
 			tt.expect(t, result, err)
@@ -601,7 +602,7 @@ func TestProfileService_Delete(t *testing.T) {
 			profileRepo := new(MockProfileRepository)
 			scheduleRepo := new(MockDoseScheduleRepository)
 			permChecker := new(MockPermissionChecker)
-			svc := service.NewProfileService(profileRepo, scheduleRepo, permChecker)
+			svc := service.NewProfileService(profileRepo, profileRepo, scheduleRepo, permChecker)
 			tt.setup(profileRepo, scheduleRepo, permChecker)
 			err := svc.DeleteProfile(context.Background(), tt.input.profileID, tt.input.userID)
 			tt.expect(t, err)
@@ -619,7 +620,7 @@ func TestDoseScheduleService_Create(t *testing.T) {
 			name      string
 			timeStr   string
 		}
-		expect func(*testing.T, *service.DoseScheduleResult, error)
+		expect func(*testing.T, *dto.DoseScheduleDTO, error)
 	}{
 		{
 			name: "CreateSchedule_Success",
@@ -656,10 +657,10 @@ func TestDoseScheduleService_Create(t *testing.T) {
 				name:      "Morning",
 				timeStr:   "08:00",
 			},
-			expect: func(t *testing.T, result *service.DoseScheduleResult, err error) {
+			expect: func(t *testing.T, result *dto.DoseScheduleDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
-				assert.Equal(t, "Morning", result.Schedule.Name)
+				assert.Equal(t, "Morning", result.Name)
 			},
 		},
 	}
@@ -685,7 +686,7 @@ func TestDoseScheduleService_Get(t *testing.T) {
 			scheduleID uuid.UUID
 			userID     uuid.UUID
 		}
-		expect func(*testing.T, *service.DoseScheduleResult, error)
+		expect func(*testing.T, *dto.DoseScheduleDTO, error)
 	}{
 		{
 			name: "GetSchedule_Success",
@@ -719,7 +720,7 @@ func TestDoseScheduleService_Get(t *testing.T) {
 				scheduleID: uuid.New(),
 				userID:     uuid.UUID{1},
 			},
-			expect: func(t *testing.T, result *service.DoseScheduleResult, err error) {
+			expect: func(t *testing.T, result *dto.DoseScheduleDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
 			},
@@ -747,7 +748,7 @@ func TestDoseScheduleService_Get(t *testing.T) {
 				scheduleID: uuid.New(),
 				userID:     uuid.UUID{1},
 			},
-			expect: func(t *testing.T, result *service.DoseScheduleResult, err error) {
+			expect: func(t *testing.T, result *dto.DoseScheduleDTO, err error) {
 				assert.Error(t, err)
 				assert.True(t, errors.Is(err, service.ErrScheduleNotFound))
 			},
@@ -774,7 +775,7 @@ func TestDoseScheduleService_List(t *testing.T) {
 			profileID uuid.UUID
 			userID    uuid.UUID
 		}
-		expect func(*testing.T, []service.DoseScheduleResult, error)
+		expect func(*testing.T, []dto.DoseScheduleDTO, error)
 	}{
 		{
 			name: "ListSchedules_Success",
@@ -806,7 +807,7 @@ func TestDoseScheduleService_List(t *testing.T) {
 				profileID: uuid.New(),
 				userID:    uuid.UUID{1},
 			},
-			expect: func(t *testing.T, result []service.DoseScheduleResult, err error) {
+			expect: func(t *testing.T, result []dto.DoseScheduleDTO, err error) {
 				assert.NoError(t, err)
 				assert.Len(t, result, 1)
 			},
@@ -836,7 +837,7 @@ func TestDoseScheduleService_Update(t *testing.T) {
 			name       *string
 			timeStr    *string
 		}
-		expect func(*testing.T, *service.DoseScheduleResult, error)
+		expect func(*testing.T, *dto.DoseScheduleDTO, error)
 	}{
 		{
 			name: "UpdateSchedule_Success",
@@ -884,7 +885,7 @@ func TestDoseScheduleService_Update(t *testing.T) {
 				name:       func() *string { s := "Evening"; return &s }(),
 				timeStr:    nil,
 			},
-			expect: func(t *testing.T, result *service.DoseScheduleResult, err error) {
+			expect: func(t *testing.T, result *dto.DoseScheduleDTO, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
 			},

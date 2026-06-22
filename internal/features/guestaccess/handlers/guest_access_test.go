@@ -66,6 +66,26 @@ func (m *MockDoseScheduleRepository) GetDoseScheduleByID(ctx context.Context, id
 	return args.Get(0).(db.DoseSchedule), args.Error(1)
 }
 
+func (m *MockDoseScheduleRepository) CreateDoseSchedule(ctx context.Context, profileID uuid.UUID, name string, t time.Time) (db.DoseSchedule, error) {
+	args := m.Called(ctx, profileID, name, t)
+	return args.Get(0).(db.DoseSchedule), args.Error(1)
+}
+
+func (m *MockDoseScheduleRepository) UpdateDoseSchedule(ctx context.Context, id uuid.UUID, name string, t time.Time) (db.DoseSchedule, error) {
+	args := m.Called(ctx, id, name, t)
+	return args.Get(0).(db.DoseSchedule), args.Error(1)
+}
+
+func (m *MockDoseScheduleRepository) DeleteDoseSchedule(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDoseScheduleRepository) DeleteDoseSchedulesByProfile(ctx context.Context, profileID uuid.UUID) error {
+	args := m.Called(ctx, profileID)
+	return args.Error(0)
+}
+
 func TestCreateGuestAccessHandler_Success(t *testing.T) {
 	mockSvc := new(MockGuestAccessService)
 

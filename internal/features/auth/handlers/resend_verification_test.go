@@ -51,7 +51,7 @@ func TestResendVerification_InvalidAuthHeader(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Invalid authorization header")
+	assert.Contains(t, err.Error(), "Invalid or expired access token")
 }
 
 func TestResendVerification_InvalidToken(t *testing.T) {
